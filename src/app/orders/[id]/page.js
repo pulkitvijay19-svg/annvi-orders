@@ -107,13 +107,21 @@ export default function OrderDetailPage() {
   }
 
   function cleanMobile(mobile) {
-    const digits = String(mobile || "").replace(/\D/g, "");
+  const raw = String(mobile || "").trim();
+  const digits = raw.replace(/\D/g, "");
 
-    if (digits.length === 10) return `91${digits}`;
-    if (digits.startsWith("91")) return digits;
+  if (!digits) return "";
 
+  if (raw.startsWith("+")) {
     return digits;
   }
+
+  if (digits.length === 10) {
+    return `91${digits}`;
+  }
+
+  return digits;
+}
 
   function openWhatsApp(phone, message) {
     const encoded = encodeURIComponent(message);
@@ -125,7 +133,7 @@ export default function OrderDetailPage() {
 
     const phone = cleanMobile(order.customer_mobile);
 
-    if (!phone || phone.length < 12) {
+    if (!phone || phone.length < 7) {
       alert("Party mobile number missing or invalid");
       return;
     }

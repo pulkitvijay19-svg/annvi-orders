@@ -44,19 +44,21 @@ function OrderSuccessContent() {
     setLoading(false);
   }
 
-  function cleanMobile(mobile) {
-    const digits = String(mobile || "").replace(/\D/g, "");
+function cleanMobile(mobile) {
+  const digits = String(mobile || "").replace(/\D/g, "");
 
-    if (digits.length === 10) {
-      return `91${digits}`;
-    }
+  if (!digits) return "";
 
-    if (digits.startsWith("91")) {
-      return digits;
-    }
-
+  if (String(mobile || "").trim().startsWith("+")) {
     return digits;
   }
+
+  if (digits.length === 10) {
+    return `91${digits}`;
+  }
+
+  return digits;
+}
 
   function openWhatsApp(phone, message) {
     const encoded = encodeURIComponent(message);
@@ -66,20 +68,48 @@ function OrderSuccessContent() {
       "_blank"
     );
   }
+function getCategorySummary() {
+  const summary = {};
 
+  order.order_items?.forEach((item) => {
+    const category = item.category || "Others";
+
+    if (!summary[category]) {
+      summary[category] = {
+        pieces: 0,
+        weight: 0,
+      };
+    }
+
+    summary[category].pieces += Number(item.quantity || 0);
+    summary[category].weight += Number(item.approx_weight || 0);
+  });
+
+  return Object.entries(summary)
+    .map(
+      ([category, data]) =>
+        `${category}: ${data.pieces} pcs, approx ${data.weight.toFixed(3)} g`
+    )
+    .join("\n");
+}
   function sendPartyWhatsApp() {
     if (!order) return;
 
     const phone = cleanMobile(order.customer_mobile);
 
-    if (!phone || phone.length < 12) {
-      alert("Invalid customer mobile number");
-      return;
-    }
+   if (!phone || phone.length < 7) {
+  alert("Invalid customer mobile number");
+  return;
+}
 
-    const msg = `Namaste ${order.customer_name} ji,
+    const categorySummary = getCategorySummary();
+
+const msg = `Namaste ${order.customer_name} ji,
 
 Aapka order ${order.order_no} successfully receive ho gaya hai.
+
+Order Summary:
+${categorySummary || "-"}
 
 Kisi bhi update ke liye aap humse contact kar sakte hain.
 
