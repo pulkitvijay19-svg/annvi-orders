@@ -95,12 +95,20 @@ export default function EditOrderPage() {
         remarks: "",
       },
     ]);
+    alert("New item row added at bottom");
   }
 
   function removeItem(index) {
-    if (items.length === 1) return;
-    setItems(items.filter((_, i) => i !== index));
+  if (items.length === 1) {
+    alert("At least one item is required");
+    return;
   }
+
+  const ok = confirm("Are you sure you want to delete this item row?");
+  if (!ok) return;
+
+  setItems(items.filter((_, i) => i !== index));
+}
 
   async function handleUpdate(e) {
     e.preventDefault();
@@ -134,15 +142,19 @@ export default function EditOrderPage() {
 
       if (deleteItemsError) throw deleteItemsError;
 
-      const itemRows = items.map((item) => ({
-        order_id: orderId,
-        category: item.category,
-        quantity: Number(item.quantity) || 1,
-        gold_kt: item.gold_kt,
-        approx_weight: item.approx_weight ? Number(item.approx_weight) : null,
-        size: item.size || "",
-        remarks: item.remarks || "",
-      }));
+     const itemRows = items.map((item) => ({
+  order_id: orderId,
+  category: item.category,
+
+  sample_unique_id: item.sample_unique_id || "",
+  die_no: item.die_no || "",
+
+  quantity: Number(item.quantity) || 1,
+  gold_kt: item.gold_kt,
+  approx_weight: item.approx_weight ? Number(item.approx_weight) : null,
+  size: item.size || "",
+  remarks: item.remarks || "",
+}));
 
       const { error: itemError } = await supabase
         .from("order_items")
@@ -334,6 +346,23 @@ if (authLoading) {
                       ))}
                     </select>
 
+<input
+  className="rounded-xl border border-gray-300 bg-white p-3 text-gray-900"
+  placeholder="Sample ID"
+  value={item.sample_unique_id || ""}
+  onChange={(e) =>
+    updateItem(index, "sample_unique_id", e.target.value)
+  }
+/>
+
+<input
+  className="rounded-xl border border-gray-300 bg-white p-3 text-gray-900"
+  placeholder="Die No"
+  value={item.die_no || ""}
+  onChange={(e) =>
+    updateItem(index, "die_no", e.target.value)
+  }
+/>
                     <input
                       type="number"
                       step="0.001"
