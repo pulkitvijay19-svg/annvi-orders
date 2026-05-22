@@ -5,9 +5,10 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { useRequireAuth } from "@/lib/useRequireAuth";
+import { Suspense } from "react";
 const CHACHA_WHATSAPP = "917000062670";
 
-export default function OrderSuccessPage() {
+function OrderSuccessContent() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get("id");
 
@@ -194,5 +195,18 @@ Please check Annvi Orders.`;
         </section>
       </div>
     </main>
+  );
+}
+export default function OrderSuccessPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-slate-100 p-6">
+          <p className="text-gray-700">Loading order...</p>
+        </main>
+      }
+    >
+      <OrderSuccessContent />
+    </Suspense>
   );
 }
