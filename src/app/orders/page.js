@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useRequireAuth } from "@/lib/useRequireAuth";
+import { Suspense } from "react";
 
 const STATUS_OPTIONS = [
   "All",
@@ -22,7 +23,7 @@ const STATUS_OPTIONS = [
 
 const PRIORITY_OPTIONS = ["All", "Normal", "Urgent", "Super Urgent"];
 
-export default function OrdersPage() {
+function OrdersContent() {
   const searchParams = useSearchParams();
 
   const initialStatus = searchParams.get("status") || "All";
@@ -328,5 +329,19 @@ export default function OrdersPage() {
         </section>
       </div>
     </main>
+    
+  );
+}
+export default function OrdersPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-slate-100 p-6">
+          <p className="text-gray-700">Loading orders...</p>
+        </main>
+      }
+    >
+      <OrdersContent />
+    </Suspense>
   );
 }
