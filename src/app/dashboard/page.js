@@ -25,7 +25,10 @@ export default function DashboardPage() {
 
     const { data, error } = await supabase
       .from("orders")
-      .select("*")
+      .select(`
+  *,
+  order_items(id, quantity, approx_weight)
+`)
       .order("created_at", { ascending: false });
 
     if (!error) {
@@ -53,7 +56,22 @@ export default function DashboardPage() {
       console.log("Sound blocked by browser");
     }
   }
+function getOrderTotals(order) {
+  const pieces = order.order_items?.reduce(
+    (sum, item) => sum + Number(item.quantity || 0),
+    0
+  );
 
+const weight = order.order_items?.reduce(
+  (sum, item) => sum + Number(item.approx_weight || 0),
+  0
+);
+
+  return {
+    pieces: pieces || 0,
+    weight: weight ? weight.toFixed(3) : "0.000",
+  };
+}
   useEffect(() => {
     fetchOrders().then(() => {
       firstLoadDone.current = true;
@@ -207,15 +225,19 @@ export default function DashboardPage() {
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[800px] border-collapse">
                   <thead>
-                    <tr className="border-b text-left text-sm text-gray-500">
-                      <th className="p-3">Order No</th>
-                      <th className="p-3">Customer</th>
-                      <th className="p-3">Delivery</th>
-                      <th className="p-3">Priority</th>
-                      <th className="p-3">Status</th>
-                      <th className="p-3">Action</th>
-                    </tr>
-                  </thead>
+  <tr className="border-b text-left text-sm text-gray-500">
+    <th className="p-3">Order No</th>
+    <th className="p-3">Customer</th>
+    <th className="p-3">Delivery</th>
+
+    <th className="p-3">Pieces</th>
+    <th className="p-3">Weight</th>
+
+    <th className="p-3">Priority</th>
+    <th className="p-3">Status</th>
+    <th className="p-3">Action</th>
+  </tr>
+</thead>
 
                   <tbody>
                     {recentOrders.map((order) => (
@@ -236,7 +258,13 @@ export default function DashboardPage() {
                         <td className="p-3 text-gray-700">
                           {order.delivery_date || "-"}
                         </td>
+<td className="p-3 text-gray-700">
+  {getOrderTotals(order).pieces}
+</td>
 
+<td className="p-3 text-gray-700">
+  {getOrderTotals(order).weight} g
+</td>
                         <td className="p-3">
                           <Badge text={order.priority} type="priority" />
                         </td>

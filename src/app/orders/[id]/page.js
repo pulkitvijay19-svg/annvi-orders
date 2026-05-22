@@ -181,6 +181,18 @@ Please check Annvi Orders.`;
     );
   }
 
+const totalPieces =
+  order?.order_items?.reduce(
+    (sum, item) => sum + Number(item.quantity || 0),
+    0
+  ) || 0;
+
+const totalWeight =
+  order?.order_items?.reduce(
+    (sum, item) => sum + Number(item.approx_weight || 0),
+    0
+  ) || 0;
+
   if (authLoading) {
   return (
     <main className="min-h-screen bg-slate-100 p-6">
@@ -445,6 +457,25 @@ Please check Annvi Orders.`;
               </tbody>
             </table>
           </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+  <div className="rounded-xl bg-slate-50 p-4">
+    <p className="text-xs font-semibold uppercase text-gray-500">
+      Total Pieces
+    </p>
+    <p className="mt-1 text-xl font-bold text-gray-900">
+      {totalPieces}
+    </p>
+  </div>
+
+  <div className="rounded-xl bg-slate-50 p-4">
+    <p className="text-xs font-semibold uppercase text-gray-500">
+      Total Approx Weight
+    </p>
+    <p className="mt-1 text-xl font-bold text-gray-900">
+      {totalWeight.toFixed(3)} g
+    </p>
+  </div>
+</div>
         </section>
 
         <section className="mt-6 rounded-2xl bg-white p-5 shadow-sm">
