@@ -300,7 +300,7 @@ export default function EditOrderPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 p-4 md:p-6">
+    <main className="min-h-screen overscroll-y-contain bg-slate-100 p-3 pb-24 md:p-6">
       <div className="mx-auto max-w-6xl">
         <h1 className="text-3xl font-bold text-gray-900">Edit Order</h1>
         <p className="mt-1 text-sm text-gray-600">

@@ -73,44 +73,49 @@ const weight = order.order_items?.reduce(
     weight: weight ? weight.toFixed(3) : "0.000",
   };
 }
-  useEffect(() => {
-    fetchOrders().then(() => {
-      firstLoadDone.current = true;
-    });
+useEffect(() => {
+  fetchOrders().then(() => {
+    firstLoadDone.current = true;
+  });
 
-    const channel = supabase
-      .channel("orders-live-notification")
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "orders",
-        },
-        (payload) => {
-          if (!firstLoadDone.current) return;
+  const interval = setInterval(() => {
+    fetchOrders();
+  }, 10000);
 
-          const newOrder = payload.new;
+  const channel = supabase
+    .channel("orders-live-notification")
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "orders",
+      },
+      (payload) => {
+        if (!firstLoadDone.current) return;
 
-          setNewOrderAlert({
-            order_no: newOrder.order_no,
-            customer_name: newOrder.customer_name,
-          });
+        const newOrder = payload.new;
 
-          playBeep();
-          fetchOrders();
+        setNewOrderAlert({
+          order_no: newOrder.order_no,
+          customer_name: newOrder.customer_name,
+        });
 
-          setTimeout(() => {
-            setNewOrderAlert(null);
-          }, 8000);
-        }
-      )
-      .subscribe();
+        playBeep();
+        fetchOrders();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
+        setTimeout(() => {
+          setNewOrderAlert(null);
+        }, 8000);
+      }
+    )
+    .subscribe();
+
+  return () => {
+    clearInterval(interval);
+    supabase.removeChannel(channel);
+  };
+}, []);
 
   const stats = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
@@ -145,7 +150,7 @@ const weight = order.order_items?.reduce(
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 p-4 md:p-6">
+    <main className="min-h-screen overscroll-y-contain bg-slate-100 p-3 pb-24 md:p-6">
       {newOrderAlert && (
         <div className="fixed right-5 top-5 z-50 rounded-2xl bg-green-600 p-4 text-white shadow-lg">
           <p className="font-bold">New Order Received</p>
