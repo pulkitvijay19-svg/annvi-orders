@@ -671,7 +671,7 @@ if (authLoading) {
 
           <button
   disabled={saving}
-  className="fixed bottom-3 left-3 right-3 z-40 rounded-2xl bg-black p-4 text-lg font-semibold text-white shadow-xl transition hover:bg-gray-800 disabled:bg-gray-400 md:static md:w-full"
+  className="fixed bottom-20 left-3 right-3 z-40 rounded-2xl bg-black p-4 text-lg font-semibold text-white shadow-xl disabled:bg-gray-400 md:static md:w-full"
 >
             {saving ? "Saving Order..." : "Save Order"}
           </button>
