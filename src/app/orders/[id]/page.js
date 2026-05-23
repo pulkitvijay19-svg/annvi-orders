@@ -286,6 +286,46 @@ const totalWeight =
           .print-overflow-visible table {
             min-width: 100% !important;
           }
+            .no-print {
+  display: none !important;
+}
+
+section {
+  padding: 8px !important;
+  margin-bottom: 8px !important;
+}
+
+.grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 6px !important;
+}
+
+.rounded-xl {
+  padding: 6px !important;
+}
+
+table {
+  font-size: 9px !important;
+}
+
+th,
+td {
+  padding: 3px !important;
+  font-size: 9px !important;
+}
+
+h1 {
+  font-size: 18px !important;
+}
+
+h2 {
+  font-size: 13px !important;
+}
+
+p {
+  font-size: 9px !important;
+}
         }
       `}</style>
 
@@ -424,7 +464,7 @@ const totalWeight =
             Order Items
           </h2>
 
-          <div className="hidden overflow-x-auto print-overflow-visible md:block">
+          <div className="overflow-x-auto print-overflow-visible">
             <table className="w-full min-w-[850px] border-collapse">
               <thead>
                 <tr className="border-b text-left text-sm text-gray-500">
@@ -465,7 +505,7 @@ const totalWeight =
               </tbody>
             </table>
           </div>
-          <div className="space-y-3 md:hidden">
+          <div className="space-y-3 md:hidden no-print">
   {order.order_items?.map((item) => (
     <div
       key={item.id}
