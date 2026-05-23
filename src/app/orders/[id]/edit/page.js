@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useRequireAuth } from "@/lib/useRequireAuth";
+import MobileBottomNav from "@/components/MobileBottomNav";
+import Link from "next/link";
+
 
 const CATEGORIES = [
   "Ladies Ring",
@@ -291,6 +294,7 @@ export default function EditOrderPage() {
     return (
       <main className="min-h-screen bg-slate-100 p-6">
         <p className="text-gray-700">Loading order...</p>
+        
       </main>
     );
   }
@@ -302,6 +306,22 @@ export default function EditOrderPage() {
         <p className="mt-1 text-sm text-gray-600">
           Update customer, items, sample ID, die no and images.
         </p>
+
+<div className="mt-4 flex flex-wrap gap-3">
+  <Link
+    href={`/orders/${orderId}`}
+    className="rounded-xl bg-white px-4 py-3 text-sm font-semibold text-gray-900 shadow-sm"
+  >
+    ← Back to Order
+  </Link>
+
+  <Link
+    href="/orders"
+    className="rounded-xl bg-white px-4 py-3 text-sm font-semibold text-gray-900 shadow-sm"
+  >
+    Orders
+  </Link>
+</div>
 
         <form onSubmit={handleUpdate} className="mt-6 space-y-6">
           <section className="rounded-2xl bg-white p-5 shadow-sm">
@@ -545,6 +565,7 @@ export default function EditOrderPage() {
           </button>
         </form>
       </div>
+      <MobileBottomNav />
     </main>
   );
 }

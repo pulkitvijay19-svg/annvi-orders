@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useRequireAuth } from "@/lib/useRequireAuth";
+import MobileBottomNav from "@/components/MobileBottomNav";
 
 const STATUS_OPTIONS = [
   "All",
@@ -151,6 +152,7 @@ function OrdersContent() {
     return (
       <main className="min-h-screen bg-slate-100 p-6">
         <p className="text-gray-700">Checking login...</p>
+        
       </main>
     );
   }
@@ -425,6 +427,7 @@ function OrdersContent() {
           </>
         )}
       </div>
+      <MobileBottomNav />
     </main>
   );
 }
@@ -435,6 +438,7 @@ export default function OrdersPage() {
       fallback={
         <main className="min-h-screen bg-slate-100 p-6">
           <p className="text-gray-700">Loading orders...</p>
+          
         </main>
       }
     >

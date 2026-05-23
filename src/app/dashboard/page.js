@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useRequireAuth } from "@/lib/useRequireAuth";
+import MobileBottomNav from "@/components/MobileBottomNav";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -347,6 +348,7 @@ const weight = order.order_items?.reduce(
     </div>
   ))}
 </div>
+<MobileBottomNav />
     </main>
   );
 }

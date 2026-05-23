@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useRequireAuth } from "@/lib/useRequireAuth";
+import MobileBottomNav from "@/components/MobileBottomNav";
+import Link from "next/link";
 
 const CATEGORIES = [
   "Ladies Ring",
@@ -368,6 +370,7 @@ if (authLoading) {
   return (
     <main className="min-h-screen bg-slate-100 p-6">
       <p className="text-gray-700">Checking login...</p>
+      
     </main>
   );
 }
@@ -675,6 +678,7 @@ if (authLoading) {
           </button>
         </form>
       </div>
+      <MobileBottomNav />
     </main>
   );
 }

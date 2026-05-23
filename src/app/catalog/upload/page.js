@@ -5,6 +5,7 @@ import Link from "next/link";
 import * as XLSX from "xlsx";
 import { supabase } from "@/lib/supabaseClient";
 import { useRequireAuth } from "@/lib/useRequireAuth";
+import MobileBottomNav from "@/components/MobileBottomNav";
 
 const CATEGORIES = [
   "Ladies Ring",
@@ -34,7 +35,7 @@ if (authLoading) {
   return (
     <main className="min-h-screen bg-slate-100 p-6">
       <p className="text-gray-700">Checking login...</p>
-    </main>
+        </main>
   );
 }
 
@@ -219,6 +220,7 @@ if (authLoading) {
           </section>
         )}
       </div>
+      <MobileBottomNav />
     </main>
   );
 }

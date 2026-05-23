@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { useRequireAuth } from "@/lib/useRequireAuth";
+import MobileBottomNav from "@/components/MobileBottomNav";
 
 const STATUS_OPTIONS = [
   "New",
@@ -205,6 +206,7 @@ const totalWeight =
   return (
     <main className="min-h-screen bg-slate-100 p-6">
       <p className="text-gray-700">Checking login...</p>
+      
     </main>
   );
 }
@@ -626,6 +628,7 @@ p {
           )}
         </section>
       </div>
+      <MobileBottomNav />
     </main>
   );
 }
