@@ -330,6 +330,19 @@ const weight = order.order_items?.reduce(
           <p className="text-xs font-semibold text-gray-500">Status</p>
           <Badge text={order.status} type="status" />
         </div>
+        <div className="rounded-xl bg-slate-50 p-3">
+  <p className="text-xs font-semibold text-gray-500">Pieces</p>
+  <p className="mt-1 font-semibold text-gray-900">
+    {getOrderTotals(order).pieces}
+  </p>
+</div>
+
+<div className="rounded-xl bg-slate-50 p-3">
+  <p className="text-xs font-semibold text-gray-500">Weight</p>
+  <p className="mt-1 font-semibold text-gray-900">
+    {getOrderTotals(order).weight} g
+  </p>
+</div>
       </div>
     </div>
   ))}

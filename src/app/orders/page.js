@@ -342,7 +342,7 @@ function OrdersContent() {
               </div>
             </section>
 
-            <div className="space-y-3 md:hidden">
+            <div className="space-y-3 md:hidden no-print">
               {filteredOrders.map((order) => {
                 const totals = getOrderTotals(order);
 
