@@ -199,7 +199,7 @@ const weight = order.order_items?.reduce(
           <p className="text-gray-700">Loading dashboard...</p>
         ) : (
           <>
-            <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+            <section className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
               <StatCard title="Total Orders" value={stats.total} href="/orders" />
               <StatCard title="Pending" value={stats.pending} href="/orders" />
               <StatCard title="Today Delivery" value={stats.todayDelivery} href="/orders?date=Today" />
@@ -222,7 +222,7 @@ const weight = order.order_items?.reduce(
                 </Link>
               </div>
 
-              <div className="overflow-x-auto">
+              <div className="hidden overflow-x-auto md:block">
                 <table className="w-full min-w-[800px] border-collapse">
                   <thead>
   <tr className="border-b text-left text-sm text-gray-500">
@@ -290,6 +290,50 @@ const weight = order.order_items?.reduce(
           </>
         )}
       </div>
+      <div className="space-y-3 md:hidden">
+  {recentOrders.map((order) => (
+    <div
+      key={order.id}
+      className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-bold text-gray-900">{order.order_no}</p>
+          <p className="mt-1 text-sm font-semibold text-gray-800">
+            {order.customer_name}
+          </p>
+          <p className="text-xs text-gray-500">
+            {order.customer_mobile || "-"}
+          </p>
+        </div>
+
+        <Link
+          href={`/orders/${order.id}`}
+          className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white"
+        >
+          View
+        </Link>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+        <div className="rounded-xl bg-slate-50 p-3">
+          <p className="text-xs font-semibold text-gray-500">Delivery</p>
+          <p className="mt-1 text-gray-900">{order.delivery_date || "-"}</p>
+        </div>
+
+        <div className="rounded-xl bg-slate-50 p-3">
+          <p className="text-xs font-semibold text-gray-500">Priority</p>
+          <Badge text={order.priority} type="priority" />
+        </div>
+
+        <div className="rounded-xl bg-slate-50 p-3">
+          <p className="text-xs font-semibold text-gray-500">Status</p>
+          <Badge text={order.status} type="status" />
+        </div>
+      </div>
+    </div>
+  ))}
+</div>
     </main>
   );
 }
@@ -316,10 +360,10 @@ function StatCard({ title, value, danger, success, warning, href }) {
   return (
     <Link
       href={href || "/orders"}
-      className={`block rounded-2xl p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-md ${bg}`}
+      className={`block rounded-2xl p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md md:p-5 ${bg}`}
     >
       <p className="text-sm font-semibold text-gray-500">{title}</p>
-      <p className={`mt-3 text-3xl font-bold ${text}`}>{value}</p>
+      <p className={`mt-2 text-2xl font-bold md:text-3xl ${text}`}>{value}</p>
     </Link>
   );
 }

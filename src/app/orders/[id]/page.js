@@ -345,7 +345,7 @@ const totalWeight =
             Customer Details
           </h2>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <Info label="Customer Name" value={order.customer_name} />
             <Info label="Mobile" value={order.customer_mobile || "-"} />
             <Info label="Delivery Date" value={order.delivery_date || "-"} />
@@ -424,7 +424,7 @@ const totalWeight =
             Order Items
           </h2>
 
-          <div className="overflow-x-auto print-overflow-visible">
+          <div className="hidden overflow-x-auto print-overflow-visible md:block">
             <table className="w-full min-w-[850px] border-collapse">
               <thead>
                 <tr className="border-b text-left text-sm text-gray-500">
@@ -465,6 +465,78 @@ const totalWeight =
               </tbody>
             </table>
           </div>
+          <div className="space-y-3 md:hidden">
+  {order.order_items?.map((item) => (
+    <div
+      key={item.id}
+      className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-bold text-gray-900">
+            {item.category}
+          </p>
+
+          <p className="mt-1 text-sm text-gray-500">
+            {item.sample_unique_id || "-"}
+          </p>
+        </div>
+
+        <div className="rounded-lg bg-slate-100 px-3 py-1 text-sm font-semibold text-gray-900">
+          Qty: {item.quantity || 0}
+        </div>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+        <div className="rounded-xl bg-slate-50 p-3">
+          <p className="text-xs font-semibold text-gray-500">
+            Die No
+          </p>
+
+          <p className="mt-1 text-gray-900">
+            {item.die_no || "-"}
+          </p>
+        </div>
+
+        <div className="rounded-xl bg-slate-50 p-3">
+          <p className="text-xs font-semibold text-gray-500">
+            Gold KT
+          </p>
+
+          <p className="mt-1 text-gray-900">
+            {item.gold_kt || "-"}
+          </p>
+        </div>
+
+        <div className="rounded-xl bg-slate-50 p-3">
+          <p className="text-xs font-semibold text-gray-500">
+            Weight
+          </p>
+
+          <p className="mt-1 text-gray-900">
+            {item.approx_weight ? Number(item.approx_weight).toFixed(3) : "0.000"} g
+          </p>
+        </div>
+
+        <div className="rounded-xl bg-slate-50 p-3">
+          <p className="text-xs font-semibold text-gray-500">
+            Size
+          </p>
+
+          <p className="mt-1 text-gray-900">
+            {item.size || "-"}
+          </p>
+        </div>
+      </div>
+
+      {item.remarks ? (
+        <div className="mt-3 rounded-xl bg-yellow-50 p-3 text-sm text-gray-700">
+          {item.remarks}
+        </div>
+      ) : null}
+    </div>
+  ))}
+</div>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
   <div className="rounded-xl bg-slate-50 p-4">
     <p className="text-xs font-semibold uppercase text-gray-500">

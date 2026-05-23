@@ -373,7 +373,7 @@ if (authLoading) {
 }
 
   return (
-    <main className="min-h-screen bg-slate-100 p-4 md:p-6">
+    <main className="min-h-screen bg-slate-100 p-3 pb-28 md:p-6">
       <div className="mx-auto max-w-5xl">
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900">Add New Order</h1>
@@ -382,8 +382,8 @@ if (authLoading) {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <section className="rounded-2xl bg-white p-5 shadow-sm">
+        <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
+          <section className="rounded-2xl bg-white p-4 shadow-sm md:p-5">
             <h2 className="mb-4 text-lg font-semibold text-gray-900">
               Customer Details
             </h2>
@@ -469,7 +469,7 @@ if (authLoading) {
             />
           </section>
 
-          <section className="rounded-2xl bg-white p-5 shadow-sm">
+          <section className="rounded-2xl bg-white p-4 shadow-sm md:p-5">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">
                 Order Items
@@ -491,7 +491,7 @@ if (authLoading) {
                 return (
                   <div
                     key={index}
-                    className="rounded-2xl border border-gray-200 p-4"
+                    className="rounded-2xl border border-gray-200 p-3 md:p-4"
                   >
                     <div className="mb-4 flex items-center justify-between">
                       <h3 className="font-semibold text-gray-900">
@@ -647,7 +647,7 @@ if (authLoading) {
             </div>
           </section>
 
-          <section className="rounded-2xl bg-white p-5 shadow-sm">
+          <section className="rounded-2xl bg-white p-4 shadow-sm md:p-5">
             <h2 className="mb-4 text-lg font-semibold text-gray-900">
               Design Images
             </h2>
@@ -668,9 +668,9 @@ if (authLoading) {
           </section>
 
           <button
-            disabled={saving}
-            className="w-full rounded-2xl bg-black p-4 text-lg font-semibold text-white transition hover:bg-gray-800 disabled:bg-gray-400"
-          >
+  disabled={saving}
+  className="fixed bottom-3 left-3 right-3 z-40 rounded-2xl bg-black p-4 text-lg font-semibold text-white shadow-xl transition hover:bg-gray-800 disabled:bg-gray-400 md:static md:w-full"
+>
             {saving ? "Saving Order..." : "Save Order"}
           </button>
         </form>
