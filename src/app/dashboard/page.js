@@ -14,6 +14,7 @@ export default function DashboardPage() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newOrderAlert, setNewOrderAlert] = useState(null);
+
   const firstLoadDone = useRef(false);
 
   async function handleLogout() {
@@ -22,17 +23,17 @@ export default function DashboardPage() {
   }
 
   async function fetchOrders() {
-    setLoading(true);
-
     const { data, error } = await supabase
       .from("orders")
       .select(`
-  *,
-  order_items(id, quantity, approx_weight)
-`)
+        *,
+        order_items(id, quantity, approx_weight)
+      `)
       .order("created_at", { ascending: false });
 
-    if (!error) {
+    if (error) {
+      console.error(error);
+    } else {
       setOrders(data || []);
     }
 
@@ -53,69 +54,73 @@ export default function DashboardPage() {
 
       oscillator.start();
       oscillator.stop(audioCtx.currentTime + 0.25);
-    } catch (e) {
-      console.log("Sound blocked by browser");
+    } catch {
+      console.log("Sound blocked");
     }
   }
-function getOrderTotals(order) {
-  const pieces = order.order_items?.reduce(
-    (sum, item) => sum + Number(item.quantity || 0),
-    0
-  );
 
-const weight = order.order_items?.reduce(
-  (sum, item) => sum + Number(item.approx_weight || 0),
-  0
-);
+  useEffect(() => {
+    fetchOrders().then(() => {
+      firstLoadDone.current = true;
+    });
 
-  return {
-    pieces: pieces || 0,
-    weight: weight ? weight.toFixed(3) : "0.000",
-  };
-}
-useEffect(() => {
-  fetchOrders().then(() => {
-    firstLoadDone.current = true;
-  });
+    const interval = setInterval(() => {
+      fetchOrders();
+    }, 10000);
 
-  const interval = setInterval(() => {
-    fetchOrders();
-  }, 10000);
+    const channel = supabase
+      .channel("orders-live-notification")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "orders",
+        },
+        (payload) => {
+          if (!firstLoadDone.current) return;
 
-  const channel = supabase
-    .channel("orders-live-notification")
-    .on(
-      "postgres_changes",
-      {
-        event: "INSERT",
-        schema: "public",
-        table: "orders",
-      },
-      (payload) => {
-        if (!firstLoadDone.current) return;
+          const newOrder = payload.new;
 
-        const newOrder = payload.new;
+          setNewOrderAlert({
+            order_no: newOrder.order_no,
+            customer_name: newOrder.customer_name,
+          });
 
-        setNewOrderAlert({
-          order_no: newOrder.order_no,
-          customer_name: newOrder.customer_name,
-        });
+          playBeep();
+          fetchOrders();
 
-        playBeep();
-        fetchOrders();
+          setTimeout(() => {
+            setNewOrderAlert(null);
+          }, 8000);
+        }
+      )
+      .subscribe();
 
-        setTimeout(() => {
-          setNewOrderAlert(null);
-        }, 8000);
-      }
-    )
-    .subscribe();
+    return () => {
+      clearInterval(interval);
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
-  return () => {
-    clearInterval(interval);
-    supabase.removeChannel(channel);
-  };
-}, []);
+  function getOrderTotals(order) {
+    const pieces =
+      order.order_items?.reduce(
+        (sum, item) => sum + Number(item.quantity || 0),
+        0
+      ) || 0;
+
+    const weight =
+      order.order_items?.reduce(
+        (sum, item) => sum + Number(item.approx_weight || 0),
+        0
+      ) || 0;
+
+    return {
+      pieces,
+      weight: weight.toFixed(3),
+    };
+  }
 
   const stats = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
@@ -152,7 +157,7 @@ useEffect(() => {
   return (
     <main className="min-h-screen overscroll-y-contain bg-slate-100 p-3 pb-24 md:p-6">
       {newOrderAlert && (
-        <div className="fixed right-5 top-5 z-50 rounded-2xl bg-green-600 p-4 text-white shadow-lg">
+        <div className="fixed right-4 top-4 z-50 rounded-2xl bg-green-600 p-4 text-white shadow-lg">
           <p className="font-bold">New Order Received</p>
           <p className="text-sm">{newOrderAlert.order_no}</p>
           <p className="text-sm">{newOrderAlert.customer_name}</p>
@@ -160,7 +165,7 @@ useEffect(() => {
       )}
 
       <div className="mx-auto max-w-7xl">
-        <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">
               Annvi Orders Dashboard
@@ -208,13 +213,32 @@ useEffect(() => {
             <section className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
               <StatCard title="Total Orders" value={stats.total} href="/orders" />
               <StatCard title="Pending" value={stats.pending} href="/orders" />
-              <StatCard title="Today Delivery" value={stats.todayDelivery} href="/orders?date=Today" />
-              <StatCard title="Delayed" value={stats.delayed} href="/orders?date=Delayed" danger />
-              <StatCard title="Ready" value={stats.ready} href="/orders?status=Ready" success />
-              <StatCard title="Urgent" value={stats.urgent} href="/orders?priority=Urgent" warning />
+              <StatCard
+                title="Today Delivery"
+                value={stats.todayDelivery}
+                href="/orders?date=Today"
+              />
+              <StatCard
+                title="Delayed"
+                value={stats.delayed}
+                href="/orders?date=Delayed"
+                danger
+              />
+              <StatCard
+                title="Ready"
+                value={stats.ready}
+                href="/orders?status=Ready"
+                success
+              />
+              <StatCard
+                title="Urgent"
+                value={stats.urgent}
+                href="/orders?priority=Urgent"
+                warning
+              />
             </section>
 
-            <section className="mt-6 rounded-2xl bg-white p-5 shadow-sm">
+            <section className="mt-6 rounded-2xl bg-white p-4 shadow-sm md:p-5">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-gray-900">
                   Recent Orders
@@ -229,131 +253,137 @@ useEffect(() => {
               </div>
 
               <div className="hidden overflow-x-auto md:block">
-                <table className="w-full min-w-[800px] border-collapse">
+                <table className="w-full min-w-[900px] border-collapse">
                   <thead>
-  <tr className="border-b text-left text-sm text-gray-500">
-    <th className="p-3">Order No</th>
-    <th className="p-3">Customer</th>
-    <th className="p-3">Delivery</th>
-
-    <th className="p-3">Pieces</th>
-    <th className="p-3">Weight</th>
-
-    <th className="p-3">Priority</th>
-    <th className="p-3">Status</th>
-    <th className="p-3">Action</th>
-  </tr>
-</thead>
+                    <tr className="border-b text-left text-sm text-gray-500">
+                      <th className="p-3">Order No</th>
+                      <th className="p-3">Customer</th>
+                      <th className="p-3">Delivery</th>
+                      <th className="p-3">Pieces</th>
+                      <th className="p-3">Weight</th>
+                      <th className="p-3">Priority</th>
+                      <th className="p-3">Status</th>
+                      <th className="p-3">Action</th>
+                    </tr>
+                  </thead>
 
                   <tbody>
-                    {recentOrders.map((order) => (
-                      <tr key={order.id} className="border-b text-sm">
-                        <td className="p-3 font-semibold text-gray-900">
-                          {order.order_no}
-                        </td>
+                    {recentOrders.map((order) => {
+                      const totals = getOrderTotals(order);
 
-                        <td className="p-3">
-                          <p className="font-medium text-gray-900">
+                      return (
+                        <tr key={order.id} className="border-b text-sm">
+                          <td className="p-3 font-semibold text-gray-900">
+                            {order.order_no}
+                          </td>
+
+                          <td className="p-3">
+                            <p className="font-medium text-gray-900">
+                              {order.customer_name}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {order.customer_mobile || "-"}
+                            </p>
+                          </td>
+
+                          <td className="p-3 text-gray-700">
+                            {order.delivery_date || "-"}
+                          </td>
+
+                          <td className="p-3 text-gray-700">
+                            {totals.pieces}
+                          </td>
+
+                          <td className="p-3 text-gray-700">
+                            {totals.weight} g
+                          </td>
+
+                          <td className="p-3">
+                            <Badge text={order.priority} type="priority" />
+                          </td>
+
+                          <td className="p-3">
+                            <Badge text={order.status} type="status" />
+                          </td>
+
+                          <td className="p-3">
+                            <Link
+                              href={`/orders/${order.id}`}
+                              className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white"
+                            >
+                              View
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="space-y-3 md:hidden">
+                {recentOrders.map((order) => {
+                  const totals = getOrderTotals(order);
+
+                  return (
+                    <div
+                      key={order.id}
+                      className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-bold text-gray-900">
+                            {order.order_no}
+                          </p>
+                          <p className="mt-1 text-sm font-semibold text-gray-800">
                             {order.customer_name}
                           </p>
                           <p className="text-xs text-gray-500">
                             {order.customer_mobile || "-"}
                           </p>
-                        </td>
+                        </div>
 
-                        <td className="p-3 text-gray-700">
-                          {order.delivery_date || "-"}
-                        </td>
-<td className="p-3 text-gray-700">
-  {getOrderTotals(order).pieces}
-</td>
+                        <Link
+                          href={`/orders/${order.id}`}
+                          className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white"
+                        >
+                          View
+                        </Link>
+                      </div>
 
-<td className="p-3 text-gray-700">
-  {getOrderTotals(order).weight} g
-</td>
-                        <td className="p-3">
-                          <Badge text={order.priority} type="priority" />
-                        </td>
+                      <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+                        <InfoBox label="Delivery" value={order.delivery_date || "-"} />
+                        <InfoBox label="Pieces" value={totals.pieces} />
+                        <InfoBox label="Weight" value={`${totals.weight} g`} />
 
-                        <td className="p-3">
-                          <Badge text={order.status} type="status" />
-                        </td>
+                        <div className="rounded-xl bg-slate-50 p-3">
+                          <p className="text-xs font-semibold text-gray-500">
+                            Priority
+                          </p>
+                          <div className="mt-1">
+                            <Badge text={order.priority} type="priority" />
+                          </div>
+                        </div>
 
-                        <td className="p-3">
-                          <Link
-                            href={`/orders/${order.id}`}
-                            className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white"
-                          >
-                            View
-                          </Link>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        <div className="rounded-xl bg-slate-50 p-3">
+                          <p className="text-xs font-semibold text-gray-500">
+                            Status
+                          </p>
+                          <div className="mt-1">
+                            <Badge text={order.status} type="status" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </section>
           </>
         )}
       </div>
-      <div className="space-y-3 md:hidden">
-  {recentOrders.map((order) => (
-    <div
-      key={order.id}
-      className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="font-bold text-gray-900">{order.order_no}</p>
-          <p className="mt-1 text-sm font-semibold text-gray-800">
-            {order.customer_name}
-          </p>
-          <p className="text-xs text-gray-500">
-            {order.customer_mobile || "-"}
-          </p>
-        </div>
 
-        <Link
-          href={`/orders/${order.id}`}
-          className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white"
-        >
-          View
-        </Link>
-      </div>
-
-      <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
-        <div className="rounded-xl bg-slate-50 p-3">
-          <p className="text-xs font-semibold text-gray-500">Delivery</p>
-          <p className="mt-1 text-gray-900">{order.delivery_date || "-"}</p>
-        </div>
-
-        <div className="rounded-xl bg-slate-50 p-3">
-          <p className="text-xs font-semibold text-gray-500">Priority</p>
-          <Badge text={order.priority} type="priority" />
-        </div>
-
-        <div className="rounded-xl bg-slate-50 p-3">
-          <p className="text-xs font-semibold text-gray-500">Status</p>
-          <Badge text={order.status} type="status" />
-        </div>
-        <div className="rounded-xl bg-slate-50 p-3">
-  <p className="text-xs font-semibold text-gray-500">Pieces</p>
-  <p className="mt-1 font-semibold text-gray-900">
-    {getOrderTotals(order).pieces}
-  </p>
-</div>
-
-<div className="rounded-xl bg-slate-50 p-3">
-  <p className="text-xs font-semibold text-gray-500">Weight</p>
-  <p className="mt-1 font-semibold text-gray-900">
-    {getOrderTotals(order).weight} g
-  </p>
-</div>
-      </div>
-    </div>
-  ))}
-</div>
-<MobileBottomNav />
+      <MobileBottomNav />
     </main>
   );
 }
@@ -383,7 +413,9 @@ function StatCard({ title, value, danger, success, warning, href }) {
       className={`block rounded-2xl p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md md:p-5 ${bg}`}
     >
       <p className="text-sm font-semibold text-gray-500">{title}</p>
-      <p className={`mt-2 text-2xl font-bold md:text-3xl ${text}`}>{value}</p>
+      <p className={`mt-2 text-2xl font-bold md:text-3xl ${text}`}>
+        {value}
+      </p>
     </Link>
   );
 }
@@ -396,9 +428,9 @@ function Badge({ text, type }) {
     else if (text === "Urgent") cls = "bg-orange-100 text-orange-700";
   }
 
- if (type === "status") {
-  if (text === "New") cls = "bg-yellow-300 text-black";
-  else if (text === "Ready") cls = "bg-green-100 text-green-700";
+  if (type === "status") {
+    if (text === "New") cls = "bg-yellow-300 text-black";
+    else if (text === "Ready") cls = "bg-green-100 text-green-700";
     else if (text === "Delivered") cls = "bg-blue-100 text-blue-700";
     else if (text === "Cancelled") cls = "bg-red-100 text-red-700";
     else if (text === "Hold") cls = "bg-yellow-100 text-yellow-700";
@@ -406,7 +438,16 @@ function Badge({ text, type }) {
 
   return (
     <span className={`rounded-full px-3 py-1 text-xs font-semibold ${cls}`}>
-      {text}
+      {text || "-"}
     </span>
+  );
+}
+
+function InfoBox({ label, value }) {
+  return (
+    <div className="rounded-xl bg-slate-50 p-3">
+      <p className="text-xs font-semibold text-gray-500">{label}</p>
+      <p className="mt-1 font-semibold text-gray-900">{value}</p>
+    </div>
   );
 }

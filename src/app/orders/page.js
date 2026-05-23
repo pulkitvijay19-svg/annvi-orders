@@ -63,10 +63,51 @@ function OrdersContent() {
   }
 
   useEffect(() => {
-    fetchOrders();
-  }, []);
+  fetchOrders().then(() => {
+    firstLoadDone.current = true;
+  });
 
-  function getOrderTotals(order) {
+  const interval = setInterval(() => {
+    fetchOrders();
+  }, 10000);
+
+  const channel = supabase
+    .channel("orders-live-notification")
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "orders",
+      },
+      (payload) => {
+        if (!firstLoadDone.current) return;
+
+        const newOrder = payload.new;
+
+        setNewOrderAlert({
+          order_no: newOrder.order_no,
+          customer_name: newOrder.customer_name,
+        });
+
+        playBeep();
+        fetchOrders();
+
+        setTimeout(() => {
+          setNewOrderAlert(null);
+        }, 8000);
+      }
+    )
+    .subscribe();
+
+  return () => {
+    clearInterval(interval);
+    supabase.removeChannel(channel);
+  };
+}, []);
+
+
+    function getOrderTotals(order) {
     const pieces =
       order.order_items?.reduce(
         (sum, item) => sum + Number(item.quantity || 0),
@@ -158,7 +199,7 @@ function OrdersContent() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 p-3 md:p-6">
+    <main className="min-h-screen overscroll-y-contain bg-slate-100 p-3 pb-24 md:p-6">
       <div className="mx-auto max-w-7xl">
         <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
