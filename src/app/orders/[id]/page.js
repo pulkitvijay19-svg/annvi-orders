@@ -212,7 +212,7 @@ const totalWeight =
 }
 
   return (
-    <main className="min-h-screen bg-slate-100 p-4 md:p-6">
+    <main className="min-h-screen overscroll-y-contain bg-slate-100 p-3 pb-24 md:p-6">
       <style jsx global>{`
         @media print {
           body {

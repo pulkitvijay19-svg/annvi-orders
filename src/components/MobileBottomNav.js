@@ -15,7 +15,7 @@ export default function MobileBottomNav() {
   }
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-white p-2 shadow-lg md:hidden">
+    <nav className="no-print fixed bottom-0 left-0 right-0 z-50 border-t bg-white p-2 shadow-lg md:hidden">
       <div className="grid grid-cols-4 gap-2">
         <Link href="/dashboard" className={itemClass("/dashboard")}>
           <span className="text-lg">🏠</span>
