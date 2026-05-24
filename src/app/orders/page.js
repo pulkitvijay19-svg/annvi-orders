@@ -63,9 +63,7 @@ function OrdersContent() {
   }
 
   useEffect(() => {
-  fetchOrders().then(() => {
-    firstLoadDone.current = true;
-  });
+  fetchOrders();
 
   const interval = setInterval(() => {
     fetchOrders();

@@ -6,10 +6,11 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useRequireAuth } from "@/lib/useRequireAuth";
 import MobileBottomNav from "@/components/MobileBottomNav";
+import { enablePushNotifications } from "@/lib/pushNotifications";
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { loading: authLoading } = useRequireAuth();
+  const { user, loading: authLoading } = useRequireAuth();
 
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -176,6 +177,12 @@ export default function DashboardPage() {
           </div>
 
           <div className="flex flex-wrap gap-3">
+                          <button
+  onClick={() => enablePushNotifications(user)}
+  className="rounded-xl bg-green-600 px-5 py-3 text-sm font-semibold text-white"
+>
+  Enable Notifications
+</button>
             <button
               onClick={handleLogout}
               className="rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white"
@@ -202,6 +209,7 @@ export default function DashboardPage() {
               className="rounded-xl bg-purple-600 px-5 py-3 text-sm font-semibold text-white"
             >
               Sample Catalog
+
             </Link>
           </div>
         </div>
