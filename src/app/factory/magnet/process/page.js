@@ -72,11 +72,9 @@ export default function MagnetProcessPage() {
       <div className="mx-auto max-w-7xl space-y-5">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-2xl font-bold md:text-3xl">
-              Magnet Process
-            </h1>
+            <h1 className="text-2xl font-bold md:text-3xl">Magnet Process</h1>
             <p className="text-sm text-gray-600">
-              Single casting aur clubbed batches ka magnet result save karo.
+              Magnet result save karo. Result history Supabase me save hogi.
             </p>
           </div>
 
@@ -188,7 +186,25 @@ function SingleProcessCard({ batch, isOpen, onOpen, onRefresh }) {
 
     setSaving(true);
 
-    const { error } = await supabase
+    const { error: resultError } = await supabase.from("magnet_results").insert([
+      {
+        casting_batch_id: batch.id,
+        result_type: "Single",
+        pieces_received: Number(piecesReceived || 0),
+        pieces_weight_after_magnet: received,
+        scrap_weight_after_magnet: scrap,
+        final_casting_loss: finalCastingLoss,
+        remarks: "Single casting magnet result saved.",
+      },
+    ]);
+
+    if (resultError) {
+      setSaving(false);
+      alert(resultError.message);
+      return;
+    }
+
+    const { error: updateError } = await supabase
       .from("casting_batches")
       .update({
         received_weight: received,
@@ -199,9 +215,9 @@ function SingleProcessCard({ batch, isOpen, onOpen, onRefresh }) {
       })
       .eq("id", batch.id);
 
-    if (error) {
+    if (updateError) {
       setSaving(false);
-      alert(error.message);
+      alert(updateError.message);
       return;
     }
 
@@ -213,8 +229,7 @@ function SingleProcessCard({ batch, isOpen, onOpen, onRefresh }) {
         received_weight: received,
         scrap_weight: scrap,
         casting_loss: finalCastingLoss,
-        remarks:
-          "Magnet result saved for single casting. Final casting loss updated after powder cleaning.",
+        remarks: "Magnet result saved. Final casting loss updated.",
       },
     ]);
 
@@ -237,10 +252,7 @@ function SingleProcessCard({ batch, isOpen, onOpen, onRefresh }) {
 
       <div className="mt-3 grid grid-cols-3 gap-2">
         <MiniStat label="Pieces" value={summary.pieces} />
-        <MiniStat
-          label="Issued"
-          value={`${Number(batch.actual_metal_weight || 0).toFixed(3)}g`}
-        />
+        <MiniStat label="Issued" value={`${issuedMetal.toFixed(3)}g`} />
         <MiniStat
           label="Old Scrap"
           value={`${Number(batch.scrap_weight || 0).toFixed(3)}g`}
@@ -311,7 +323,25 @@ function ClubProcessCard({ batch, isOpen, onOpen, onRefresh }) {
 
     setSaving(true);
 
-    const { error } = await supabase
+    const { error: resultError } = await supabase.from("magnet_results").insert([
+      {
+        magnet_batch_id: batch.id,
+        result_type: "Club",
+        pieces_received: Number(piecesReceived || 0),
+        pieces_weight_after_magnet: received,
+        scrap_weight_after_magnet: scrap,
+        final_casting_loss: finalCastingLoss,
+        remarks: "Club magnet result saved.",
+      },
+    ]);
+
+    if (resultError) {
+      setSaving(false);
+      alert(resultError.message);
+      return;
+    }
+
+    const { error: updateMagnetError } = await supabase
       .from("magnet_batches")
       .update({
         pieces_received: Number(piecesReceived || 0),
@@ -322,17 +352,15 @@ function ClubProcessCard({ batch, isOpen, onOpen, onRefresh }) {
       })
       .eq("id", batch.id);
 
-    if (error) {
+    if (updateMagnetError) {
       setSaving(false);
-      alert(error.message);
+      alert(updateMagnetError.message);
       return;
     }
 
     const totalReferenceWeight = castings.reduce(
       (sum, cb) =>
-        sum +
-        Number(cb.received_weight || 0) +
-        Number(cb.scrap_weight || 0),
+        sum + Number(cb.received_weight || 0) + Number(cb.scrap_weight || 0),
       0
     );
 
@@ -386,11 +414,11 @@ function ClubProcessCard({ batch, isOpen, onOpen, onRefresh }) {
 
       <div className="mt-3 grid grid-cols-3 gap-2">
         <MiniStat label="Batches" value={castings.length} />
-        <MiniStat label="Pieces" value={batch.total_pieces || 0} />
         <MiniStat
-          label="Issued"
-          value={`${totalIssuedMetal.toFixed(3)}g`}
-        />
+  label="Pieces"
+  value={castings.reduce((sum, cb) => sum + Number(cb.good_pieces || 0), 0)}
+/>
+        <MiniStat label="Issued" value={`${totalIssuedMetal.toFixed(3)}g`} />
       </div>
 
       {isOpen && (
@@ -410,15 +438,6 @@ function ClubProcessCard({ batch, isOpen, onOpen, onRefresh }) {
                     Pieces Wt: {Number(cb.received_weight || 0).toFixed(3)}g ·
                     Scrap: {Number(cb.scrap_weight || 0).toFixed(3)}g
                   </p>
-                  <div className="mt-2 space-y-1">
-                    {(cb.casting_batch_items || []).map((item) => (
-                      <p key={item.id} className="text-xs text-gray-600">
-                        {item.orders?.order_no || "-"} ·{" "}
-                        {item.orders?.customer_name || "-"} · {item.category} ·
-                        Qty {item.selected_quantity}
-                      </p>
-                    ))}
-                  </div>
                 </div>
               ))}
             </div>
@@ -496,7 +515,9 @@ function ResultBox({
         <MiniStat label="Total Issued" value={`${totalIssuedMetal.toFixed(3)}g`} />
         <MiniStat
           label="Received + Scrap"
-          value={`${(Number(receivedWeight || 0) + Number(scrapWeight || 0)).toFixed(3)}g`}
+          value={`${(
+            Number(receivedWeight || 0) + Number(scrapWeight || 0)
+          ).toFixed(3)}g`}
         />
         <MiniStat
           label="Final Casting Loss"
@@ -581,9 +602,7 @@ function CardHeader({ title, kt, status, party, orders, isOpen, onOpen }) {
           <Badge blue>{status}</Badge>
         </div>
 
-        <p className="mt-2 text-xs font-semibold text-gray-500">
-          Party: {party}
-        </p>
+        <p className="mt-2 text-xs font-semibold text-gray-500">Party: {party}</p>
         <p className="text-xs text-gray-500">Order: {orders}</p>
       </div>
 
@@ -595,6 +614,22 @@ function CardHeader({ title, kt, status, party, orders, isOpen, onOpen }) {
       </button>
     </div>
   );
+}
+
+function getCastingSummary(batch) {
+  const items = batch.casting_batch_items || [];
+
+  const parties = [
+    ...new Set(items.map((i) => i.orders?.customer_name).filter(Boolean)),
+  ];
+
+  const orderNos = [
+    ...new Set(items.map((i) => i.orders?.order_no).filter(Boolean)),
+  ];
+
+  const pieces = Number(batch.good_pieces || 0);
+
+  return { parties, orderNos, pieces };
 }
 
 function Field({ label, children }) {
@@ -633,27 +668,4 @@ function Empty({ text }) {
       {text}
     </div>
   );
-}
-
-function getCastingSummary(batch) {
-  const items = batch.casting_batch_items || [];
-
-  const parties = [
-    ...new Set(items.map((i) => i.orders?.customer_name).filter(Boolean)),
-  ];
-
-  const orderNos = [
-    ...new Set(items.map((i) => i.orders?.order_no).filter(Boolean)),
-  ];
-
-  const pieces = items.reduce(
-    (sum, item) => sum + Number(item.selected_quantity || 0),
-    0
-  );
-
-  return {
-    parties,
-    orderNos,
-    pieces,
-  };
 }

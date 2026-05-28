@@ -85,27 +85,27 @@ export default function CastingPage() {
     return Number(formula?.gold_percent || 0);
   }
 
-  function getInventoryItemId(sourceType, kt) {
-    if (sourceType === "Fine Gold") {
-      return inventoryItems.find(
-        (i) => i.item_type === "Gold" && i.item_name === "Gold Fine"
-      )?.id;
-    }
-
-    if (sourceType === "Scrap") {
-      return inventoryItems.find(
-        (i) => i.item_type === "Gold" && i.item_name === "Gold Fine"
-      )?.id;
-    }
-
-    if (sourceType === "Alloy") {
-      return inventoryItems.find(
-        (i) => i.item_type === "Metal" && i.item_name === "Alloy"
-      )?.id;
-    }
-
-    return null;
+function getInventoryItemId(sourceType) {
+  if (sourceType === "Fine Gold") {
+    return inventoryItems.find(
+      (i) => i.item_type === "Gold" && i.item_name === "Gold Fine"
+    )?.id;
   }
+
+  if (sourceType === "Scrap") {
+    return inventoryItems.find(
+      (i) => i.item_type === "Scrap" && i.item_name === "Casting Scrap"
+    )?.id;
+  }
+
+  if (sourceType === "Alloy") {
+    return inventoryItems.find(
+      (i) => i.item_type === "Metal" && i.item_name === "Alloy"
+    )?.id;
+  }
+
+  return null;
+}
 
   function getStockBalance(inventoryItemId, kt) {
     let balance = 0;
@@ -134,69 +134,132 @@ export default function CastingPage() {
   const targetMetal = Number(actualMetalWeight || 0) || suggestedMetalWeight;
   const targetPurity = Number(selectedFormula?.gold_percent || 0) / 100;
 
-const calculations = useMemo(() => {
-  let generatedTargetMetal = 0;
-  let alloyRequired = 0;
-  let fine995Required = 0;
+  const calculations = useMemo(() => {
+    const fineInputs = metalInputs.filter((x) => x.source_type === "Fine Gold");
+    const scrapInputs = metalInputs.filter((x) => x.source_type === "Scrap");
 
-  const hasAnyInput = metalInputs.some(
-    (input) => Number(input.weight || 0) > 0
-  );
+    const requiredPureGold = targetMetal * targetPurity;
+    const required995ForFull = requiredPureGold / 0.995;
+    const requiredAlloyForFull = targetMetal - requiredPureGold;
 
-  if (!targetPurity || !targetMetal) {
-    return {
-      generatedTargetMetal: 0,
-      remainingTargetMetal: 0,
-      alloyRequired: 0,
-      fine995Required: 0,
-    };
-  }
+    let fine995Used = 0;
+    let finePureGold = 0;
+    let fineGeneratedMetal = 0;
+    let fineAlloyRequired = 0;
 
-  if (!hasAnyInput) {
-    const pureGoldNeeded = targetMetal * targetPurity;
-    const fine995Needed = pureGoldNeeded / 0.995;
-    const alloyNeeded = targetMetal - pureGoldNeeded;
+    fineInputs.forEach((input) => {
+      const weight = Number(input.weight || 0);
+      fine995Used += weight;
+      const pure = weight * 0.995;
+      finePureGold += pure;
+      const generated = targetPurity > 0 ? pure / targetPurity : 0;
+      fineGeneratedMetal += generated;
+      fineAlloyRequired += Math.max(generated - pure, 0);
+    });
 
-    return {
-      generatedTargetMetal: 0,
-      remainingTargetMetal: targetMetal,
-      alloyRequired: alloyNeeded,
-      fine995Required: fine995Needed,
-    };
-  }
+    let scrapGeneratedMetal = 0;
+    let scrapAlloyRequired = 0;
+    let scrapFine995Required = 0;
 
-  metalInputs.forEach((input) => {
-    const weight = Number(input.weight || 0);
-    if (!weight) return;
+    const scrapBreakup = scrapInputs.map((input) => {
+      const weight = Number(input.weight || 0);
+      const sourcePurity = getPurity(input.source_kt) / 100;
 
-    const sourcePurity = getPurity(input.source_kt) / 100;
+      if (!weight || !sourcePurity || !targetPurity) {
+        return {
+          ...input,
+          generatedMetal: 0,
+          alloyRequired: 0,
+          fine995Required: 0,
+          type: "Empty",
+        };
+      }
 
-    if (sourcePurity >= targetPurity) {
-      const netFine = weight * sourcePurity;
-      const targetMetalFromInput = netFine / targetPurity;
+      if (Math.abs(sourcePurity - targetPurity) < 0.00001) {
+        scrapGeneratedMetal += weight;
 
-      generatedTargetMetal += targetMetalFromInput;
-      alloyRequired += targetMetalFromInput - netFine;
-    } else {
-      const requiredFine =
+        return {
+          ...input,
+          generatedMetal: weight,
+          alloyRequired: 0,
+          fine995Required: 0,
+          type: "Same KT",
+        };
+      }
+
+      if (sourcePurity > targetPurity) {
+        const netFine = weight * sourcePurity;
+        const generatedMetal = netFine / targetPurity;
+
+        // ✅ Correct higher KT → lower KT formula
+        const alloyRequired = generatedMetal - weight;
+
+        scrapGeneratedMetal += generatedMetal;
+        scrapAlloyRequired += alloyRequired;
+
+        return {
+          ...input,
+          generatedMetal,
+          alloyRequired,
+          fine995Required: 0,
+          type: "Higher KT",
+        };
+      }
+
+      // ✅ Lower KT → higher KT formula
+      const pureFineRequired =
         weight *
-        (((targetPurity * 100) - (sourcePurity * 100)) /
+        ((targetPurity * 100 - sourcePurity * 100) /
           (100 - targetPurity * 100));
 
-      const required995Fine = requiredFine / 0.995;
+      const fine995Required = pureFineRequired / 0.995;
+      const generatedMetal = weight + fine995Required;
 
-      fine995Required += required995Fine;
-      generatedTargetMetal += weight + required995Fine;
-    }
-  });
+      scrapGeneratedMetal += generatedMetal;
+      scrapFine995Required += fine995Required;
 
-  return {
-    generatedTargetMetal,
-    remainingTargetMetal: targetMetal - generatedTargetMetal,
-    alloyRequired,
-    fine995Required,
-  };
-}, [metalInputs, targetMetal, targetPurity, ktFormulas]);
+      return {
+        ...input,
+        generatedMetal,
+        alloyRequired: 0,
+        fine995Required,
+        type: "Lower KT",
+      };
+    });
+
+    const generatedMetal = fineGeneratedMetal + scrapGeneratedMetal;
+    const remainingMetal = targetMetal - generatedMetal;
+
+    const remaining995Fine =
+      remainingMetal > 0 ? (remainingMetal * targetPurity) / 0.995 : 0;
+
+    const remainingAlloy =
+      remainingMetal > 0 ? remainingMetal * (1 - targetPurity) : 0;
+
+    const total995Required =
+      Math.max(required995ForFull - fine995Used, 0) + scrapFine995Required;
+
+    const totalAlloyRequired =
+      fineAlloyRequired + scrapAlloyRequired + remainingAlloy;
+
+    return {
+      required995ForFull,
+      requiredAlloyForFull,
+      fine995Used,
+      fineGeneratedMetal,
+      fineAlloyRequired,
+      scrapGeneratedMetal,
+      scrapAlloyRequired,
+      scrapFine995Required,
+      scrapBreakup,
+      generatedMetal,
+      remainingMetal,
+      remaining995Fine,
+      remainingAlloy,
+      total995Required,
+      totalAlloyRequired,
+    };
+  }, [metalInputs, targetMetal, targetPurity, ktFormulas]);
 
   function toggleOrder(orderId) {
     const updated = selectedOrderIds.includes(orderId)
@@ -242,33 +305,33 @@ const calculations = useMemo(() => {
 
   function updateInput(index, field, value) {
     setMetalInputs((prev) =>
-      prev.map((item, i) => (i === index ? { ...item, [field]: value } : item))
+      prev.map((item, i) => {
+        if (i !== index) return item;
+
+        const updated = { ...item, [field]: value };
+
+        if (field === "source_type") {
+          updated.source_kt = value === "Fine Gold" ? "24KT" : selectedKt;
+        }
+
+        return updated;
+      })
     );
   }
 
   function validateStock() {
-    const required = [];
+    const errors = [];
 
     metalInputs.forEach((input) => {
       const weight = Number(input.weight || 0);
       if (!weight) return;
 
-      const itemId = getInventoryItemId(input.source_type, input.source_kt);
-      if (!itemId) {
-        required.push({
-          name: input.source_type,
-          kt: input.source_kt,
-          required: weight,
-          available: 0,
-        });
-        return;
-      }
-
+      const itemId = getInventoryItemId(input.source_type);
       const stockKt = input.source_type === "Fine Gold" ? "24KT" : input.source_kt;
-      const available = getStockBalance(itemId, stockKt);
+      const available = itemId ? getStockBalance(itemId, stockKt) : 0;
 
       if (available < weight) {
-        required.push({
+        errors.push({
           name: input.source_type,
           kt: stockKt,
           required: weight,
@@ -277,21 +340,21 @@ const calculations = useMemo(() => {
       }
     });
 
-    if (calculations.alloyRequired > 0.001) {
-      const alloyId = getInventoryItemId("Alloy", selectedKt);
+    if (calculations.totalAlloyRequired > 0.001) {
+      const alloyId = getInventoryItemId("Alloy");
       const available = alloyId ? getStockBalance(alloyId, selectedKt) : 0;
 
-      if (available < calculations.alloyRequired) {
-        required.push({
+      if (available < calculations.totalAlloyRequired) {
+        errors.push({
           name: "Alloy",
           kt: selectedKt,
-          required: calculations.alloyRequired,
+          required: calculations.totalAlloyRequired,
           available,
         });
       }
     }
 
-    return required;
+    return errors;
   }
 
   async function createBatch() {
@@ -301,16 +364,17 @@ const calculations = useMemo(() => {
     const stockErrors = validateStock();
 
     if (stockErrors.length > 0) {
-      const msg = stockErrors
-        .map(
-          (x) =>
-            `${x.name} ${x.kt}: Required ${x.required.toFixed(
-              3
-            )}g, Available ${x.available.toFixed(3)}g`
-        )
-        .join("\n");
-
-      alert("Insufficient stock:\n\n" + msg);
+      alert(
+        "Insufficient stock:\n\n" +
+          stockErrors
+            .map(
+              (x) =>
+                `${x.name} ${x.kt}: Required ${x.required.toFixed(
+                  3
+                )}g, Available ${x.available.toFixed(3)}g`
+            )
+            .join("\n")
+      );
       return;
     }
 
@@ -328,10 +392,10 @@ const calculations = useMemo(() => {
           suggested_metal_weight: suggestedMetalWeight,
           actual_metal_weight: targetMetal,
           target_gold_percent: Number(selectedFormula?.gold_percent || 0),
-          alloy_required: calculations.alloyRequired,
-          fine_995_required: calculations.fine995Required,
-          total_target_metal_generated: calculations.generatedTargetMetal,
-          remaining_target_metal: calculations.remainingTargetMetal,
+          alloy_required: calculations.totalAlloyRequired,
+          fine_995_required: calculations.total995Required,
+          total_target_metal_generated: calculations.generatedMetal,
+          remaining_target_metal: calculations.remainingMetal,
           created_by: user?.id || null,
           status: "Draft",
         },
@@ -346,50 +410,36 @@ const calculations = useMemo(() => {
 
     const batchId = batchData.id;
 
-    const batchItems = selectedItems.map((item) => ({
-      casting_batch_id: batchId,
-      order_id: item.order_id,
-      order_item_id: item.id,
-      category: item.category,
-      sample_unique_id: item.sample_unique_id,
-      die_no: item.die_no,
-      selected_quantity: Number(item.selected_quantity || 1),
-      approx_weight: Number(item.approx_weight || 0),
-    }));
-
-    const { error: itemError } = await supabase
-      .from("casting_batch_items")
-      .insert(batchItems);
-
-    if (itemError) {
-      setSaving(false);
-      return alert(itemError.message);
-    }
-
-    const inputRows = metalInputs.map((input) => {
-      const purity = getPurity(input.source_kt);
-      const weight = Number(input.weight || 0);
-
-      return {
+    await supabase.from("casting_batch_items").insert(
+      selectedItems.map((item) => ({
         casting_batch_id: batchId,
-        source_type: input.source_type,
-        source_kt: input.source_kt,
-        source_name:
-          input.source_type === "Fine Gold" ? "995 Fine Gold" : "Scrap",
-        weight,
-        purity_percent: purity,
-        pure_gold_weight: (weight * purity) / 100,
-      };
-    });
+        order_id: item.order_id,
+        order_item_id: item.id,
+        category: item.category,
+        sample_unique_id: item.sample_unique_id,
+        die_no: item.die_no,
+        selected_quantity: Number(item.selected_quantity || 1),
+        approx_weight: Number(item.approx_weight || 0),
+      }))
+    );
 
-    const { error: inputError } = await supabase
-      .from("casting_batch_metal_inputs")
-      .insert(inputRows);
+    await supabase.from("casting_batch_metal_inputs").insert(
+      metalInputs.map((input) => {
+        const purity = getPurity(input.source_kt);
+        const weight = Number(input.weight || 0);
 
-    if (inputError) {
-      setSaving(false);
-      return alert(inputError.message);
-    }
+        return {
+          casting_batch_id: batchId,
+          source_type: input.source_type,
+          source_kt: input.source_kt,
+          source_name:
+            input.source_type === "Fine Gold" ? "995 Fine Gold" : "Scrap",
+          weight,
+          purity_percent: purity,
+          pure_gold_weight: (weight * purity) / 100,
+        };
+      })
+    );
 
     const inventoryRows = [];
 
@@ -397,9 +447,7 @@ const calculations = useMemo(() => {
       const weight = Number(input.weight || 0);
       if (!weight) return;
 
-      const itemId = getInventoryItemId(input.source_type, input.source_kt);
-      if (!itemId) return;
-
+      const itemId = getInventoryItemId(input.source_type);
       const stockKt = input.source_type === "Fine Gold" ? "24KT" : input.source_kt;
 
       inventoryRows.push({
@@ -416,8 +464,8 @@ const calculations = useMemo(() => {
       });
     });
 
-    if (calculations.alloyRequired > 0.001) {
-      const alloyId = getInventoryItemId("Alloy", selectedKt);
+    if (calculations.totalAlloyRequired > 0.001) {
+      const alloyId = getInventoryItemId("Alloy");
 
       inventoryRows.push({
         inventory_item_id: alloyId,
@@ -425,7 +473,7 @@ const calculations = useMemo(() => {
         transaction_type: "Stock Out",
         purpose: "Casting",
         reference_no: batchNo,
-        weight: calculations.alloyRequired,
+        weight: calculations.totalAlloyRequired,
         quantity: 0,
         weight_source: "manual",
         remarks: `Alloy issued for casting batch ${batchNo}`,
@@ -433,21 +481,12 @@ const calculations = useMemo(() => {
       });
     }
 
-    const { error: stockOutError } = await supabase
-      .from("inventory_transactions")
-      .insert(inventoryRows);
-
-    if (stockOutError) {
-      setSaving(false);
-      return alert(stockOutError.message);
-    }
-
-    const fullOrderIds = [...new Set(selectedItems.map((i) => i.order_id))];
+    await supabase.from("inventory_transactions").insert(inventoryRows);
 
     await supabase
       .from("orders")
       .update({ status: "In Production" })
-      .in("id", fullOrderIds);
+      .in("id", [...new Set(selectedItems.map((i) => i.order_id))]);
 
     alert(`Casting batch created: ${batchNo}`);
 
@@ -491,7 +530,7 @@ const calculations = useMemo(() => {
                   onChange={() => toggleOrder(order.id)}
                 />
                 <div>
-                  <p className="font-semibold text-gray-900">{order.order_no}</p>
+                  <p className="font-semibold">{order.order_no}</p>
                   <p className="text-xs text-gray-500">
                     {order.customer_name || "-"} · {order.status}
                   </p>
@@ -524,9 +563,7 @@ const calculations = useMemo(() => {
                           onChange={() => toggleItem(item)}
                         />
                         <div>
-                          <p className="text-sm font-semibold text-gray-900">
-                            {item.category}
-                          </p>
+                          <p className="text-sm font-semibold">{item.category}</p>
                           <p className="text-xs text-gray-500">
                             {item.sample_unique_id || "-"} · Die{" "}
                             {item.die_no || "-"} · Wt{" "}
@@ -535,21 +572,14 @@ const calculations = useMemo(() => {
                         </div>
                       </label>
 
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-500">
-                          Qty {item.quantity || 0}
-                        </span>
-                        <input
-                          type="number"
-                          min="1"
-                          max={item.quantity || 1}
-                          value={selected?.selected_quantity || item.quantity || 1}
-                          onChange={(e) =>
-                            updateSelectedQty(item.id, e.target.value)
-                          }
-                          className="w-20 rounded-lg border border-gray-300 bg-white p-2 text-sm text-gray-900"
-                        />
-                      </div>
+                      <input
+                        type="number"
+                        min="1"
+                        max={item.quantity || 1}
+                        value={selected?.selected_quantity || item.quantity || 1}
+                        onChange={(e) => updateSelectedQty(item.id, e.target.value)}
+                        className="w-20 rounded-lg border border-gray-300 bg-white p-2 text-sm"
+                      />
                     </div>
                   </div>
                 );
@@ -621,9 +651,7 @@ const calculations = useMemo(() => {
               >
                 <select
                   value={input.source_type}
-                  onChange={(e) =>
-                    updateInput(index, "source_type", e.target.value)
-                  }
+                  onChange={(e) => updateInput(index, "source_type", e.target.value)}
                   className="input"
                 >
                   <option>Fine Gold</option>
@@ -632,15 +660,15 @@ const calculations = useMemo(() => {
 
                 <select
                   value={input.source_kt}
-                  onChange={(e) =>
-                    updateInput(index, "source_kt", e.target.value)
-                  }
+                  onChange={(e) => updateInput(index, "source_kt", e.target.value)}
                   className="input"
+                  disabled={input.source_type === "Fine Gold"}
                 >
-                  <option>24KT</option>
-                  {KARATS.map((k) => (
-                    <option key={k}>{k}</option>
-                  ))}
+                  {input.source_type === "Fine Gold" ? (
+                    <option>24KT</option>
+                  ) : (
+                    KARATS.map((k) => <option key={k}>{k}</option>)
+                  )}
                 </select>
 
                 <input
@@ -664,25 +692,76 @@ const calculations = useMemo(() => {
           </div>
         </Card>
 
-        <Card title="5. Calculation">
+        <Card title="5. Fine Gold Calculation">
+          <div className="grid gap-3 md:grid-cols-4">
+            <GreenStat
+              label="Full 995 Fine Required"
+              value={`${calculations.required995ForFull.toFixed(3)} g`}
+            />
+            <MiniStat
+              label="995 Fine Entered"
+              value={`${calculations.fine995Used.toFixed(3)} g`}
+            />
+            <GreenStat
+              label="Fine Generated Metal"
+              value={`${calculations.fineGeneratedMetal.toFixed(3)} g`}
+            />
+            <GreenStat
+              label="Alloy For Fine"
+              value={`${calculations.fineAlloyRequired.toFixed(3)} g`}
+            />
+          </div>
+        </Card>
+
+        <Card title="6. Scrap Conversion Calculation">
+          <div className="space-y-2">
+            {calculations.scrapBreakup.length === 0 ? (
+              <p className="text-sm text-gray-500">No scrap entered.</p>
+            ) : (
+              calculations.scrapBreakup.map((s, i) => (
+                <div
+                  key={i}
+                  className="grid gap-2 rounded-xl bg-slate-50 p-3 md:grid-cols-5"
+                >
+                  <MiniStat label="Scrap KT" value={s.source_kt} />
+                  <MiniStat label="Type" value={s.type} />
+                  <GreenStat
+                    label="Generated Metal"
+                    value={`${s.generatedMetal.toFixed(3)} g`}
+                  />
+                  <GreenStat
+                    label="Alloy Needed"
+                    value={`${s.alloyRequired.toFixed(3)} g`}
+                  />
+                  <GreenStat
+                    label="995 Fine Needed"
+                    value={`${s.fine995Required.toFixed(3)} g`}
+                  />
+                </div>
+              ))
+            )}
+          </div>
+        </Card>
+
+        <Card title="7. Final Total Calculation">
           <div className="grid gap-3 md:grid-cols-5">
             <MiniStat label="Target Metal" value={`${targetMetal.toFixed(3)} g`} />
-            <MiniStat
+            <GreenStat
               label="Generated Metal"
-              value={`${calculations.generatedTargetMetal.toFixed(3)} g`}
+              value={`${calculations.generatedMetal.toFixed(3)} g`}
             />
             <MiniStat
               label="Remaining Metal"
-              value={`${calculations.remainingTargetMetal.toFixed(3)} g`}
-              warn={Math.abs(calculations.remainingTargetMetal) > 0.001}
+              value={`${calculations.remainingMetal.toFixed(3)} g`}
+              warn={Math.abs(calculations.remainingMetal) > 0.001}
             />
-            <MiniStat
-              label="Alloy Required"
-              value={`${calculations.alloyRequired.toFixed(3)} g`}
+            <GreenStat
+              label="Total Alloy Required"
+              value={`${calculations.totalAlloyRequired.toFixed(3)} g`}
             />
-            <MiniStat
-              label="995 Fine Required"
-              value={`${calculations.fine995Required.toFixed(3)} g`}
+            <GreenStat
+              label="Total 995 Fine Required"
+              value={`${calculations.total995Required.toFixed(3)} g`}
             />
           </div>
         </Card>
@@ -718,9 +797,7 @@ function Header() {
   return (
     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 md:text-3xl">
-          Casting Batch
-        </h1>
+        <h1 className="text-2xl font-bold md:text-3xl">Casting Batch</h1>
         <p className="mt-1 text-sm text-gray-600">
           Select order items and calculate metal issue.
         </p>
@@ -728,16 +805,16 @@ function Header() {
 
       <div className="flex flex-wrap gap-2">
         <Link
-          href="/factory/inventory"
-          className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm"
+          href="/factory/casting/dashboard"
+          className="rounded-xl bg-white px-4 py-2 text-sm font-semibold shadow-sm"
         >
-          Inventory
+          Casting Dashboard
         </Link>
         <Link
-          href="/dashboard"
-          className="rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white"
+          href="/factory/inventory"
+          className="rounded-xl bg-white px-4 py-2 text-sm font-semibold shadow-sm"
         >
-          Dashboard
+          Inventory
         </Link>
       </div>
     </div>
@@ -748,7 +825,7 @@ function Card({ title, children, action }) {
   return (
     <section className="rounded-2xl bg-white p-4 shadow-sm">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="text-base font-bold text-gray-900">{title}</h2>
+        <h2 className="text-base font-bold">{title}</h2>
         {action}
       </div>
       {children}
@@ -769,7 +846,16 @@ function MiniStat({ label, value, warn }) {
   return (
     <div className={`rounded-xl p-3 ${warn ? "bg-orange-50" : "bg-slate-50"}`}>
       <p className="text-xs font-semibold text-gray-500">{label}</p>
-      <p className="mt-1 text-lg font-bold text-gray-900">{value}</p>
+      <p className="mt-1 text-lg font-bold">{value}</p>
+    </div>
+  );
+}
+
+function GreenStat({ label, value }) {
+  return (
+    <div className="rounded-xl bg-green-50 p-3">
+      <p className="text-xs font-semibold text-green-700">{label}</p>
+      <p className="mt-1 text-lg font-bold text-green-800">{value}</p>
     </div>
   );
 }
