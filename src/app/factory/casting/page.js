@@ -540,53 +540,83 @@ function getInventoryItemId(sourceType) {
           </div>
         </Card>
 
-        <Card title="2. Select Items">
-          {orderItems.length === 0 ? (
-            <p className="text-sm text-gray-500">Select order first.</p>
-          ) : (
-            <div className="space-y-2">
-              {orderItems.map((item) => {
-                const selected = selectedItems.find((i) => i.id === item.id);
+        <Card
+  title="2. Select Items"
+  action={
+    orderItems.length > 0 && (
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() =>
+            setSelectedItems(
+              orderItems.map((item) => ({
+                ...item,
+                selected_quantity: item.quantity || 1,
+              }))
+            )
+          }
+          className="rounded-xl bg-black px-3 py-2 text-xs font-semibold text-white"
+        >
+          Select All
+        </button>
 
-                return (
-                  <div
-                    key={item.id}
-                    className={`rounded-xl border p-3 ${
-                      selected ? "border-black bg-slate-50" : "border-gray-200"
-                    }`}
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <label className="flex cursor-pointer items-center gap-3">
-                        <input
-                          type="checkbox"
-                          checked={!!selected}
-                          onChange={() => toggleItem(item)}
-                        />
-                        <div>
-                          <p className="text-sm font-semibold">{item.category}</p>
-                          <p className="text-xs text-gray-500">
-                            {item.sample_unique_id || "-"} · Die{" "}
-                            {item.die_no || "-"} · Wt{" "}
-                            {Number(item.approx_weight || 0).toFixed(3)}g
-                          </p>
-                        </div>
-                      </label>
+        <button
+          type="button"
+          onClick={() => setSelectedItems([])}
+          className="rounded-xl bg-red-50 px-3 py-2 text-xs font-semibold text-red-700"
+        >
+          Unselect All
+        </button>
+      </div>
+    )
+  }
+>
+  {orderItems.length === 0 ? (
+    <p className="text-sm text-gray-500">Select order first.</p>
+  ) : (
+    <div className="space-y-2">
+      {orderItems.map((item) => {
+        const selected = selectedItems.find((i) => i.id === item.id);
 
-                      <input
-                        type="number"
-                        min="1"
-                        max={item.quantity || 1}
-                        value={selected?.selected_quantity || item.quantity || 1}
-                        onChange={(e) => updateSelectedQty(item.id, e.target.value)}
-                        className="w-20 rounded-lg border border-gray-300 bg-white p-2 text-sm"
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+        return (
+          <div
+            key={item.id}
+            className={`rounded-xl border p-3 ${
+              selected ? "border-black bg-slate-50" : "border-gray-200"
+            }`}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <label className="flex cursor-pointer items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={!!selected}
+                  onChange={() => toggleItem(item)}
+                />
+
+                <div>
+                  <p className="text-sm font-semibold">{item.category}</p>
+                  <p className="text-xs text-gray-500">
+                    {item.sample_unique_id || "-"} · Die {item.die_no || "-"} ·
+                    Wt {Number(item.approx_weight || 0).toFixed(3)}g
+                  </p>
+                </div>
+              </label>
+
+              <input
+                type="number"
+                min="1"
+                max={item.quantity || 1}
+                value={selected?.selected_quantity || item.quantity || 1}
+                onChange={(e) => updateSelectedQty(item.id, e.target.value)}
+                className="w-20 rounded-lg border border-gray-300 bg-white p-2 text-sm"
+              />
             </div>
-          )}
-        </Card>
+          </div>
+        );
+      })}
+    </div>
+  )}
+</Card>
 
         <Card title="3. Batch Details">
           <div className="grid gap-3 md:grid-cols-4">

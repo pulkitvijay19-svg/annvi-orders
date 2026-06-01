@@ -326,6 +326,7 @@ function RepairCard({ group, findings, transactions, isOpen, onOpen, onRefresh }
         ]);
       }
     }
+    
 
     for (const row of lossRows) {
       const wt = Number(row.weight || 0);

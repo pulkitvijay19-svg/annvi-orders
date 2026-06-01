@@ -134,6 +134,8 @@ function BenchCard({ batch, findings, transactions, isOpen, onOpen, onRefresh })
       received_qty: f.received_qty || "",
       remarks: f.remarks || "",
       old_issued_weight: Number(f.issued_weight || 0),
+      stock_issued_done_weight: Number(f.stock_issued_done_weight || 0),
+      stock_received_done_weight: Number(f.stock_received_done_weight || 0),
     }))
   );
 
@@ -194,87 +196,138 @@ function BenchCard({ batch, findings, transactions, isOpen, onOpen, onRefresh })
     setFindingRows((prev) => prev.filter((_, i) => i !== index));
   }
 
-  async function saveFindingsOnly() {
-    setSavingFindings(true);
+async function saveFindingsOnly() {
+  setSavingFindings(true);
 
-    for (const row of findingRows) {
-      if (!row.finding_item_id) continue;
+  const updatedRows = [...findingRows];
 
-      const issuedWt = Number(row.issued_weight || 0);
-      const oldIssuedWt = Number(row.old_issued_weight || 0);
-      const deltaIssued = issuedWt - oldIssuedWt;
+  for (let index = 0; index < updatedRows.length; index++) {
+    const row = updatedRows[index];
+    if (!row.finding_item_id) continue;
 
-      if (deltaIssued > 0) {
-        const available = stockBalance(row.finding_item_id, row.kt);
-        if (available < deltaIssued) {
-          setSavingFindings(false);
-          alert(
-            `${row.finding_name} ${row.kt} stock कम है.\nRequired extra ${deltaIssued.toFixed(
-              3
-            )}g, Available ${available.toFixed(3)}g`
-          );
-          return false;
-        }
-      }
+    const issuedWt = Number(row.issued_weight || 0);
+    const receivedWt = Number(row.received_weight || 0);
 
-      const payload = {
-        casting_batch_id: batch.id,
-        finding_item_id: row.finding_item_id,
-        finding_name: row.finding_name,
-        kt: row.kt,
-        issued_by: row.issued_by || issuedBy,
-        issued_weight: issuedWt,
-        issued_qty: Number(row.issued_qty || 0),
-        received_weight: Number(row.received_weight || 0),
-        received_qty: Number(row.received_qty || 0),
-        remarks: row.remarks || "",
-      };
+    const issueDone = Number(row.stock_issued_done_weight || 0);
+    const receiveDone = Number(row.stock_received_done_weight || 0);
 
-      if (row.id) {
-        const { error } = await supabase.from("bench_findings").update(payload).eq("id", row.id);
-        if (error) {
-          setSavingFindings(false);
-          alert(error.message);
-          return false;
-        }
-      } else {
-        const { data, error } = await supabase.from("bench_findings").insert([payload]).select().single();
-        if (error) {
-          setSavingFindings(false);
-          alert(error.message);
-          return false;
-        }
-        row.id = data.id;
-      }
+    const issueDelta = issuedWt - issueDone;
+    const receiveDelta = receivedWt - receiveDone;
 
-      if (deltaIssued > 0) {
-        const { error } = await supabase.from("inventory_transactions").insert([
-          {
-            inventory_item_id: row.finding_item_id,
-            kt: row.kt,
-            transaction_type: "Stock Out",
-            purpose: "Bench Finding Issue",
-            reference_no: batch.batch_no,
-            weight: deltaIssued,
-            quantity: Number(row.issued_qty || 0),
-            weight_source: "manual",
-            remarks: `${row.finding_name} extra/initial issued in bench process`,
-          },
-        ]);
+    if (issueDelta > 0) {
+      const available = stockBalance(row.finding_item_id, row.kt);
 
-        if (error) {
-          setSavingFindings(false);
-          alert(error.message);
-          return false;
-        }
+      if (available < issueDelta) {
+        setSavingFindings(false);
+        alert(
+          `${row.finding_name} ${row.kt} stock कम है.\nRequired ${issueDelta.toFixed(
+            3
+          )}g, Available ${available.toFixed(3)}g`
+        );
+        return false;
       }
     }
 
-    setSavingFindings(false);
-    alert("Findings saved/updated");
-    onRefresh();
-    return true;
+    const payload = {
+      casting_batch_id: batch.id,
+      finding_item_id: row.finding_item_id,
+      finding_name: row.finding_name,
+      kt: row.kt,
+      issued_by: row.issued_by || issuedBy,
+      issued_weight: issuedWt,
+      issued_qty: Number(row.issued_qty || 0),
+      received_weight: receivedWt,
+      received_qty: Number(row.received_qty || 0),
+      stock_issued_done_weight: issuedWt,
+      stock_received_done_weight: receivedWt,
+      remarks: row.remarks || "",
+    };
+
+    let savedId = row.id;
+
+    if (row.id) {
+      const { error } = await supabase
+        .from("bench_findings")
+        .update(payload)
+        .eq("id", row.id);
+
+      if (error) {
+        setSavingFindings(false);
+        alert(error.message);
+        return false;
+      }
+    } else {
+      const { data, error } = await supabase
+        .from("bench_findings")
+        .insert([payload])
+        .select()
+        .single();
+
+      if (error) {
+        setSavingFindings(false);
+        alert(error.message);
+        return false;
+      }
+
+      savedId = data.id;
+    }
+
+    if (issueDelta > 0) {
+      const { error } = await supabase.from("inventory_transactions").insert([
+        {
+          inventory_item_id: row.finding_item_id,
+          kt: row.kt,
+          transaction_type: "Stock Out",
+          purpose: "Bench Finding Issue",
+          reference_no: batch.batch_no,
+          weight: issueDelta,
+          quantity: Number(row.issued_qty || 0),
+          weight_source: "manual",
+          remarks: `${row.finding_name} issued in bench process`,
+        },
+      ]);
+
+      if (error) {
+        setSavingFindings(false);
+        alert(error.message);
+        return false;
+      }
+    }
+
+    if (receiveDelta > 0) {
+      const { error } = await supabase.from("inventory_transactions").insert([
+        {
+          inventory_item_id: row.finding_item_id,
+          kt: row.kt,
+          transaction_type: "Stock In",
+          purpose: "Bench Finding Return",
+          reference_no: batch.batch_no,
+          weight: receiveDelta,
+          quantity: Number(row.received_qty || 0),
+          weight_source: "manual",
+          remarks: `${row.finding_name} returned from bench process`,
+        },
+      ]);
+
+      if (error) {
+        setSavingFindings(false);
+        alert(error.message);
+        return false;
+      }
+    }
+
+    updatedRows[index] = {
+      ...row,
+      id: savedId,
+      stock_issued_done_weight: issuedWt,
+      stock_received_done_weight: receivedWt,
+    };
   }
+
+  setFindingRows(updatedRows);
+  setSavingFindings(false);
+  return true;
+}
 
   async function saveBenchResult() {
     if (!receivedWeight) return alert("Received pieces weight required");
@@ -345,11 +398,17 @@ function BenchCard({ batch, findings, transactions, isOpen, onOpen, onRefresh })
       }
     }
 
-    const { error: updateError } = await supabase
-      .from("casting_batches")
-      .update({ status: "Pre Polish" })
-      .eq("id", batch.id);
+    const { error: updateError } =await supabase
+  .from("casting_batches")
+  .update({
+    status: "Pre Polish",
 
+    current_pieces: Number(receivedPieces || 0),
+
+    current_weight: Number(receivedWeight || 0),
+  })
+  .eq("id", batch.id);
+  
     if (updateError) {
       setSaving(false);
       alert(updateError.message);

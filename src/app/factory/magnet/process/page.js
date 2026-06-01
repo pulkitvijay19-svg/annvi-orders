@@ -74,7 +74,7 @@ export default function MagnetProcessPage() {
           <div>
             <h1 className="text-2xl font-bold md:text-3xl">Magnet Process</h1>
             <p className="text-sm text-gray-600">
-              Magnet result save karo. Result history Supabase me save hogi.
+              Single casting aur clubbed batches ka magnet result save karo.
             </p>
           </div>
 
@@ -164,6 +164,48 @@ export default function MagnetProcessPage() {
   );
 }
 
+async function stockInMagnetScrap({ kt, batchNo, weight, quantity = 0 }) {
+  if (Number(weight || 0) <= 0) return true;
+
+  const { data: scrapItem, error: itemError } = await supabase
+    .from("inventory_items")
+    .select("id")
+    .eq("item_type", "Scrap")
+    .eq("item_name", "Casting Scrap")
+    .maybeSingle();
+
+  if (itemError) {
+    alert(itemError.message);
+    return false;
+  }
+
+  if (!scrapItem?.id) {
+    alert("Scrap item not found: Scrap / Casting Scrap");
+    return false;
+  }
+
+  const { error } = await supabase.from("inventory_transactions").insert([
+    {
+      inventory_item_id: scrapItem.id,
+      kt,
+      transaction_type: "Stock In",
+      purpose: "Magnet Scrap",
+      reference_no: batchNo,
+      weight: Number(weight || 0),
+      quantity: Number(quantity || 0),
+      weight_source: "manual",
+      remarks: "Scrap received after magnet cleaning",
+    },
+  ]);
+
+  if (error) {
+    alert(error.message);
+    return false;
+  }
+
+  return true;
+}
+
 function SingleProcessCard({ batch, isOpen, onOpen, onRefresh }) {
   const [piecesReceived, setPiecesReceived] = useState("");
   const [receivedWeight, setReceivedWeight] = useState("");
@@ -204,6 +246,17 @@ function SingleProcessCard({ batch, isOpen, onOpen, onRefresh }) {
       return;
     }
 
+    const scrapOk = await stockInMagnetScrap({
+      kt: batch.kt,
+      batchNo: batch.batch_no,
+      weight: scrap,
+    });
+
+    if (!scrapOk) {
+      setSaving(false);
+      return;
+    }
+
     const { error: updateError } = await supabase
       .from("casting_batches")
       .update({
@@ -233,8 +286,26 @@ function SingleProcessCard({ batch, isOpen, onOpen, onRefresh }) {
       },
     ]);
 
+    if (Math.abs(Number(finalCastingLoss || 0)) > 0.0001) {
+  const { error: lossRecordError } = await supabase
+    .from("casting_loss_records")
+    .insert([
+      {
+        casting_batch_id: batch.id,
+        kt: batch.kt,
+        loss_weight: Number(finalCastingLoss || 0),
+        source: "Single Magnet Final Casting Loss",
+        remarks: `Final casting loss from ${batch.batch_no}`,
+      },
+    ]);
+
+  if (lossRecordError) {
+    alert(lossRecordError.message);
+  }
+}
+
     setSaving(false);
-    alert("Magnet result saved. Batch moved to Filing.");
+    alert("Magnet result saved. Scrap stock-in done. Batch moved to Filing.");
     onRefresh();
   }
 
@@ -341,6 +412,17 @@ function ClubProcessCard({ batch, isOpen, onOpen, onRefresh }) {
       return;
     }
 
+    const scrapOk = await stockInMagnetScrap({
+      kt: batch.kt,
+      batchNo: batch.magnet_batch_no,
+      weight: scrap,
+    });
+
+    if (!scrapOk) {
+      setSaving(false);
+      return;
+    }
+
     const { error: updateMagnetError } = await supabase
       .from("magnet_batches")
       .update({
@@ -395,8 +477,27 @@ function ClubProcessCard({ batch, isOpen, onOpen, onRefresh }) {
       ]);
     }
 
+    if (Math.abs(Number(allocatedLoss || 0)) > 0.0001) {
+  const { error: lossRecordError } = await supabase
+    .from("casting_loss_records")
+    .insert([
+      {
+        casting_batch_id: cb.id,
+        magnet_batch_id: batch.id,
+        kt: cb.kt,
+        loss_weight: Number(allocatedLoss || 0),
+        source: "Club Magnet Final Casting Loss",
+        remarks: `Allocated casting loss from ${batch.magnet_batch_no}`,
+      },
+    ]);
+
+  if (lossRecordError) {
+    alert(lossRecordError.message);
+  }
+}
+
     setSaving(false);
-    alert("Magnet club result saved. Batches moved to Filing.");
+    alert("Magnet club result saved. Scrap stock-in done. Batches moved to Filing.");
     onRefresh();
   }
 
@@ -415,9 +516,9 @@ function ClubProcessCard({ batch, isOpen, onOpen, onRefresh }) {
       <div className="mt-3 grid grid-cols-3 gap-2">
         <MiniStat label="Batches" value={castings.length} />
         <MiniStat
-  label="Pieces"
-  value={castings.reduce((sum, cb) => sum + Number(cb.good_pieces || 0), 0)}
-/>
+          label="Pieces"
+          value={castings.reduce((sum, cb) => sum + Number(cb.good_pieces || 0), 0)}
+        />
         <MiniStat label="Issued" value={`${totalIssuedMetal.toFixed(3)}g`} />
       </div>
 
@@ -526,11 +627,6 @@ function ResultBox({
         <MiniStat label="Pieces" value={piecesReceived || 0} />
       </div>
 
-      <p className="mt-2 text-xs text-gray-500">
-        Final Casting Loss = Issued Metal - (Magnet Pieces Weight + Magnet Scrap
-        Weight)
-      </p>
-
       <button
         disabled={saving}
         onClick={onSave}
@@ -543,48 +639,23 @@ function ResultBox({
 }
 
 function ItemsSummary({ items }) {
-  const grouped = useMemo(() => {
-    const map = {};
-
-    items.forEach((item) => {
-      const key = `${item.orders?.order_no || "-"}_${item.category || "-"}_${
-        item.sample_unique_id || "-"
-      }_${item.die_no || "-"}`;
-
-      if (!map[key]) {
-        map[key] = {
-          order_no: item.orders?.order_no || "-",
-          customer_name: item.orders?.customer_name || "-",
-          category: item.category || "-",
-          sample_unique_id: item.sample_unique_id || "-",
-          die_no: item.die_no || "-",
-          quantity: 0,
-        };
-      }
-
-      map[key].quantity += Number(item.selected_quantity || 0);
-    });
-
-    return Object.values(map);
-  }, [items]);
-
   return (
     <div className="rounded-2xl bg-slate-50 p-3">
       <h4 className="mb-2 text-sm font-bold">Items Summary</h4>
       <div className="grid max-h-[260px] gap-2 overflow-y-auto md:grid-cols-2">
-        {grouped.map((item, index) => (
+        {items.map((item) => (
           <div
-            key={index}
+            key={item.id}
             className="rounded-xl border border-gray-200 bg-white p-3"
           >
             <p className="text-xs font-semibold text-gray-500">
-              {item.order_no} · {item.customer_name}
+              {item.orders?.order_no || "-"} · {item.orders?.customer_name || "-"}
             </p>
             <p className="mt-1 text-sm font-bold">{item.category}</p>
             <p className="text-xs text-gray-500">
               {item.sample_unique_id} · Die {item.die_no}
             </p>
-            <p className="mt-2 text-xs font-bold">Qty: {item.quantity}</p>
+            <p className="mt-2 text-xs font-bold">Qty: {item.selected_quantity}</p>
           </div>
         ))}
       </div>
