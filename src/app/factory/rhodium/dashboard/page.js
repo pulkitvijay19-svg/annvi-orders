@@ -251,6 +251,28 @@ const absDifference = Math.abs(rhodiumDifference);
       })
       .eq("id", batch.id);
 
+const orderIds = [
+  ...new Set(
+    (batch.casting_batch_items || [])
+      .map((item) => item.order_id)
+      .filter(Boolean)
+  ),
+];
+
+if (orderIds.length > 0) {
+  const { error: orderUpdateError } = await supabase
+    .from("orders")
+    .update({ status: "COMPLETED" })
+    .in("id", orderIds);
+
+  if (orderUpdateError) {
+    setSaving(false);
+    alert(orderUpdateError.message);
+    return;
+  }
+}
+
+
     if (updateError) {
       setSaving(false);
       alert(updateError.message);

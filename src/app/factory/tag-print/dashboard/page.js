@@ -38,6 +38,7 @@ export default function TagPrintDashboard() {
 const { data, error } = await supabase
   .from("orders")
   .select("*")
+  .eq("status", "COMPLETED")
   .order("created_at", { ascending: false });
 
     if (error) alert(error.message);
