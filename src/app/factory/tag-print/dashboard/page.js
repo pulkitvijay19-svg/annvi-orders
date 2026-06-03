@@ -1,0 +1,416 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
+import { useRequireAuth } from "@/lib/useRequireAuth";
+import MobileBottomNav from "@/components/MobileBottomNav";
+
+const SCALE_URL = "http://localhost:5056/weight";
+const PRINT_URL = "http://localhost:5055/print";
+
+export default function TagPrintDashboard() {
+  const { loading: authLoading } = useRequireAuth();
+
+  const [orders, setOrders] = useState([]);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [scaleWeight, setScaleWeight] = useState("0.000");
+
+  useEffect(() => {
+    fetchOrders();
+
+    const timer = setInterval(fetchScaleWeight, 700);
+    return () => clearInterval(timer);
+  }, []);
+
+  async function fetchScaleWeight() {
+    try {
+      const res = await fetch(SCALE_URL);
+      const data = await res.json();
+      if (data?.ok) setScaleWeight(data.weight || "0.000");
+    } catch {}
+  }
+
+  async function fetchOrders() {
+    setLoading(true);
+
+const { data, error } = await supabase
+  .from("orders")
+  .select("*")
+  .order("created_at", { ascending: false });
+
+    if (error) alert(error.message);
+
+    setOrders(data || []);
+    setLoading(false);
+  }
+
+  async function openOrder(order) {
+    setSelectedOrder(order);
+
+    const { data, error } = await supabase
+      .from("order_items")
+      .select("*")
+      .eq("order_id", order.id)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    const rows = [];
+
+    (data || []).forEach((item) => {
+      const qty = Number(item.quantity || 1);
+
+      for (let i = 1; i <= qty; i++) {
+        rows.push({
+          rowKey: `${item.id}-${i}`,
+          orderItemId: item.id,
+          category: item.category,
+          karat: item.gold_kt || "",
+          brand: "Annvi Gold",
+          grossWeight: "",
+          lessWeight: "0.000",
+          stoneCharges: "0",
+          netWeight: "",
+          tagId: makeTagId(order.order_no, item.sample_unique_id, i),
+          qrValue: makeTagId(order.order_no, item.sample_unique_id, i),
+          sampleUniqueId: item.sample_unique_id || "",
+          dieNo: item.die_no || "",
+        });
+      }
+    });
+
+    setItems(rows);
+  }
+
+  function updateItem(rowKey, field, value) {
+    setItems((prev) =>
+      prev.map((item) => {
+        if (item.rowKey !== rowKey) return item;
+
+        const updated = { ...item, [field]: value };
+
+        const gw = Number(updated.grossWeight || 0);
+        const lw = Number(updated.lessWeight || 0);
+        updated.netWeight = Math.max(gw - lw, 0).toFixed(3);
+
+        return updated;
+      })
+    );
+  }
+
+  function useScale(rowKey) {
+    updateItem(rowKey, "grossWeight", Number(scaleWeight || 0).toFixed(3));
+  }
+
+  async function printTag(item) {
+    if (!item.grossWeight) return alert("Gross weight required");
+    if (!item.karat) return alert("Karat required");
+
+    const payload = {
+      qr: item.qrValue,
+      brand: item.brand || "Annvi Gold",
+      karat: item.karat,
+      gw: Number(item.grossWeight || 0).toFixed(3),
+      lw: Number(item.lessWeight || 0).toFixed(3),
+      sc: Number(item.stoneCharges || 0),
+      nw: Number(item.netWeight || 0).toFixed(3),
+    };
+
+    try {
+      const res = await fetch(PRINT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (!data.ok) {
+        alert(data.error || "Print failed");
+        return;
+      }
+
+      await supabase.from("printed_tags").insert([
+        {
+          order_no: selectedOrder.order_no,
+          party_name: selectedOrder.customer_name,
+          tag_id: item.tagId,
+          brand: payload.brand,
+          karat: payload.karat,
+          gross_weight: payload.gw,
+          less_weight: payload.lw,
+          stone_charges: payload.sc,
+          net_weight: payload.nw,
+          qr_value: payload.qr,
+          remarks: `${item.category || ""} ${item.sampleUniqueId || ""}`,
+        },
+      ]);
+
+      alert("Tag printed");
+    } catch {
+      alert("Print bridge nahi chal raha. Pehle node print-bridge.js chalao.");
+    }
+  }
+
+  if (authLoading || loading) {
+    return <main className="p-6">Loading tag print...</main>;
+  }
+
+  const totalPieces = items.length;
+  const totalWeight = items.reduce(
+    (sum, item) => sum + Number(item.grossWeight || 0),
+    0
+  );
+
+  return (
+    <main className="min-h-screen bg-slate-100 p-3 pb-24 text-gray-900 md:p-5">
+      <div className="mx-auto max-w-7xl space-y-5">
+        <header>
+          <h1 className="text-2xl font-bold md:text-3xl">Tag Printing</h1>
+          <p className="text-sm text-gray-600">
+            Completed orders, live scale weight and Godex tag printing.
+          </p>
+        </header>
+
+        <div className="rounded-3xl bg-white p-4 shadow-sm">
+          <p className="text-xs font-semibold text-gray-500">Live Scale</p>
+          <p className="text-3xl font-bold text-green-700">{scaleWeight} g</p>
+        </div>
+
+        <section className="grid gap-4 lg:grid-cols-[360px_1fr]">
+          <div className="rounded-3xl bg-white p-4 shadow-sm">
+            <h2 className="mb-3 text-lg font-bold">Completed Orders</h2>
+
+            <div className="space-y-2">
+              {orders.map((order) => (
+                <button
+                  key={order.id}
+                  onClick={() => openOrder(order)}
+                  className={`w-full rounded-2xl border p-3 text-left ${
+                    selectedOrder?.id === order.id
+                      ? "border-black bg-slate-50"
+                      : "border-gray-200"
+                  }`}
+                >
+                  <p className="font-bold">{order.order_no}</p>
+                  <p className="text-sm text-gray-600">{order.customer_name}</p>
+                  <p className="text-xs text-gray-500">{order.status}</p>
+                </button>
+              ))}
+
+              {orders.length === 0 && (
+                <p className="text-sm text-gray-500">
+                  Ready / Completed order nahi mila.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-3xl bg-white p-4 shadow-sm">
+            {!selectedOrder ? (
+              <p className="text-sm text-gray-500">Order select karo.</p>
+            ) : (
+              <>
+                <div className="mb-4 flex flex-wrap justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg font-bold">
+                      {selectedOrder.order_no}
+                    </h2>
+                    <p className="text-sm text-gray-600">
+                      {selectedOrder.customer_name}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <MiniStat label="Total Pieces" value={totalPieces} />
+                    <MiniStat
+                      label="Total Weight"
+                      value={`${totalWeight.toFixed(3)}g`}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {items.map((item, index) => (
+                    <div
+                      key={item.rowKey}
+                      className="rounded-2xl border border-gray-200 bg-slate-50 p-3"
+                    >
+                      <div className="mb-3 flex flex-wrap justify-between gap-2">
+                        <div>
+                          <p className="font-bold">
+                            Piece {index + 1} · {item.category}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            Sample: {item.sampleUniqueId || "-"} · Die:{" "}
+                            {item.dieNo || "-"}
+                          </p>
+                        </div>
+
+                        <button
+                          onClick={() => printTag(item)}
+                          className="rounded-xl bg-black px-4 py-2 text-sm font-bold text-white"
+                        >
+                          Print Tag
+                        </button>
+                      </div>
+
+                      <div className="grid gap-3 md:grid-cols-4">
+                        <Field label="QR">
+                          <input
+                            className="input"
+                            value={item.qrValue}
+                            onChange={(e) =>
+                              updateItem(item.rowKey, "qrValue", e.target.value)
+                            }
+                          />
+                        </Field>
+
+                        <Field label="Brand">
+                          <input
+                            className="input"
+                            value={item.brand}
+                            onChange={(e) =>
+                              updateItem(item.rowKey, "brand", e.target.value)
+                            }
+                          />
+                        </Field>
+
+                        <Field label="Karat">
+                          <input
+                            className="input"
+                            value={item.karat}
+                            onChange={(e) =>
+                              updateItem(item.rowKey, "karat", e.target.value)
+                            }
+                          />
+                        </Field>
+
+                        <Field label="Gross Weight">
+                          <div className="flex gap-2">
+                            <input
+                              className="input"
+                              type="number"
+                              step="0.001"
+                              value={item.grossWeight}
+                              onChange={(e) =>
+                                updateItem(
+                                  item.rowKey,
+                                  "grossWeight",
+                                  e.target.value
+                                )
+                              }
+                            />
+                            <button
+                              onClick={() => useScale(item.rowKey)}
+                              className="rounded-xl bg-green-600 px-3 text-xs font-bold text-white"
+                            >
+                              Scale
+                            </button>
+                          </div>
+                        </Field>
+
+                        <Field label="Less Weight">
+                          <input
+                            className="input"
+                            type="number"
+                            step="0.001"
+                            value={item.lessWeight}
+                            onChange={(e) =>
+                              updateItem(
+                                item.rowKey,
+                                "lessWeight",
+                                e.target.value
+                              )
+                            }
+                          />
+                        </Field>
+
+                        <Field label="Stone Charges">
+                          <input
+                            className="input"
+                            type="number"
+                            value={item.stoneCharges}
+                            onChange={(e) =>
+                              updateItem(
+                                item.rowKey,
+                                "stoneCharges",
+                                e.target.value
+                              )
+                            }
+                          />
+                        </Field>
+
+                        <Field label="Net Weight">
+                          <input
+                            className="input bg-gray-100"
+                            value={item.netWeight}
+                            readOnly
+                          />
+                        </Field>
+
+                        <Field label="Tag ID">
+                          <input className="input bg-gray-100" value={item.tagId} readOnly />
+                        </Field>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </section>
+      </div>
+
+      <MobileBottomNav />
+
+      <style jsx global>{`
+        .input {
+          width: 100%;
+          border-radius: 0.8rem;
+          border: 1px solid #d1d5db;
+          background: white;
+          padding: 0.7rem;
+          font-size: 0.875rem;
+          color: #111827;
+          outline: none;
+        }
+      `}</style>
+    </main>
+  );
+}
+
+function makeTagId(orderNo, sampleId, pieceNo) {
+  const cleanOrder = String(orderNo || "ORD")
+    .replace(/[^A-Z0-9]/gi, "")
+    .slice(-8);
+
+  const cleanSample = String(sampleId || "ITEM")
+    .replace(/[^A-Z0-9]/gi, "")
+    .slice(-5);
+
+  return `AG-${cleanOrder}-${cleanSample}-${String(pieceNo).padStart(2, "0")}`;
+}
+
+function Field({ label, children }) {
+  return (
+    <label className="block">
+      <p className="mb-1 text-xs font-semibold text-gray-500">{label}</p>
+      {children}
+    </label>
+  );
+}
+
+function MiniStat({ label, value }) {
+  return (
+    <div className="rounded-xl bg-slate-50 p-3">
+      <p className="text-xs font-semibold text-gray-500">{label}</p>
+      <p className="text-sm font-bold">{value}</p>
+    </div>
+  );
+}
