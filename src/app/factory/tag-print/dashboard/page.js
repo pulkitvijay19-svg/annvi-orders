@@ -77,8 +77,8 @@ const { data, error } = await supabase
           lessWeight: "0.000",
           stoneCharges: "0",
           netWeight: "",
-          tagId: makeTagId(order.order_no, item.sample_unique_id, i),
-          qrValue: makeTagId(order.order_no, item.sample_unique_id, i),
+          tagId: makeTagId(order.order_no, rows.length + 1),
+          qrValue: makeTagId(order.order_no, rows.length + 1),
           sampleUniqueId: item.sample_unique_id || "",
           dieNo: item.die_no || "",
         });
@@ -107,56 +107,111 @@ const { data, error } = await supabase
   function useScale(rowKey) {
     updateItem(rowKey, "grossWeight", Number(scaleWeight || 0).toFixed(3));
   }
+async function printTag(item) {
+  if (!item.grossWeight) return alert("Gross weight required");
+  if (!item.karat) return alert("Karat required");
 
-  async function printTag(item) {
-    if (!item.grossWeight) return alert("Gross weight required");
-    if (!item.karat) return alert("Karat required");
+  const payload = {
+    qr: item.tagId,
+    brand: item.brand || "Annvi Gold",
+    karat: item.karat,
+    gw: Number(item.grossWeight || 0).toFixed(3),
+    lw: Number(item.lessWeight || 0).toFixed(3),
+    sc: Number(item.stoneCharges || 0),
+    nw: Number(item.netWeight || 0).toFixed(3),
+  };
 
-    const payload = {
-      qr: item.qrValue,
-      brand: item.brand || "Annvi Gold",
-      karat: item.karat,
-      gw: Number(item.grossWeight || 0).toFixed(3),
-      lw: Number(item.lessWeight || 0).toFixed(3),
-      sc: Number(item.stoneCharges || 0),
-      nw: Number(item.netWeight || 0).toFixed(3),
-    };
+  try {
+    const res = await fetch(PRINT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
 
-    try {
-      const res = await fetch(PRINT_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+    const data = await res.json();
 
-      const data = await res.json();
+    if (!data.ok) {
+      alert(data.error || "Print failed");
+      return;
+    }
 
-      if (!data.ok) {
-        alert(data.error || "Print failed");
-        return;
-      }
-
-      await supabase.from("printed_tags").insert([
+    const { data: printedTag, error: printedError } = await supabase
+      .from("printed_tags")
+      .insert([
         {
+          order_id: selectedOrder.id,
+          order_item_id: item.orderItemId,
+
           order_no: selectedOrder.order_no,
           party_name: selectedOrder.customer_name,
+
           tag_id: item.tagId,
+          qr_value: item.tagId,
+
           brand: payload.brand,
           karat: payload.karat,
+
           gross_weight: payload.gw,
           less_weight: payload.lw,
           stone_charges: payload.sc,
           net_weight: payload.nw,
-          qr_value: payload.qr,
+
+          category: item.category,
+          sample_unique_id: item.sampleUniqueId,
+          die_no: item.dieNo,
+
+          is_inventory_created: true,
           remarks: `${item.category || ""} ${item.sampleUniqueId || ""}`,
+        },
+      ])
+      .select()
+      .single();
+
+    if (printedError) {
+      alert(printedError.message);
+      return;
+    }
+
+    const { error: inventoryError } = await supabase
+      .from("finished_inventory")
+      .insert([
+        {
+          order_id: selectedOrder.id,
+          order_item_id: item.orderItemId,
+
+          tag_id: item.tagId,
+          qr_value: item.tagId,
+
+          order_no: selectedOrder.order_no,
+          party_name: selectedOrder.customer_name,
+
+          category: item.category,
+          sample_unique_id: item.sampleUniqueId,
+          die_no: item.dieNo,
+
+          brand: payload.brand,
+          karat: payload.karat,
+
+          gross_weight: payload.gw,
+          less_weight: payload.lw,
+          stone_charges: payload.sc,
+          net_weight: payload.nw,
+
+          status: "IN_STOCK",
+          printed_tag_id: printedTag.id,
         },
       ]);
 
-      alert("Tag printed");
-    } catch {
-      alert("Print bridge nahi chal raha. Pehle node print-bridge.js chalao.");
+    if (inventoryError) {
+      alert(inventoryError.message);
+      return;
     }
+
+    alert("Tag printed and inventory created");
+  } catch {
+    alert("Print bridge nahi chal raha. Pehle node print-bridge.js chalao.");
   }
+}
 
   if (authLoading || loading) {
     return <main className="p-6">Loading tag print...</main>;
@@ -386,17 +441,15 @@ const { data, error } = await supabase
   );
 }
 
-function makeTagId(orderNo, sampleId, pieceNo) {
+function makeTagId(orderNo, pieceNo) {
   const cleanOrder = String(orderNo || "ORD")
     .replace(/[^A-Z0-9]/gi, "")
     .slice(-8);
 
-  const cleanSample = String(sampleId || "ITEM")
-    .replace(/[^A-Z0-9]/gi, "")
-    .slice(-5);
-
-  return `AG-${cleanOrder}-${cleanSample}-${String(pieceNo).padStart(2, "0")}`;
+  return `AG-${cleanOrder}-${String(pieceNo).padStart(3, "0")}`;
 }
+
+ 
 
 function Field({ label, children }) {
   return (

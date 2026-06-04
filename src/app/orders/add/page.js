@@ -375,7 +375,7 @@ if (authLoading) {
 }
 
   return (
-    <main className="min-h-screen bg-slate-100 p-3 pb-28 md:p-6">
+    <main className="min-h-screen overscroll-y-contain bg-slate-100 p-3 pb-24 md:p-6">
       <div className="mx-auto max-w-5xl">
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900">Add New Order</h1>
