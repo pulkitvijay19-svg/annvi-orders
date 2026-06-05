@@ -41,14 +41,42 @@ export default function FinalRepairDashboardPage() {
 
     const { data: txData } = await supabase.from("inventory_transactions").select("*");
 
+    const { data: noRepairBatches } = await supabase
+  .from("casting_batches")
+  .select(`
+    *,
+    casting_batch_items(*, orders(order_no, customer_name))
+  `)
+  .eq("status", "Final Repair");
+
     if (error) alert(error.message);
 
-    setQueues(queueData || []);
+    const realQueues = queueData || [];
+
+const queuedBatchIds = new Set(
+  realQueues.map((q) => q.casting_batch_id).filter(Boolean)
+);
+
+const dummyNoRepairQueues = (noRepairBatches || [])
+  .filter((b) => !queuedBatchIds.has(b.id))
+  .map((b) => ({
+    id: `no-repair-${b.id}`,
+    no_repair: true,
+    casting_batch_id: b.id,
+    casting_batches: b,
+    source_process: "No Repair Required",
+    pending_pieces: Number(b.current_pieces || 0),
+    pending_weight: Number(b.current_weight || 0),
+    status: "Pending",
+  }));
+
+setQueues([...realQueues, ...dummyNoRepairQueues]);
     setFindings(findingData || []);
     setTransactions(txData || []);
     setLoading(false);
   }
 
+  
   useEffect(() => {
     fetchData();
   }, []);
@@ -401,25 +429,42 @@ function RepairCard({ group, findings, transactions, isOpen, onOpen, onRefresh }
       return;
     }
 
-    await supabase
-      .from("repair_queue")
-      .update({
-        status: "Completed",
-        repaired_pieces: Number(receivedPieces || 0),
-        repaired_weight: Number(receivedWeight || 0),
-        rejected_pieces: Number(rejectedPieces || 0),
-        rejected_weight: Number(rejectedWeight || 0),
-      })
-      .in("id", group.queues.map((q) => q.id));
+const realQueueIds = group.queues
+  .filter((q) => !q.no_repair)
+  .map((q) => q.id);
 
-    const { error: updateError } = await supabase
-      .from("casting_batches")
-      .update({
-        status: "Stone Setting",
-        current_pieces: Number(batch.current_pieces || 0) + Number(receivedPieces || 0),
-        current_weight: Number(batch.current_weight || 0) + Number(receivedWeight || 0),
-      })
-      .eq("id", batch.id);
+if (realQueueIds.length > 0) {
+  await supabase
+    .from("repair_queue")
+    .update({
+      status: "Completed",
+      repaired_pieces: Number(receivedPieces || 0),
+      repaired_weight: Number(receivedWeight || 0),
+      rejected_pieces: Number(rejectedPieces || 0),
+      rejected_weight: Number(rejectedWeight || 0),
+    })
+    .in("id", realQueueIds);
+}
+
+ const isNoRepair = group.queues.some((q) => q.no_repair);
+
+const nextPieces = isNoRepair
+  ? Number(receivedPieces || batch.current_pieces || 0)
+  : Number(batch.current_pieces || 0) + Number(receivedPieces || 0);
+
+const nextWeight = isNoRepair
+  ? Number(receivedWeight || batch.current_weight || 0)
+  : Number(batch.current_weight || 0) + Number(receivedWeight || 0);
+
+const { error: updateError } = await supabase
+  .from("casting_batches")
+  .update({
+    status: "Stone Setting",
+    current_process: "stone-setting",
+    current_pieces: nextPieces,
+    current_weight: nextWeight,
+  })
+  .eq("id", batch.id);
 
     if (updateError) {
       setSaving(false);

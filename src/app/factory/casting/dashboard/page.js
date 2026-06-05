@@ -26,7 +26,7 @@ export default function CastingDashboardPage() {
         ),
         casting_batch_metal_inputs(*)
       `)
-      .not("status", "in", '("Completed","Casting Failed")')
+      .not("status", "in", '("Magnet","Casting Failed","Completed")')
       .order("created_at", { ascending: false });
 
     if (error) alert(error.message);
@@ -74,11 +74,35 @@ export default function CastingDashboardPage() {
   }
 
 async function moveToMagnet(batch) {
-  const ok = await updateBatch(batch.id, { status: "Magnet" });
-
-  if (ok) {
-    alert("Moved to Magnet");
+  if (batch.status !== "Casting Completed") {
+    alert("Pehle casting result save karo. Ye batch abhi Magnet ke liye ready nahi hai.");
+    return;
   }
+
+  const { data, error } = await supabase
+    .from("casting_batches")
+    .update({
+      status: "Magnet",
+      current_process: "magnet",
+      moved_to_magnet_at: new Date().toISOString(),
+    })
+    .eq("id", batch.id)
+    .eq("status", "Casting Completed")
+    .select();
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    alert("Batch already moved. Page refresh ho raha hai.");
+    await fetchBatches();
+    return;
+  }
+
+  alert("Moved to Magnet");
+  await fetchBatches();
 }
 
   if (loading) {

@@ -262,14 +262,19 @@ function PrePolishCard({ batch, isOpen, onOpen, onRefresh }) {
       return;
     }
 
-    const { error: updateError } = await supabase
-      .from("casting_batches")
-      .update({
-        status: "Final Repair",
-        current_pieces: Number(goodPieces || 0),
-        current_weight: Number(goodWeight || 0),
-      })
-      .eq("id", batch.id);
+  
+const { error: updateError } = await supabase
+  .from("casting_batches")
+  .update({
+    status: "Final Repair",
+    current_process: "final-repair",
+    current_pieces: Number(goodPieces || 0),
+    current_weight: Number(goodWeight || 0),
+    moved_to_final_repair_at: new Date().toISOString(),
+    moved_to_final_qc_at: null,
+  })
+  .eq("id", batch.id)
+  .eq("status", "Pre Polish");
 
     if (updateError) {
       setSaving(false);

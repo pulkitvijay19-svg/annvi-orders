@@ -383,12 +383,15 @@ export default function SaleDashboardPage() {
       msg += `995 Gold: ${f3(g.gold995)} gm\n`;
     });
 
-    msg += `\nTotal Pieces: ${totals.pieces}\n`;
-    msg += `Total Net Wt: ${f3(totals.nw)} gm\n`;
-    msg += `Avg Wastage: ${totals.avgWastage.toFixed(2)}%\n`;
-    msg += `Total 999 Gold: ${f3(totals.gold999)} gm\n`;
-    msg += `Total 995 Gold: ${f3(totals.gold995)} gm\n\n`;
-
+    if (categoryGroups.length > 1) {
+  msg += `\nTotal Pieces: ${totals.pieces}\n`;
+  msg += `Total Net Wt: ${f3(totals.nw)} gm\n`;
+  msg += `Avg Wastage: ${totals.avgWastage.toFixed(2)}%\n`;
+  msg += `Total 999 Gold: ${f3(totals.gold999)} gm\n`;
+  msg += `Total 995 Gold: ${f3(totals.gold995)} gm\n\n`;
+} else {
+  msg += `\n`;
+}
     msg += `Payment Mode: ${paymentMode}\n`;
 
     if (n(goldRate) > 0) {

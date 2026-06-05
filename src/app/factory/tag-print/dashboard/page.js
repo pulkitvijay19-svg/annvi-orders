@@ -443,10 +443,10 @@ async function printTag(item) {
 
 function makeTagId(orderNo, pieceNo) {
   const cleanOrder = String(orderNo || "ORD")
-    .replace(/[^A-Z0-9]/gi, "")
-    .slice(-8);
+    .replace(/[^0-9]/g, "")
+    .slice(-6);
 
-  return `AG-${cleanOrder}-${String(pieceNo).padStart(3, "0")}`;
+  return `AG${cleanOrder}${String(pieceNo).padStart(2, "0")}`;
 }
 
  
