@@ -125,7 +125,6 @@ function QCCard({ batch, isOpen, onOpen, onRefresh }) {
   const qcLoss =
     Number(issuedWeight || 0) -
     Number(passedWeight || 0) -
-    Number(repairWeight || 0) -
     Number(rejectedWeight || 0);
 
   async function getScrapItemId() {
@@ -207,9 +206,9 @@ function QCCard({ batch, isOpen, onOpen, onRefresh }) {
         passed_pieces: Number(passedPieces || 0),
         passed_weight: Number(passedWeight || 0),
 
-        repair_pieces: Number(repairPieces || 0),
-        repair_weight: Number(repairWeight || 0),
-
+      repair_pieces: 0,
+      repair_weight: 0,
+      
         rejected_pieces: Number(rejectedPieces || 0),
         rejected_weight: Number(rejectedWeight || 0),
 
@@ -224,26 +223,6 @@ function QCCard({ batch, isOpen, onOpen, onRefresh }) {
       return;
     }
 
-    if (Number(repairPieces || 0) > 0 || Number(repairWeight || 0) > 0) {
-      const { error: repairError } = await supabase.from("repair_queue").insert([
-        {
-          casting_batch_id: batch.id,
-          source_process: "Final QC",
-          kt: batch.kt,
-          pending_pieces: Number(repairPieces || 0),
-          pending_weight: Number(repairWeight || 0),
-          status: "Pending",
-          remarks: `Repair from Final QC - ${batch.batch_no}`,
-        },
-      ]);
-
-      if (repairError) {
-        setSaving(false);
-        alert(repairError.message);
-        return;
-      }
-    }
-
     const scrapOk = await stockInRejectedScrap();
     if (!scrapOk) {
       setSaving(false);
@@ -252,11 +231,12 @@ function QCCard({ batch, isOpen, onOpen, onRefresh }) {
 
     const { error: updateError } = await supabase
       .from("casting_batches")
-      .update({
-        status: "Rhodium / Plating",
-        current_pieces: Number(passedPieces || 0),
-        current_weight: Number(passedWeight || 0),
-      })
+.update({
+  status: "Rhodium / Plating",
+  current_process: "rhodium",
+  current_pieces: Number(passedPieces || 0),
+  current_weight: Number(passedWeight || 0),
+})
       .eq("id", batch.id);
 
     if (updateError) {
@@ -358,24 +338,7 @@ function QCCard({ batch, isOpen, onOpen, onRefresh }) {
                 />
               </Field>
 
-              <Field label="Repair Pieces">
-                <input
-                  type="number"
-                  value={repairPieces}
-                  onChange={(e) => setRepairPieces(e.target.value)}
-                  className="input"
-                />
-              </Field>
 
-              <Field label="Repair Weight">
-                <input
-                  type="number"
-                  step="0.001"
-                  value={repairWeight}
-                  onChange={(e) => setRepairWeight(e.target.value)}
-                  className="input"
-                />
-              </Field>
 
               <Field label="Rejected Pieces">
                 <input

@@ -9,6 +9,7 @@ import MobileBottomNav from "@/components/MobileBottomNav";
 export default function BuffDashboardPage() {
   const { loading: authLoading } = useRequireAuth();
   const [batches, setBatches] = useState([]);
+  const [findings, setFindings] = useState([]);
   const [openId, setOpenId] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -25,9 +26,17 @@ export default function BuffDashboardPage() {
       .eq("status", "Buff")
       .order("created_at", { ascending: false });
 
+    const { data: findingData } = await supabase
+      .from("inventory_items")
+      .select("*")
+      .eq("is_active", true)
+      .eq("item_type", "Finding")
+      .order("item_name", { ascending: true });
+
     if (error) alert(error.message);
 
     setBatches(data || []);
+    setFindings(findingData || []);
     setLoading(false);
   }
 
@@ -58,6 +67,7 @@ export default function BuffDashboardPage() {
               <BuffCard
                 key={batch.id}
                 batch={batch}
+                findings={findings}
                 isOpen={openId === batch.id}
                 onOpen={() => setOpenId(openId === batch.id ? null : batch.id)}
                 onRefresh={fetchData}
@@ -85,15 +95,16 @@ export default function BuffDashboardPage() {
   );
 }
 
-function BuffCard({ batch, isOpen, onOpen, onRefresh }) {
+function BuffCard({ batch, findings, isOpen, onOpen, onRefresh }) {
   const items = batch.casting_batch_items || [];
+
+  const [activeTab, setActiveTab] = useState("buff");
 
   const [polisherName, setPolisherName] = useState("");
 
   const [issuedPieces, setIssuedPieces] = useState(
     Number(batch.current_pieces || batch.good_pieces || 0)
   );
-
   const [issuedWeight, setIssuedWeight] = useState(
     Number(batch.current_weight || batch.received_weight || 0)
   );
@@ -101,11 +112,16 @@ function BuffCard({ batch, isOpen, onOpen, onRefresh }) {
   const [receivedPieces, setReceivedPieces] = useState("");
   const [receivedWeight, setReceivedWeight] = useState("");
 
-  const [repairPieces, setRepairPieces] = useState("");
-  const [repairWeight, setRepairWeight] = useState("");
+  const [repairIssuedPieces, setRepairIssuedPieces] = useState("");
+  const [repairIssuedWeight, setRepairIssuedWeight] = useState("");
+  const [repairReceivedPieces, setRepairReceivedPieces] = useState("");
+  const [repairReceivedWeight, setRepairReceivedWeight] = useState("");
 
   const [rejectedPieces, setRejectedPieces] = useState("");
   const [rejectedWeight, setRejectedWeight] = useState("");
+
+  const [repairFindingRows, setRepairFindingRows] = useState([]);
+  const [repairLossRows, setRepairLossRows] = useState([]);
 
   const [remarks, setRemarks] = useState("");
   const [saving, setSaving] = useState(false);
@@ -118,16 +134,87 @@ function BuffCard({ batch, isOpen, onOpen, onRefresh }) {
     ...new Set(items.map((i) => i.orders?.order_no).filter(Boolean)),
   ];
 
+  const repairFindingsIssued = repairFindingRows.reduce(
+    (sum, row) => sum + Number(row.issued_weight || 0),
+    0
+  );
+
+  const repairFindingsReceived = repairFindingRows.reduce(
+    (sum, row) => sum + Number(row.received_weight || 0),
+    0
+  );
+
+  const repairLoss =
+    Number(repairIssuedWeight || 0) +
+    repairFindingsIssued -
+    (Number(repairReceivedWeight || 0) + repairFindingsReceived);
+
   const buffLoss =
     Number(issuedWeight || 0) -
     Number(receivedWeight || 0) -
-    Number(repairWeight || 0) -
-    Number(rejectedWeight || 0);
+    Number(rejectedWeight || 0) -
+    Number(repairIssuedWeight || 0);
 
-    const buffLossPercent =
-  Number(issuedWeight || 0) > 0
-    ? (buffLoss / Number(issuedWeight)) * 100
-    : 0;
+  const buffLossPercent =
+    Number(issuedWeight || 0) > 0
+      ? (buffLoss / Number(issuedWeight || 0)) * 100
+      : 0;
+
+  const finalPiecesToQC =
+    Number(receivedPieces || 0) + Number(repairReceivedPieces || 0);
+
+  const finalWeightToQC =
+    Number(receivedWeight || 0) + Number(repairReceivedWeight || 0);
+
+  function addRepairFindingRow() {
+    setRepairFindingRows((prev) => [
+      ...prev,
+      {
+        finding_item_id: "",
+        finding_name: "",
+        kt: batch.kt,
+        issued_weight: "",
+        issued_qty: "",
+        received_weight: "",
+        received_qty: "",
+        remarks: "",
+      },
+    ]);
+  }
+
+  function updateRepairFinding(index, field, value) {
+    setRepairFindingRows((prev) =>
+      prev.map((row, i) => {
+        if (i !== index) return row;
+
+        const next = { ...row, [field]: value };
+
+        if (field === "finding_item_id") {
+          const item = findings.find((f) => f.id === value);
+          next.finding_name = item?.item_name || "";
+        }
+
+        return next;
+      })
+    );
+  }
+
+  function addRepairLossRow() {
+    setRepairLossRows((prev) => [
+      ...prev,
+      {
+        loss_type: "",
+        weight: "",
+        remarks: "",
+      },
+    ]);
+  }
+
+  function updateRepairLoss(index, field, value) {
+    setRepairLossRows((prev) =>
+      prev.map((row, i) => (i === index ? { ...row, [field]: value } : row))
+    );
+  }
 
   async function getScrapItemId() {
     const { data, error } = await supabase
@@ -179,43 +266,36 @@ function BuffCard({ batch, isOpen, onOpen, onRefresh }) {
   }
 
   async function saveBuffResult() {
-    if (!receivedWeight && !repairWeight && !rejectedWeight) {
+    if (!receivedWeight && !repairReceivedWeight && !rejectedWeight) {
       alert("Received / repair / rejected weight me se kuch enter karo");
       return;
     }
 
     setSaving(true);
 
-    const { data: result, error } = await supabase
-      .from("buff_results")
-      .insert([
-        {
-          casting_batch_id: batch.id,
-          polisher_name: polisherName,
+    const { error } = await supabase.from("buff_results").insert([
+      {
+        casting_batch_id: batch.id,
+        polisher_name: polisherName,
 
-          issued_pieces: Number(issuedPieces || 0),
-          issued_weight: Number(issuedWeight || 0),
+        issued_pieces: Number(issuedPieces || 0),
+        issued_weight: Number(issuedWeight || 0),
 
-          received_pieces: Number(receivedPieces || 0),
-          received_weight: Number(receivedWeight || 0),
+        received_pieces: Number(receivedPieces || 0),
+        received_weight: Number(receivedWeight || 0),
 
-          repair_pieces: Number(repairPieces || 0),
-          repair_weight: Number(repairWeight || 0),
+        repair_pieces: Number(repairReceivedPieces || 0),
+        repair_weight: Number(repairReceivedWeight || 0),
 
-          rejected_pieces: Number(rejectedPieces || 0),
-          rejected_weight: Number(rejectedWeight || 0),
+        rejected_pieces: Number(rejectedPieces || 0),
+        rejected_weight: Number(rejectedWeight || 0),
 
-          buff_loss_weight: buffLoss,
-buff_loss_percentage:
-  Number(issuedWeight || 0) > 0
-    ? (buffLoss / Number(issuedWeight)) * 100
-    : 0,
+        buff_loss_weight: buffLoss,
+        buff_loss_percentage: buffLossPercent,
 
-          remarks,
-        },
-      ])
-      .select()
-      .single();
+        remarks,
+      },
+    ]);
 
     if (error) {
       setSaving(false);
@@ -245,23 +325,212 @@ buff_loss_percentage:
       }
     }
 
-    if (Number(repairPieces || 0) > 0 || Number(repairWeight || 0) > 0) {
-      const { error: repairError } = await supabase.from("repair_queue").insert([
+    for (const row of repairFindingRows) {
+      if (!row.finding_item_id) continue;
+
+      const issuedWeight = Number(row.issued_weight || 0);
+      const receivedWeight = Number(row.received_weight || 0);
+
+      const { error: findingError } = await supabase
+        .from("process_repair_findings")
+        .insert([
+          {
+            casting_batch_id: batch.id,
+            process_name: "Buff",
+            finding_item_id: row.finding_item_id,
+            finding_name: row.finding_name,
+            kt: row.kt,
+            issued_weight: issuedWeight,
+            issued_qty: Number(row.issued_qty || 0),
+            received_weight: receivedWeight,
+            received_qty: Number(row.received_qty || 0),
+            remarks: row.remarks || "",
+          },
+        ]);
+
+      if (findingError) {
+        setSaving(false);
+        alert(findingError.message);
+        return;
+      }
+
+      if (issuedWeight > 0) {
+        const { error: outError } = await supabase
+          .from("inventory_transactions")
+          .insert([
+            {
+              inventory_item_id: row.finding_item_id,
+              kt: row.kt,
+              transaction_type: "Stock Out",
+              purpose: "Buff Repair Finding Issue",
+              reference_no: batch.batch_no,
+              weight: issuedWeight,
+              quantity: Number(row.issued_qty || 0),
+              weight_source: "manual",
+              remarks: `${row.finding_name} issued for buff repair`,
+            },
+          ]);
+
+        if (outError) {
+          setSaving(false);
+          alert(outError.message);
+          return;
+        }
+      }
+
+      if (receivedWeight > 0) {
+        const { error: inError } = await supabase
+          .from("inventory_transactions")
+          .insert([
+            {
+              inventory_item_id: row.finding_item_id,
+              kt: row.kt,
+              transaction_type: "Stock In",
+              purpose: "Buff Repair Finding Return",
+              reference_no: batch.batch_no,
+              weight: receivedWeight,
+              quantity: Number(row.received_qty || 0),
+              weight_source: "manual",
+              remarks: `${row.finding_name} returned from buff repair`,
+            },
+          ]);
+
+        if (inError) {
+          setSaving(false);
+          alert(inError.message);
+          return;
+        }
+      }
+    }
+
+    for (const row of repairLossRows) {
+      if (!row.loss_type || Number(row.weight || 0) <= 0) continue;
+
+      const { error: repairLossError } = await supabase
+        .from("process_repair_loss_breakup")
+        .insert([
+          {
+            casting_batch_id: batch.id,
+            process_name: "Buff",
+            loss_type: row.loss_type,
+            kt: batch.kt,
+            weight: Number(row.weight || 0),
+            remarks: row.remarks || "",
+          },
+        ]);
+
+        const lossWeight = Number(row.weight || 0);
+
+if (row.loss_type === "Buff Loss") {
+  const { error: buffLossError } = await supabase
+    .from("buff_loss_records")
+    .insert([
+      {
+        casting_batch_id: batch.id,
+        kt: batch.kt,
+        loss_weight: lossWeight,
+        batch_no: batch.batch_no,
+        party_name: parties.join(", "),
+        recovery_status: "Pending",
+        remarks:
+          row.remarks ||
+          `${row.loss_type} from ${batch.batch_no}`,
+      },
+    ]);
+
+  if (buffLossError) {
+    setSaving(false);
+    alert(buffLossError.message);
+    return;
+  }
+}
+
+if (row.loss_type === "Ghis") {
+  const { error: ghisError } = await supabase
+    .from("ghis_records")
+    .insert([
+      {
+        casting_batch_id: batch.id,
+        kt: batch.kt,
+        source_process: "Buff", // Stone Setting page me isko "Stone Setting" karna
+        ghis_weight: lossWeight,
+        recovered_weight: 0,
+        recovery_loss: 0,
+        recovery_status: "Pending",
+        remarks:
+          row.remarks ||
+          `${row.loss_type} from ${batch.batch_no}`,
+      },
+    ]);
+
+  if (ghisError) {
+    setSaving(false);
+    alert(ghisError.message);
+    return;
+  }
+}
+
+if (row.loss_type === "Scrap") {
+  const scrapItemId = await getScrapItemId();
+
+  if (scrapItemId) {
+    const { error: scrapError } = await supabase
+      .from("inventory_transactions")
+      .insert([
         {
-          casting_batch_id: batch.id,
-          source_process: "Buff",
+          inventory_item_id: scrapItemId,
           kt: batch.kt,
-          pending_pieces: Number(repairPieces || 0),
-          pending_weight: Number(repairWeight || 0),
-          status: "Pending",
-          remarks: `Repair from Buff - ${batch.batch_no}`,
+          transaction_type: "Stock In",
+          purpose: "Repair Loss Scrap",
+          reference_no: batch.batch_no,
+          weight: lossWeight,
+          quantity: 0,
+          weight_source: "manual",
+          remarks:
+            row.remarks ||
+            `${row.loss_type} from ${batch.batch_no}`,
         },
       ]);
 
-      if (repairError) {
+    if (scrapError) {
+      setSaving(false);
+      alert(scrapError.message);
+      return;
+    }
+  }
+}
+      if (repairLossError) {
         setSaving(false);
-        alert(repairError.message);
+        alert(repairLossError.message);
         return;
+      }
+
+      if (row.loss_type === "Scrap") {
+        const scrapItemId = await getScrapItemId();
+
+        if (scrapItemId) {
+          const { error: scrapError } = await supabase
+            .from("inventory_transactions")
+            .insert([
+              {
+                inventory_item_id: scrapItemId,
+                kt: batch.kt,
+                transaction_type: "Stock In",
+                purpose: "Buff Repair Loss Scrap",
+                reference_no: batch.batch_no,
+                weight: Number(row.weight || 0),
+                quantity: 0,
+                weight_source: "manual",
+                remarks: row.remarks || "Buff repair loss moved to scrap",
+              },
+            ]);
+
+          if (scrapError) {
+            setSaving(false);
+            alert(scrapError.message);
+            return;
+          }
+        }
       }
     }
 
@@ -275,8 +544,9 @@ buff_loss_percentage:
       .from("casting_batches")
       .update({
         status: "Final Inspection QC",
-        current_pieces: Number(receivedPieces || 0),
-        current_weight: Number(receivedWeight || 0),
+        current_process: "final-qc",
+        current_pieces: finalPiecesToQC,
+        current_weight: finalWeightToQC,
       })
       .eq("id", batch.id);
 
@@ -324,154 +594,474 @@ buff_loss_percentage:
           label="Current Wt"
           value={`${Number(issuedWeight || 0).toFixed(3)}g`}
         />
-        <MiniStat
-          label="Entries"
-          value={batch.buff_results?.length || 0}
-        />
+        <MiniStat label="Entries" value={batch.buff_results?.length || 0} />
       </div>
 
       {isOpen && (
         <div className="mt-5 space-y-4">
           <ItemsSummary items={items} />
 
-          <Panel title="Buff / Final Polish Result">
-            <div className="grid gap-3 md:grid-cols-3">
-              <Field label="Polisher Name">
-                <input
-                  value={polisherName}
-                  onChange={(e) => setPolisherName(e.target.value)}
-                  className="input"
-                />
-              </Field>
-
-              <Field label="Issued Pieces">
-                <input
-                  type="number"
-                  value={issuedPieces}
-                  onChange={(e) => setIssuedPieces(e.target.value)}
-                  className="input"
-                />
-              </Field>
-
-              <Field label="Issued Weight">
-                <input
-                  type="number"
-                  step="0.001"
-                  value={issuedWeight}
-                  onChange={(e) => setIssuedWeight(e.target.value)}
-                  className="input"
-                />
-              </Field>
-
-              <Field label="Received Pieces">
-                <input
-                  type="number"
-                  value={receivedPieces}
-                  onChange={(e) => setReceivedPieces(e.target.value)}
-                  className="input"
-                />
-              </Field>
-
-              <Field label="Received Weight">
-                <input
-                  type="number"
-                  step="0.001"
-                  value={receivedWeight}
-                  onChange={(e) => setReceivedWeight(e.target.value)}
-                  className="input"
-                />
-              </Field>
-
-              <Field label="Repair Pieces">
-                <input
-                  type="number"
-                  value={repairPieces}
-                  onChange={(e) => setRepairPieces(e.target.value)}
-                  className="input"
-                />
-              </Field>
-
-              <Field label="Repair Weight">
-                <input
-                  type="number"
-                  step="0.001"
-                  value={repairWeight}
-                  onChange={(e) => setRepairWeight(e.target.value)}
-                  className="input"
-                />
-              </Field>
-
-              <Field label="Rejected Pieces">
-                <input
-                  type="number"
-                  value={rejectedPieces}
-                  onChange={(e) => setRejectedPieces(e.target.value)}
-                  className="input"
-                />
-              </Field>
-
-              <Field label="Rejected Weight">
-                <input
-                  type="number"
-                  step="0.001"
-                  value={rejectedWeight}
-                  onChange={(e) => setRejectedWeight(e.target.value)}
-                  className="input"
-                />
-              </Field>
-
-              <Field label="Buff Loss">
-                <div className="rounded-xl bg-orange-50 p-3 text-sm font-bold text-orange-700">
-                  {buffLoss.toFixed(3)} g
-                </div>
-              </Field>
-
-              <Field label="Buff Loss %">
-  <div className="rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">
-    {buffLossPercent.toFixed(2)} %
-  </div>
-</Field>
-            </div>
-
-            <div className="mt-3 grid grid-cols-3 gap-2">
-              <GreenStat
-                label="Good To QC"
-                value={`${Number(receivedPieces || 0)} pcs`}
-              />
-              <GreenStat
-                label="Repair Queue"
-                value={`${Number(repairPieces || 0)} pcs`}
-              />
-              <GreenStat
-                label="Rejected Scrap"
-                value={`${Number(rejectedWeight || 0).toFixed(3)}g`}
-              />
-            </div>
-
-            <div className="mt-3">
-              <Field label="Remarks">
-                <textarea
-                  rows={3}
-                  value={remarks}
-                  onChange={(e) => setRemarks(e.target.value)}
-                  className="input"
-                />
-              </Field>
-            </div>
-
-            <p className="mt-2 text-xs text-gray-500">
-              Buff Loss = Issued Weight - Received Weight - Repair Weight -
-              Rejected Weight
-            </p>
+          <div className="flex gap-2 rounded-2xl bg-slate-100 p-2">
+            <button
+              type="button"
+              onClick={() => setActiveTab("buff")}
+              className={`flex-1 rounded-xl px-4 py-3 text-sm font-bold ${
+                activeTab === "buff"
+                  ? "bg-black text-white"
+                  : "bg-white text-gray-700"
+              }`}
+            >
+              Buff
+            </button>
 
             <button
-              disabled={saving}
-              onClick={saveBuffResult}
-              className="mt-4 rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white disabled:bg-gray-400"
+              type="button"
+              onClick={() => setActiveTab("repair")}
+              className={`flex-1 rounded-xl px-4 py-3 text-sm font-bold ${
+                activeTab === "repair"
+                  ? "bg-black text-white"
+                  : "bg-white text-gray-700"
+              }`}
             >
-              {saving ? "Saving..." : "Save & Move To QC"}
+              Repair
             </button>
-          </Panel>
+          </div>
+
+          {activeTab === "buff" && (
+            <Panel title="Buff / Final Polish Result">
+              <div className="grid gap-3 md:grid-cols-3">
+                <Field label="Polisher Name">
+                  <input
+                    value={polisherName}
+                    onChange={(e) => setPolisherName(e.target.value)}
+                    className="input"
+                  />
+                </Field>
+
+                <Field label="Issued Pieces">
+                  <input
+                    type="number"
+                    value={issuedPieces}
+                    onChange={(e) => setIssuedPieces(e.target.value)}
+                    className="input"
+                  />
+                </Field>
+
+                <Field label="Issued Weight">
+                  <input
+                    type="number"
+                    step="0.001"
+                    value={issuedWeight}
+                    onChange={(e) => setIssuedWeight(e.target.value)}
+                    className="input"
+                  />
+                </Field>
+
+                <Field label="Received Pieces">
+                  <input
+                    type="number"
+                    value={receivedPieces}
+                    onChange={(e) => setReceivedPieces(e.target.value)}
+                    className="input"
+                  />
+                </Field>
+
+                <Field label="Received Weight">
+                  <input
+                    type="number"
+                    step="0.001"
+                    value={receivedWeight}
+                    onChange={(e) => setReceivedWeight(e.target.value)}
+                    className="input"
+                  />
+                </Field>
+
+                <Field label="Rejected Pieces">
+                  <input
+                    type="number"
+                    value={rejectedPieces}
+                    onChange={(e) => setRejectedPieces(e.target.value)}
+                    className="input"
+                  />
+                </Field>
+
+                <Field label="Rejected Weight">
+                  <input
+                    type="number"
+                    step="0.001"
+                    value={rejectedWeight}
+                    onChange={(e) => setRejectedWeight(e.target.value)}
+                    className="input"
+                  />
+                </Field>
+
+                <Field label="Buff Loss">
+                  <div className="rounded-xl bg-orange-50 p-3 text-sm font-bold text-orange-700">
+                    {buffLoss.toFixed(3)} g
+                  </div>
+                </Field>
+
+                <Field label="Buff Loss %">
+                  <div className="rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">
+                    {buffLossPercent.toFixed(2)} %
+                  </div>
+                </Field>
+              </div>
+
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                <GreenStat label="Good To QC" value={`${finalPiecesToQC} pcs`} />
+                <GreenStat
+                  label="Repair Received"
+                  value={`${Number(repairReceivedPieces || 0)} pcs`}
+                />
+                <GreenStat
+                  label="Rejected Scrap"
+                  value={`${Number(rejectedWeight || 0).toFixed(3)}g`}
+                />
+              </div>
+
+              <div className="mt-3">
+                <Field label="Remarks">
+                  <textarea
+                    rows={3}
+                    value={remarks}
+                    onChange={(e) => setRemarks(e.target.value)}
+                    className="input"
+                  />
+                </Field>
+              </div>
+
+              <p className="mt-2 text-xs text-gray-500">
+                Buff Loss = Issued Weight - Received Weight - Rejected Weight -
+                Repair Issued Weight
+              </p>
+
+              <button
+                disabled={saving}
+                onClick={saveBuffResult}
+                className="mt-4 rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white disabled:bg-gray-400"
+              >
+                {saving ? "Saving..." : "Save & Move To Final QC"}
+              </button>
+            </Panel>
+          )}
+
+          {activeTab === "repair" && (
+            <Panel title="Repair Handling">
+              <div className="grid gap-3 md:grid-cols-3">
+                <Field label="Repair Issued Pieces">
+                  <input
+                    type="number"
+                    value={repairIssuedPieces}
+                    onChange={(e) => setRepairIssuedPieces(e.target.value)}
+                    className="input"
+                  />
+                </Field>
+
+                <Field label="Repair Issued Weight">
+                  <input
+                    type="number"
+                    step="0.001"
+                    value={repairIssuedWeight}
+                    onChange={(e) => setRepairIssuedWeight(e.target.value)}
+                    className="input"
+                  />
+                </Field>
+
+                <Field label="Repair Received Pieces">
+                  <input
+                    type="number"
+                    value={repairReceivedPieces}
+                    onChange={(e) => setRepairReceivedPieces(e.target.value)}
+                    className="input"
+                  />
+                </Field>
+
+                <Field label="Repair Received Weight">
+                  <input
+                    type="number"
+                    step="0.001"
+                    value={repairReceivedWeight}
+                    onChange={(e) => setRepairReceivedWeight(e.target.value)}
+                    className="input"
+                  />
+                </Field>
+
+                <Field label="Repair Loss">
+                  <div className="rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">
+                    {repairLoss.toFixed(3)} g
+                  </div>
+                </Field>
+              </div>
+
+              <div className="mt-5 rounded-2xl bg-white p-3">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h4 className="text-sm font-bold">
+                    Findings Issue / Receive
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={addRepairFindingRow}
+                    className="rounded-xl bg-black px-4 py-2 text-xs font-bold text-white"
+                  >
+                    + Add Finding
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  {repairFindingRows.length === 0 ? (
+                    <p className="text-sm text-gray-500">
+                      No findings issued yet.
+                    </p>
+                  ) : (
+                    repairFindingRows.map((row, index) => (
+                      <div
+                        key={index}
+                        className="rounded-2xl border border-gray-200 p-3"
+                      >
+                        <div className="grid gap-2 md:grid-cols-3">
+                          <Field label="Finding">
+                            <select
+                              value={row.finding_item_id}
+                              onChange={(e) =>
+                                updateRepairFinding(
+                                  index,
+                                  "finding_item_id",
+                                  e.target.value
+                                )
+                              }
+                              className="input"
+                            >
+                              <option value="">Select finding</option>
+                              {findings.map((f) => (
+                                <option key={f.id} value={f.id}>
+                                  {f.item_name}
+                                </option>
+                              ))}
+                            </select>
+                          </Field>
+
+                          <Field label="KT">
+                            <input
+                              value={row.kt}
+                              onChange={(e) =>
+                                updateRepairFinding(
+                                  index,
+                                  "kt",
+                                  e.target.value
+                                )
+                              }
+                              className="input"
+                            />
+                          </Field>
+
+                          <Field label="Issued Wt">
+                            <input
+                              type="number"
+                              step="0.001"
+                              value={row.issued_weight}
+                              onChange={(e) =>
+                                updateRepairFinding(
+                                  index,
+                                  "issued_weight",
+                                  e.target.value
+                                )
+                              }
+                              className="input"
+                            />
+                          </Field>
+
+                          <Field label="Issued Qty">
+                            <input
+                              type="number"
+                              value={row.issued_qty}
+                              onChange={(e) =>
+                                updateRepairFinding(
+                                  index,
+                                  "issued_qty",
+                                  e.target.value
+                                )
+                              }
+                              className="input"
+                            />
+                          </Field>
+
+                          <Field label="Received Wt">
+                            <input
+                              type="number"
+                              step="0.001"
+                              value={row.received_weight}
+                              onChange={(e) =>
+                                updateRepairFinding(
+                                  index,
+                                  "received_weight",
+                                  e.target.value
+                                )
+                              }
+                              className="input"
+                            />
+                          </Field>
+
+                          <Field label="Received Qty">
+                            <input
+                              type="number"
+                              value={row.received_qty}
+                              onChange={(e) =>
+                                updateRepairFinding(
+                                  index,
+                                  "received_qty",
+                                  e.target.value
+                                )
+                              }
+                              className="input"
+                            />
+                          </Field>
+
+                          <Field label="Remarks">
+                            <input
+                              value={row.remarks}
+                              onChange={(e) =>
+                                updateRepairFinding(
+                                  index,
+                                  "remarks",
+                                  e.target.value
+                                )
+                              }
+                              className="input"
+                            />
+                          </Field>
+
+                          <div className="flex items-end">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setRepairFindingRows((p) =>
+                                  p.filter((_, i) => i !== index)
+                                )
+                              }
+                              className="w-full rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <GreenStat
+                    label="Findings Issued"
+                    value={`${repairFindingsIssued.toFixed(3)}g`}
+                  />
+                  <GreenStat
+                    label="Findings Received"
+                    value={`${repairFindingsReceived.toFixed(3)}g`}
+                  />
+                </div>
+              </div>
+
+              <div className="mt-5 rounded-2xl bg-white p-3">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h4 className="text-sm font-bold">Add Loss Type</h4>
+                  <button
+                    type="button"
+                    onClick={addRepairLossRow}
+                    className="rounded-xl bg-black px-4 py-2 text-xs font-bold text-white"
+                  >
+                    + Add Loss
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  {repairLossRows.length === 0 ? (
+                    <p className="text-sm text-gray-500">
+                      No repair loss added.
+                    </p>
+                  ) : (
+                    repairLossRows.map((row, index) => (
+                      <div
+                        key={index}
+                        className="rounded-2xl border border-gray-200 p-3"
+                      >
+                        <div className="grid gap-2 md:grid-cols-3">
+                          <Field label="Loss Type">
+                            <select
+                              value={row.loss_type}
+                              onChange={(e) =>
+                                updateRepairLoss(
+                                  index,
+                                  "loss_type",
+                                  e.target.value
+                                )
+                              }
+                              className="input"
+                            >
+                              <option value="">Select loss type</option>
+                              <option value="Buff Loss">Buff Loss</option>
+                              <option value="Ghis">Ghis</option>
+                              <option value="Scrap">Scrap</option>
+                              <option value="Other">Other</option>
+                            </select>
+                          </Field>
+
+                          <Field label="Weight">
+                            <input
+                              type="number"
+                              step="0.001"
+                              value={row.weight}
+                              onChange={(e) =>
+                                updateRepairLoss(
+                                  index,
+                                  "weight",
+                                  e.target.value
+                                )
+                              }
+                              className="input"
+                            />
+                          </Field>
+
+                          <Field label="Remarks">
+                            <input
+                              value={row.remarks}
+                              onChange={(e) =>
+                                updateRepairLoss(
+                                  index,
+                                  "remarks",
+                                  e.target.value
+                                )
+                              }
+                              className="input"
+                            />
+                          </Field>
+
+                          <div className="flex items-end">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setRepairLossRows((p) =>
+                                  p.filter((_, i) => i !== index)
+                                )
+                              }
+                              className="w-full rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <p className="mt-3 text-xs text-gray-500">
+                Repair Loss = Repair Issued Weight + Findings Issued - Repair
+                Received Weight - Findings Received
+              </p>
+            </Panel>
+          )}
         </div>
       )}
     </section>
@@ -484,7 +1074,7 @@ function Header() {
       <div>
         <h1 className="text-2xl font-bold md:text-3xl">Buff / Final Polish</h1>
         <p className="text-sm text-gray-600">
-          Buff result, rejected scrap, repair queue and buff loss tracking.
+          Buff result, repair handling, findings and loss tracking.
         </p>
       </div>
 

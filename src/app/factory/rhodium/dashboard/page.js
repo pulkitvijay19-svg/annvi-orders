@@ -100,9 +100,6 @@ function RhodiumCard({ batch, isOpen, onOpen, onRefresh }) {
   const [receivedPieces, setReceivedPieces] = useState("");
   const [receivedWeight, setReceivedWeight] = useState("");
 
-  const [repairPieces, setRepairPieces] = useState("");
-  const [repairWeight, setRepairWeight] = useState("");
-
   const [rejectedPieces, setRejectedPieces] = useState("");
   const [rejectedWeight, setRejectedWeight] = useState("");
 
@@ -120,7 +117,6 @@ function RhodiumCard({ batch, isOpen, onOpen, onRefresh }) {
 const rhodiumDifference =
   Number(issuedWeight || 0) -
   Number(receivedWeight || 0) -
-  Number(repairWeight || 0) -
   Number(rejectedWeight || 0);
 
 const absDifference = Math.abs(rhodiumDifference);
@@ -181,8 +177,8 @@ const absDifference = Math.abs(rhodiumDifference);
   }
 
   async function saveRhodiumResult() {
-    if (!receivedWeight && !repairWeight && !rejectedWeight) {
-      alert("Received / repair / rejected weight me se kuch enter karo");
+    if (!receivedWeight && !rejectedWeight) {
+  alert("Received / rejected weight me se kuch enter karo");
       return;
     }
 
@@ -199,8 +195,8 @@ const absDifference = Math.abs(rhodiumDifference);
         received_pieces: Number(receivedPieces || 0),
         received_weight: Number(receivedWeight || 0),
 
-        repair_pieces: Number(repairPieces || 0),
-        repair_weight: Number(repairWeight || 0),
+        repair_pieces: 0,
+repair_weight: 0,
 
         rejected_pieces: Number(rejectedPieces || 0),
         rejected_weight: Number(rejectedWeight || 0),
@@ -216,26 +212,6 @@ const absDifference = Math.abs(rhodiumDifference);
       return;
     }
 
-    if (Number(repairPieces || 0) > 0 || Number(repairWeight || 0) > 0) {
-      const { error: repairError } = await supabase.from("repair_queue").insert([
-        {
-          casting_batch_id: batch.id,
-          source_process: "Rhodium / Plating",
-          kt: batch.kt,
-          pending_pieces: Number(repairPieces || 0),
-          pending_weight: Number(repairWeight || 0),
-          status: "Pending",
-          remarks: `Repair from Rhodium / Plating - ${batch.batch_no}`,
-        },
-      ]);
-
-      if (repairError) {
-        setSaving(false);
-        alert(repairError.message);
-        return;
-      }
-    }
-
     const scrapOk = await stockInRejectedScrap();
     if (!scrapOk) {
       setSaving(false);
@@ -244,11 +220,12 @@ const absDifference = Math.abs(rhodiumDifference);
 
     const { error: updateError } = await supabase
       .from("casting_batches")
-      .update({
-        status: "Ready",
-        current_pieces: Number(receivedPieces || 0),
-        current_weight: Number(receivedWeight || 0),
-      })
+.update({
+  status: "Tag Print",
+  current_process: "tag-print",
+  current_pieces: Number(receivedPieces || 0),
+  current_weight: Number(receivedWeight || 0),
+})
       .eq("id", batch.id);
 
 const orderIds = [
@@ -280,7 +257,7 @@ if (orderIds.length > 0) {
     }
 
     setSaving(false);
-    alert("Rhodium / Plating saved. Batch moved to Ready.");
+    alert("Rhodium / Plating saved. Batch moved to Tag Print.");
     onRefresh();
   }
 
@@ -375,25 +352,6 @@ if (orderIds.length > 0) {
                 />
               </Field>
 
-              <Field label="Repair Pieces">
-                <input
-                  type="number"
-                  value={repairPieces}
-                  onChange={(e) => setRepairPieces(e.target.value)}
-                  className="input"
-                />
-              </Field>
-
-              <Field label="Repair Weight">
-                <input
-                  type="number"
-                  step="0.001"
-                  value={repairWeight}
-                  onChange={(e) => setRepairWeight(e.target.value)}
-                  className="input"
-                />
-              </Field>
-
               <Field label="Rejected Pieces">
                 <input
                   type="number"
@@ -425,10 +383,10 @@ if (orderIds.length > 0) {
                 label="Ready Pieces"
                 value={`${Number(receivedPieces || 0)} pcs`}
               />
-              <GreenStat
-                label="Repair Queue"
-                value={`${Number(repairPieces || 0)} pcs`}
-              />
+<GreenStat
+  label="Rhodium Difference"
+  value={`${rhodiumDifference.toFixed(3)}g`}
+/>
               <GreenStat
                 label="Rejected Scrap"
                 value={`${Number(rejectedWeight || 0).toFixed(3)}g`}
@@ -447,8 +405,7 @@ if (orderIds.length > 0) {
             </div>
 
             <p className="mt-2 text-xs text-gray-500">
-              Rhodium Difference = Issued Weight - Received Weight - Repair
-              Weight - Rejected Weight
+              Rhodium Difference = Issued Weight - Received Weight - Rejected Weight
             </p>
 
             <button

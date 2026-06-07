@@ -147,6 +147,10 @@ export default function DashboardPage() {
 
   const recentOrders = orders.slice(0, 8);
 
+  const isFactoryAdmin =
+  user?.email === "pulkit.vijay19@gmail.com" ||
+  user?.email?.includes("pulkit");
+
   if (authLoading) {
     return (
       <main className="min-h-screen bg-slate-100 p-6">
@@ -210,7 +214,17 @@ export default function DashboardPage() {
             >
               Sample Catalog
 
+
             </Link>
+  
+{isFactoryAdmin && (
+  <Link
+    href="/factory"
+    className="rounded-xl bg-yellow-600 px-5 py-3 text-sm font-semibold text-white"
+  >
+    🏭 Manufacturing
+  </Link>
+)}
           </div>
         </div>
 

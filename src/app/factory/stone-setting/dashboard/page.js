@@ -564,6 +564,88 @@ for (const row of repairLossRows) {
     },
   ]);
 
+const lossWeight = Number(row.weight || 0);
+
+if (row.loss_type === "Buff Loss") {
+  const { error: buffLossError } = await supabase
+    .from("buff_loss_records")
+    .insert([
+      {
+        casting_batch_id: batch.id,
+        kt: batch.kt,
+        loss_weight: lossWeight,
+        batch_no: batch.batch_no,
+        party_name: parties.join(", "),
+        recovery_status: "Pending",
+        remarks:
+          row.remarks ||
+          `${row.loss_type} from ${batch.batch_no}`,
+      },
+    ]);
+
+  if (buffLossError) {
+    setSaving(false);
+    alert(buffLossError.message);
+    return;
+  }
+}
+
+if (row.loss_type === "Ghis") {
+  const { error: ghisError } = await supabase
+    .from("ghis_records")
+    .insert([
+      {
+        casting_batch_id: batch.id,
+        kt: batch.kt,
+        source_process: "Stone Setting", // Stone Setting page me isko "Stone Setting" karna
+        ghis_weight: lossWeight,
+        recovered_weight: 0,
+        recovery_loss: 0,
+        recovery_status: "Pending",
+        remarks:
+          row.remarks ||
+          `${row.loss_type} from ${batch.batch_no}`,
+      },
+    ]);
+
+  if (ghisError) {
+    setSaving(false);
+    alert(ghisError.message);
+    return;
+  }
+}
+
+if (row.loss_type === "Scrap") {
+  const scrapItemId = await getScrapItemId();
+
+  if (scrapItemId) {
+    const { error: scrapError } = await supabase
+      .from("inventory_transactions")
+      .insert([
+        {
+          inventory_item_id: scrapItemId,
+          kt: batch.kt,
+          transaction_type: "Stock In",
+          purpose: "Repair Loss Scrap",
+          reference_no: batch.batch_no,
+          weight: lossWeight,
+          quantity: 0,
+          weight_source: "manual",
+          remarks:
+            row.remarks ||
+            `${row.loss_type} from ${batch.batch_no}`,
+        },
+      ]);
+
+    if (scrapError) {
+      setSaving(false);
+      alert(scrapError.message);
+      return;
+    }
+  }
+}
+
+
   if (row.loss_type === "Scrap") {
     const { data: scrapItem } = await supabase
       .from("inventory_items")
