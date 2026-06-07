@@ -386,19 +386,21 @@ function getInventoryItemId(sourceType) {
       .from("casting_batches")
       .insert([
         {
-          batch_no: batchNo,
-          kt: selectedKt,
-          tree_weight: Number(treeWeight || 0),
-          suggested_metal_weight: suggestedMetalWeight,
-          actual_metal_weight: targetMetal,
-          target_gold_percent: Number(selectedFormula?.gold_percent || 0),
-          alloy_required: calculations.totalAlloyRequired,
-          fine_995_required: calculations.total995Required,
-          total_target_metal_generated: calculations.generatedMetal,
-          remaining_target_metal: calculations.remainingMetal,
-          created_by: user?.id || null,
-          status: "Draft",
-        },
+  batch_no: batchNo,
+  order_id: selectedOrderIds[0],
+  kt: selectedKt,
+  tree_weight: Number(treeWeight || 0),
+  suggested_metal_weight: suggestedMetalWeight,
+  actual_metal_weight: targetMetal,
+  target_gold_percent: Number(selectedFormula?.gold_percent || 0),
+  alloy_required: calculations.totalAlloyRequired,
+  fine_995_required: calculations.total995Required,
+  total_target_metal_generated: calculations.generatedMetal,
+  remaining_target_metal: calculations.remainingMetal,
+  created_by: user?.id || null,
+  status: "Casting",
+  current_process: "casting",
+},
       ])
       .select()
       .single();

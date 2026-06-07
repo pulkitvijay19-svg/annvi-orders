@@ -351,10 +351,30 @@ function RepairCard({ group, findings, transactions, isOpen, onOpen, onRefresh }
             weight_source: "manual",
             remarks: `${row.finding_name} issued in final repair`,
           },
+          
         ]);
+
       }
+      const receiveWt = Number(row.received_weight || 0);
+
+if (receiveWt > 0) {
+  await supabase.from("inventory_transactions").insert([
+    {
+      inventory_item_id: row.finding_item_id,
+      kt: row.kt,
+      transaction_type: "Stock In",
+      purpose: "Final Repair Finding Return",
+      reference_no: batch.batch_no,
+      weight: receiveWt,
+      quantity: Number(row.received_qty || 0),
+      weight_source: "manual",
+      remarks: `${row.finding_name} received back from final repair`,
+    },
+  ]);
+}
     }
     
+
 
     for (const row of lossRows) {
       const wt = Number(row.weight || 0);

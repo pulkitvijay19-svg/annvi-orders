@@ -39,7 +39,7 @@ const { data, error } = await supabase
   .from("orders")
   .select("*")
   .eq("status", "COMPLETED")
-  .order("created_at", { ascending: false });
+  .order("updated_at", { ascending: false });
 
     if (error) alert(error.message);
 
@@ -47,47 +47,89 @@ const { data, error } = await supabase
     setLoading(false);
   }
 
-  async function openOrder(order) {
-    setSelectedOrder(order);
+async function openOrder(order) {
+  setSelectedOrder(order);
+  setItems([]);
 
-    const { data, error } = await supabase
-      .from("order_items")
-      .select("*")
-      .eq("order_id", order.id)
-      .order("created_at", { ascending: true });
+  const { data: batches, error: batchError } = await supabase
+    .from("casting_batches")
+    .select(`
+      id,
+      batch_no,
+      kt,
+      casting_batch_items(category)
+    `)
+    .eq("order_id", order.id);
 
-    if (error) {
-      alert(error.message);
-      return;
-    }
-
-    const rows = [];
-
-    (data || []).forEach((item) => {
-      const qty = Number(item.quantity || 1);
-
-      for (let i = 1; i <= qty; i++) {
-        rows.push({
-          rowKey: `${item.id}-${i}`,
-          orderItemId: item.id,
-          category: item.category,
-          karat: item.gold_kt || "",
-          brand: "Annvi Gold",
-          grossWeight: "",
-          lessWeight: "0.000",
-          stoneCharges: "0",
-          netWeight: "",
-          tagId: makeTagId(order.order_no, rows.length + 1),
-          qrValue: makeTagId(order.order_no, rows.length + 1),
-          sampleUniqueId: item.sample_unique_id || "",
-          dieNo: item.die_no || "",
-        });
-      }
-    });
-
-    setItems(rows);
+  if (batchError) {
+    alert(batchError.message);
+    return;
   }
 
+  const batchIds = (batches || []).map((b) => b.id);
+
+  if (batchIds.length === 0) {
+    alert("Is order ka linked casting batch nahi mila.");
+    return;
+  }
+
+  const { data: rhodiumRows, error: rhodiumError } = await supabase
+    .from("rhodium_results")
+    .select("*")
+    .in("casting_batch_id", batchIds)
+    .order("created_at", { ascending: true });
+
+  if (rhodiumError) {
+    alert(rhodiumError.message);
+    return;
+  }
+
+  const rows = [];
+
+  (rhodiumRows || []).forEach((rhodium) => {
+    const batch = (batches || []).find(
+      (b) => b.id === rhodium.casting_batch_id
+    );
+
+    const categories = [
+      ...new Set(
+        (batch?.casting_batch_items || [])
+          .map((i) => i.category)
+          .filter(Boolean)
+      ),
+    ];
+
+    const qty = Number(rhodium.received_pieces || 0);
+
+    for (let i = 1; i <= qty; i++) {
+      const tagId = makeTagId(order.order_no, rows.length + 1);
+
+      rows.push({
+        rowKey: `${rhodium.id}-${i}`,
+        rhodiumResultId: rhodium.id,
+        orderItemId: null,
+
+        category: categories.join(", ") || "Jewellery",
+        karat: batch?.kt || "",
+        brand: "Annvi Gold",
+
+        grossWeight: "",
+        lessWeight: "0.000",
+        stoneCharges: "0",
+        netWeight: "",
+
+        tagId,
+        qrValue: tagId,
+      });
+    }
+  });
+
+  if (rows.length === 0) {
+    alert("Is order me Rhodium received pieces nahi mile.");
+  }
+
+  setItems(rows);
+}
   function updateItem(rowKey, field, value) {
     setItems((prev) =>
       prev.map((item) => {
@@ -157,11 +199,11 @@ async function printTag(item) {
           net_weight: payload.nw,
 
           category: item.category,
-          sample_unique_id: item.sampleUniqueId,
-          die_no: item.dieNo,
+          sample_unique_id: null,
+die_no: null,
 
           is_inventory_created: true,
-          remarks: `${item.category || ""} ${item.sampleUniqueId || ""}`,
+          remarks: `${item.category || ""}`,
         },
       ])
       .select()
@@ -186,8 +228,8 @@ async function printTag(item) {
           party_name: selectedOrder.customer_name,
 
           category: item.category,
-          sample_unique_id: item.sampleUniqueId,
-          die_no: item.dieNo,
+          sample_unique_id: null,
+die_no: null,
 
           brand: payload.brand,
           karat: payload.karat,
@@ -302,10 +344,7 @@ async function printTag(item) {
                           <p className="font-bold">
                             Piece {index + 1} · {item.category}
                           </p>
-                          <p className="text-xs text-gray-500">
-                            Sample: {item.sampleUniqueId || "-"} · Die:{" "}
-                            {item.dieNo || "-"}
-                          </p>
+                         
                         </div>
 
                         <button

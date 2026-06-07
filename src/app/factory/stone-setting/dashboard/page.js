@@ -11,6 +11,7 @@ export default function StoneSettingDashboardPage() {
   const [batches, setBatches] = useState([]);
   const [stones, setStones] = useState([]);
   const [transactions, setTransactions] = useState([]);
+  const [findings, setFindings] = useState([]);
   const [openId, setOpenId] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -38,11 +39,19 @@ export default function StoneSettingDashboardPage() {
       .from("inventory_transactions")
       .select("*");
 
+      const { data: findingData } = await supabase
+  .from("inventory_items")
+  .select("*")
+  .eq("is_active", true)
+  .eq("item_type", "Finding")
+  .order("item_name", { ascending: true });
+
     if (batchError) alert(batchError.message);
 
     setBatches(batchData || []);
     setStones(stoneData || []);
     setTransactions(txData || []);
+    setFindings(findingData || []);
     setLoading(false);
   }
 
@@ -71,14 +80,15 @@ export default function StoneSettingDashboardPage() {
           <div className="grid gap-4 xl:grid-cols-2">
             {batches.map((batch) => (
               <StoneSettingCard
-                key={batch.id}
-                batch={batch}
-                stones={stones}
-                transactions={transactions}
-                isOpen={openId === batch.id}
-                onOpen={() => setOpenId(openId === batch.id ? null : batch.id)}
-                onRefresh={fetchData}
-              />
+  key={batch.id}
+  batch={batch}
+  stones={stones}
+  findings={findings}
+  transactions={transactions}
+  isOpen={openId === batch.id}
+  onOpen={() => setOpenId(openId === batch.id ? null : batch.id)}
+  onRefresh={fetchData}
+/>
             ))}
           </div>
         )}
@@ -105,12 +115,15 @@ export default function StoneSettingDashboardPage() {
 function StoneSettingCard({
   batch,
   stones,
+  findings,
   transactions,
   isOpen,
   onOpen,
   onRefresh,
 }) {
   const items = batch.casting_batch_items || [];
+
+  const [activeTab, setActiveTab] = useState("stone");
 
   const [setterName, setSetterName] = useState("");
   const [issuedBy, setIssuedBy] = useState("");
@@ -125,8 +138,10 @@ function StoneSettingCard({
   const [receivedPieces, setReceivedPieces] = useState("");
   const [receivedGoldWeight, setReceivedGoldWeight] = useState("");
 
-  const [repairPieces, setRepairPieces] = useState("");
-  const [repairWeight, setRepairWeight] = useState("");
+  const [repairIssuedPieces, setRepairIssuedPieces] = useState("");
+  const [repairIssuedWeight, setRepairIssuedWeight] = useState("");
+  const [repairReceivedPieces, setRepairReceivedPieces] = useState("");
+  const [repairReceivedWeight, setRepairReceivedWeight] = useState("");
 
   const [rejectedPieces, setRejectedPieces] = useState("");
   const [rejectedWeight, setRejectedWeight] = useState("");
@@ -134,6 +149,8 @@ function StoneSettingCard({
   const [remarks, setRemarks] = useState("");
   const [stoneRows, setStoneRows] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [repairFindingRows, setRepairFindingRows] = useState([]);
+  const [repairLossRows, setRepairLossRows] = useState([]);
 
   const parties = [
     ...new Set(items.map((i) => i.orders?.customer_name).filter(Boolean)),
@@ -155,20 +172,25 @@ function StoneSettingCard({
 
   const stoneIncreased = totalStoneIssued - totalStoneReceived;
 
-const stoneChallan =
-  Number(issuedGoldWeight || 0) +
-  totalStoneIssued -
-  (
-    Number(receivedGoldWeight || 0) +
-    totalStoneReceived +
-    Number(repairWeight || 0) +
-    Number(rejectedWeight || 0)
-  );
+  const stoneChallan =
+    Number(issuedGoldWeight || 0) +
+    totalStoneIssued -
+    (
+      Number(receivedGoldWeight || 0) +
+      totalStoneReceived +
+      Number(rejectedWeight || 0) +
+      Number(repairIssuedWeight || 0)
+    );
+
+  const finalPiecesToBuff =
+    Number(receivedPieces || 0) + Number(repairReceivedPieces || 0);
+
+  const finalWeightToBuff =
+    Number(receivedGoldWeight || 0) + Number(repairReceivedWeight || 0);
 
   function stockBalance(itemId) {
     return transactions.reduce((sum, tx) => {
       if (tx.inventory_item_id !== itemId) return sum;
-
       return (
         sum +
         (tx.transaction_type === "Stock Out" ? -1 : 1) *
@@ -215,6 +237,71 @@ const stoneChallan =
     setStoneRows((prev) => prev.filter((_, i) => i !== index));
   }
 
+  function addRepairFindingRow() {
+  setRepairFindingRows((prev) => [
+    ...prev,
+    {
+      finding_item_id: "",
+      finding_name: "",
+      kt: batch.kt,
+      issued_weight: "",
+      issued_qty: "",
+      received_weight: "",
+      received_qty: "",
+      remarks: "",
+    },
+  ]);
+}
+
+function updateRepairFinding(index, field, value) {
+  setRepairFindingRows((prev) =>
+    prev.map((row, i) => {
+      if (i !== index) return row;
+
+      const next = { ...row, [field]: value };
+
+      if (field === "finding_item_id") {
+        const item = findings.find((f) => f.id === value);
+        next.finding_name = item?.item_name || "";
+      }
+
+      return next;
+    })
+  );
+}
+
+function addRepairLossRow() {
+  setRepairLossRows((prev) => [
+    ...prev,
+    {
+      loss_type: "",
+      weight: "",
+      remarks: "",
+    },
+  ]);
+}
+
+function updateRepairLoss(index, field, value) {
+  setRepairLossRows((prev) =>
+    prev.map((row, i) => (i === index ? { ...row, [field]: value } : row))
+  );
+}
+
+const repairFindingsIssued = repairFindingRows.reduce(
+  (sum, row) => sum + Number(row.issued_weight || 0),
+  0
+);
+
+const repairFindingsReceived = repairFindingRows.reduce(
+  (sum, row) => sum + Number(row.received_weight || 0),
+  0
+);
+
+const repairLoss =
+  Number(repairIssuedWeight || 0) +
+  repairFindingsIssued -
+  (Number(repairReceivedWeight || 0) + repairFindingsReceived);
+
   async function stockInRejectedScrap() {
     if (Number(rejectedWeight || 0) <= 0) return true;
 
@@ -258,7 +345,7 @@ const stoneChallan =
   }
 
   async function saveStoneSetting() {
-    if (!receivedGoldWeight && !repairWeight && !rejectedWeight) {
+    if (!receivedGoldWeight && !repairReceivedWeight && !rejectedWeight) {
       alert("Received / repair / rejected weight me se kuch enter karo");
       return;
     }
@@ -296,8 +383,8 @@ const stoneChallan =
           received_pieces: Number(receivedPieces || 0),
           received_weight: Number(receivedGoldWeight || 0),
 
-          repair_pieces: Number(repairPieces || 0),
-          repair_weight: Number(repairWeight || 0),
+          repair_pieces: Number(repairReceivedPieces || 0),
+          repair_weight: Number(repairReceivedWeight || 0),
 
           rejected_pieces: Number(rejectedPieces || 0),
           rejected_weight: Number(rejectedWeight || 0),
@@ -408,25 +495,100 @@ const stoneChallan =
       }
     }
 
-    if (Number(repairPieces || 0) > 0 || Number(repairWeight || 0) > 0) {
-      const { error: repairError } = await supabase.from("repair_queue").insert([
+for (const row of repairFindingRows) {
+  if (!row.finding_item_id) continue;
+
+  const issuedWeight = Number(row.issued_weight || 0);
+  const receivedWeight = Number(row.received_weight || 0);
+
+  await supabase.from("process_repair_findings").insert([
+    {
+      casting_batch_id: batch.id,
+      process_name: "Stone Setting",
+      finding_item_id: row.finding_item_id,
+      finding_name: row.finding_name,
+      kt: row.kt,
+      issued_weight: issuedWeight,
+      issued_qty: Number(row.issued_qty || 0),
+      received_weight: receivedWeight,
+      received_qty: Number(row.received_qty || 0),
+      remarks: row.remarks || "",
+    },
+  ]);
+
+  if (issuedWeight > 0) {
+    await supabase.from("inventory_transactions").insert([
+      {
+        inventory_item_id: row.finding_item_id,
+        kt: row.kt,
+        transaction_type: "Stock Out",
+        purpose: "Stone Setting Repair Finding Issue",
+        reference_no: batch.batch_no,
+        weight: issuedWeight,
+        quantity: Number(row.issued_qty || 0),
+        weight_source: "manual",
+        remarks: `${row.finding_name} issued for stone setting repair`,
+      },
+    ]);
+  }
+
+  if (receivedWeight > 0) {
+    await supabase.from("inventory_transactions").insert([
+      {
+        inventory_item_id: row.finding_item_id,
+        kt: row.kt,
+        transaction_type: "Stock In",
+        purpose: "Stone Setting Repair Finding Return",
+        reference_no: batch.batch_no,
+        weight: receivedWeight,
+        quantity: Number(row.received_qty || 0),
+        weight_source: "manual",
+        remarks: `${row.finding_name} returned from stone setting repair`,
+      },
+    ]);
+  }
+}
+
+
+for (const row of repairLossRows) {
+  if (!row.loss_type || Number(row.weight || 0) <= 0) continue;
+
+  await supabase.from("process_repair_loss_breakup").insert([
+    {
+      casting_batch_id: batch.id,
+      process_name: "Stone Setting",
+      loss_type: row.loss_type,
+      kt: batch.kt,
+      weight: Number(row.weight || 0),
+      remarks: row.remarks || "",
+    },
+  ]);
+
+  if (row.loss_type === "Scrap") {
+    const { data: scrapItem } = await supabase
+      .from("inventory_items")
+      .select("id")
+      .eq("item_type", "Scrap")
+      .eq("item_name", "Casting Scrap")
+      .maybeSingle();
+
+    if (scrapItem?.id) {
+      await supabase.from("inventory_transactions").insert([
         {
-          casting_batch_id: batch.id,
-          source_process: "Stone Setting",
+          inventory_item_id: scrapItem.id,
           kt: batch.kt,
-          pending_pieces: Number(repairPieces || 0),
-          pending_weight: Number(repairWeight || 0),
-          status: "Pending",
-          remarks: `Repair from Stone Setting - ${batch.batch_no}`,
+          transaction_type: "Stock In",
+          purpose: "Stone Setting Repair Loss Scrap",
+          reference_no: batch.batch_no,
+          weight: Number(row.weight || 0),
+          quantity: 0,
+          weight_source: "manual",
+          remarks: row.remarks || "Stone setting repair loss moved to scrap",
         },
       ]);
-
-      if (repairError) {
-        setSaving(false);
-        alert(repairError.message);
-        return;
-      }
     }
+  }
+}
 
     const scrapOk = await stockInRejectedScrap();
 
@@ -439,8 +601,9 @@ const stoneChallan =
       .from("casting_batches")
       .update({
         status: "Buff",
-        current_pieces: Number(receivedPieces || 0),
-        current_weight: Number(receivedGoldWeight || 0),
+        current_process: "buff",
+        current_pieces: finalPiecesToBuff,
+        current_weight: finalWeightToBuff,
       })
       .eq("id", batch.id);
 
@@ -498,279 +661,497 @@ const stoneChallan =
         <div className="mt-5 space-y-4">
           <ItemsSummary items={items} />
 
-          <Panel title="Stone Issue / Receive">
-            <div className="mb-3 grid gap-3 md:grid-cols-2">
-              <Field label="Issued By">
-                <input
-                  value={issuedBy}
-                  onChange={(e) => setIssuedBy(e.target.value)}
-                  className="input"
-                />
-              </Field>
-
-              <div className="flex items-end">
-                <button
-                  onClick={addStoneRow}
-                  className="w-full rounded-xl bg-black px-4 py-3 text-sm font-semibold text-white"
-                >
-                  + Add Stone
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              {stoneRows.length === 0 ? (
-                <p className="text-sm text-gray-500">No stones issued yet.</p>
-              ) : (
-                stoneRows.map((row, index) => (
-                  <div
-                    key={index}
-                    className="rounded-2xl border border-gray-200 bg-white p-3"
-                  >
-                    <div className="grid gap-2 md:grid-cols-3">
-                      <Field label="Stone">
-                        <select
-                          value={row.stone_item_id}
-                          onChange={(e) =>
-                            updateStone(index, "stone_item_id", e.target.value)
-                          }
-                          className="input"
-                        >
-                          <option value="">Select stone</option>
-                          {stones.map((s) => (
-                            <option key={s.id} value={s.id}>
-                              {s.item_name}
-                            </option>
-                          ))}
-                        </select>
-                      </Field>
-
-                      <Field label="Stone Type">
-                        <input
-                          value={row.stone_type}
-                          onChange={(e) =>
-                            updateStone(index, "stone_type", e.target.value)
-                          }
-                          className="input"
-                        />
-                      </Field>
-
-                      <Field label="Stone Size">
-                        <input
-                          value={row.stone_size}
-                          onChange={(e) =>
-                            updateStone(index, "stone_size", e.target.value)
-                          }
-                          className="input"
-                        />
-                      </Field>
-
-                      <Field label="Stone Issued Weight">
-                        <input
-                          type="number"
-                          step="0.001"
-                          value={row.issued_weight}
-                          onChange={(e) =>
-                            updateStone(index, "issued_weight", e.target.value)
-                          }
-                          className="input"
-                        />
-                      </Field>
-
-                      <Field label="Stone Received Weight">
-                        <input
-                          type="number"
-                          step="0.001"
-                          value={row.returned_weight}
-                          onChange={(e) =>
-                            updateStone(index, "returned_weight", e.target.value)
-                          }
-                          className="input"
-                        />
-                      </Field>
-
-                      <Field label="Stone Increased">
-                        <div className="rounded-xl bg-green-50 p-3 text-sm font-bold text-green-800">
-                          {(
-                            Number(row.issued_weight || 0) -
-                            Number(row.returned_weight || 0)
-                          ).toFixed(3)}
-                          g
-                        </div>
-                      </Field>
-
-                      <Field label="Remarks">
-                        <input
-                          value={row.remarks}
-                          onChange={(e) =>
-                            updateStone(index, "remarks", e.target.value)
-                          }
-                          className="input"
-                        />
-                      </Field>
-
-                      <div className="flex items-end">
-                        <button
-                          onClick={() => removeStone(index)}
-                          className="w-full rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            <div className="mt-3 grid grid-cols-3 gap-2">
-              <GreenStat
-                label="Stone Issued"
-                value={`${totalStoneIssued.toFixed(3)}g`}
-              />
-              <GreenStat
-                label="Stone Received"
-                value={`${totalStoneReceived.toFixed(3)}g`}
-              />
-              <GreenStat
-                label="Stone Increased"
-                value={`${stoneIncreased.toFixed(3)}g`}
-              />
-            </div>
-          </Panel>
-
-          <Panel title="Stone Setting Challan">
-            <div className="grid gap-3 md:grid-cols-3">
-              <Field label="Setter Name">
-                <input
-                  value={setterName}
-                  onChange={(e) => setSetterName(e.target.value)}
-                  className="input"
-                />
-              </Field>
-
-              <Field label="Issued Pieces">
-                <input
-                  type="number"
-                  value={issuedPieces}
-                  onChange={(e) => setIssuedPieces(e.target.value)}
-                  className="input"
-                />
-              </Field>
-
-              <Field label="Gold Pieces Issued Weight">
-                <input
-                  type="number"
-                  step="0.001"
-                  value={issuedGoldWeight}
-                  onChange={(e) => setIssuedGoldWeight(e.target.value)}
-                  className="input"
-                />
-              </Field>
-
-              <Field label="Received Pieces">
-                <input
-                  type="number"
-                  value={receivedPieces}
-                  onChange={(e) => setReceivedPieces(e.target.value)}
-                  className="input"
-                />
-              </Field>
-
-              <Field label="Gold Pieces Received Weight">
-                <input
-                  type="number"
-                  step="0.001"
-                  value={receivedGoldWeight}
-                  onChange={(e) => setReceivedGoldWeight(e.target.value)}
-                  className="input"
-                />
-              </Field>
-
-              <Field label="Repair Pieces">
-                <input
-                  type="number"
-                  value={repairPieces}
-                  onChange={(e) => setRepairPieces(e.target.value)}
-                  className="input"
-                />
-              </Field>
-
-              <Field label="Repair Weight">
-                <input
-                  type="number"
-                  step="0.001"
-                  value={repairWeight}
-                  onChange={(e) => setRepairWeight(e.target.value)}
-                  className="input"
-                />
-              </Field>
-
-              <Field label="Rejected Pieces">
-                <input
-                  type="number"
-                  value={rejectedPieces}
-                  onChange={(e) => setRejectedPieces(e.target.value)}
-                  className="input"
-                />
-              </Field>
-
-              <Field label="Rejected Weight">
-                <input
-                  type="number"
-                  step="0.001"
-                  value={rejectedWeight}
-                  onChange={(e) => setRejectedWeight(e.target.value)}
-                  className="input"
-                />
-              </Field>
-
-              <Field label="Stone Setting Challan">
-                <div className="rounded-xl bg-orange-50 p-3 text-sm font-bold text-orange-700">
-                  {stoneChallan.toFixed(3)} g
-                </div>
-              </Field>
-            </div>
-
-            <div className="mt-3 grid grid-cols-3 gap-2">
-              <GreenStat
-                label="Good To Buff"
-                value={`${Number(receivedPieces || 0)} pcs`}
-              />
-              <GreenStat
-                label="Repair Queue"
-                value={`${Number(repairPieces || 0)} pcs`}
-              />
-              <GreenStat
-                label="Rejected Scrap"
-                value={`${Number(rejectedWeight || 0).toFixed(3)}g`}
-              />
-            </div>
-
-            <div className="mt-3">
-              <Field label="Remarks">
-                <textarea
-                  rows={3}
-                  value={remarks}
-                  onChange={(e) => setRemarks(e.target.value)}
-                  className="input"
-                />
-              </Field>
-            </div>
-
-            <p className="mt-2 text-xs text-gray-500">
-              Stone Setting Challan = (Gold Pieces Issued Weight + Stone Issued
-              Weight) - (Gold Pieces Received Weight + Stone Received Weight)
-            </p>
+          <div className="flex gap-2 rounded-2xl bg-slate-100 p-2">
+            <button
+              type="button"
+              onClick={() => setActiveTab("stone")}
+              className={`flex-1 rounded-xl px-4 py-3 text-sm font-bold ${
+                activeTab === "stone"
+                  ? "bg-black text-white"
+                  : "bg-white text-gray-700"
+              }`}
+            >
+              Stone Setting
+            </button>
 
             <button
-              disabled={saving}
-              onClick={saveStoneSetting}
-              className="mt-4 rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white disabled:bg-gray-400"
+              type="button"
+              onClick={() => setActiveTab("repair")}
+              className={`flex-1 rounded-xl px-4 py-3 text-sm font-bold ${
+                activeTab === "repair"
+                  ? "bg-black text-white"
+                  : "bg-white text-gray-700"
+              }`}
             >
-              {saving ? "Saving..." : "Save & Move To Buff"}
+              Repair
             </button>
-          </Panel>
+          </div>
+
+          {activeTab === "stone" && (
+            <>
+              <Panel title="Stone Issue / Receive">
+                <div className="mb-3 grid gap-3 md:grid-cols-2">
+                  <Field label="Issued By">
+                    <input
+                      value={issuedBy}
+                      onChange={(e) => setIssuedBy(e.target.value)}
+                      className="input"
+                    />
+                  </Field>
+
+                  <div className="flex items-end">
+                    <button
+                      onClick={addStoneRow}
+                      className="w-full rounded-xl bg-black px-4 py-3 text-sm font-semibold text-white"
+                    >
+                      + Add Stone
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {stoneRows.length === 0 ? (
+                    <p className="text-sm text-gray-500">
+                      No stones issued yet.
+                    </p>
+                  ) : (
+                    stoneRows.map((row, index) => (
+                      <div
+                        key={index}
+                        className="rounded-2xl border border-gray-200 bg-white p-3"
+                      >
+                        <div className="grid gap-2 md:grid-cols-3">
+                          <Field label="Stone">
+                            <select
+                              value={row.stone_item_id}
+                              onChange={(e) =>
+                                updateStone(
+                                  index,
+                                  "stone_item_id",
+                                  e.target.value
+                                )
+                              }
+                              className="input"
+                            >
+                              <option value="">Select stone</option>
+                              {stones.map((s) => (
+                                <option key={s.id} value={s.id}>
+                                  {s.item_name}
+                                </option>
+                              ))}
+                            </select>
+                          </Field>
+
+                          <Field label="Stone Type">
+                            <input
+                              value={row.stone_type}
+                              onChange={(e) =>
+                                updateStone(
+                                  index,
+                                  "stone_type",
+                                  e.target.value
+                                )
+                              }
+                              className="input"
+                            />
+                          </Field>
+
+                          <Field label="Stone Size">
+                            <input
+                              value={row.stone_size}
+                              onChange={(e) =>
+                                updateStone(
+                                  index,
+                                  "stone_size",
+                                  e.target.value
+                                )
+                              }
+                              className="input"
+                            />
+                          </Field>
+
+                          <Field label="Stone Issued Weight">
+                            <input
+                              type="number"
+                              step="0.001"
+                              value={row.issued_weight}
+                              onChange={(e) =>
+                                updateStone(
+                                  index,
+                                  "issued_weight",
+                                  e.target.value
+                                )
+                              }
+                              className="input"
+                            />
+                          </Field>
+
+                          <Field label="Stone Received Weight">
+                            <input
+                              type="number"
+                              step="0.001"
+                              value={row.returned_weight}
+                              onChange={(e) =>
+                                updateStone(
+                                  index,
+                                  "returned_weight",
+                                  e.target.value
+                                )
+                              }
+                              className="input"
+                            />
+                          </Field>
+
+                          <Field label="Stone Increased">
+                            <div className="rounded-xl bg-green-50 p-3 text-sm font-bold text-green-800">
+                              {(
+                                Number(row.issued_weight || 0) -
+                                Number(row.returned_weight || 0)
+                              ).toFixed(3)}
+                              g
+                            </div>
+                          </Field>
+
+                          <Field label="Remarks">
+                            <input
+                              value={row.remarks}
+                              onChange={(e) =>
+                                updateStone(index, "remarks", e.target.value)
+                              }
+                              className="input"
+                            />
+                          </Field>
+
+                          <div className="flex items-end">
+                            <button
+                              onClick={() => removeStone(index)}
+                              className="w-full rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  <GreenStat
+                    label="Stone Issued"
+                    value={`${totalStoneIssued.toFixed(3)}g`}
+                  />
+                  <GreenStat
+                    label="Stone Received"
+                    value={`${totalStoneReceived.toFixed(3)}g`}
+                  />
+                  <GreenStat
+                    label="Stone Increased"
+                    value={`${stoneIncreased.toFixed(3)}g`}
+                  />
+                </div>
+              </Panel>
+
+              <Panel title="Stone Setting Challan">
+                <div className="grid gap-3 md:grid-cols-3">
+                  <Field label="Setter Name">
+                    <input
+                      value={setterName}
+                      onChange={(e) => setSetterName(e.target.value)}
+                      className="input"
+                    />
+                  </Field>
+
+                  <Field label="Issued Pieces">
+                    <input
+                      type="number"
+                      value={issuedPieces}
+                      onChange={(e) => setIssuedPieces(e.target.value)}
+                      className="input"
+                    />
+                  </Field>
+
+                  <Field label="Gold Pieces Issued Weight">
+                    <input
+                      type="number"
+                      step="0.001"
+                      value={issuedGoldWeight}
+                      onChange={(e) => setIssuedGoldWeight(e.target.value)}
+                      className="input"
+                    />
+                  </Field>
+
+                  <Field label="Received Pieces">
+                    <input
+                      type="number"
+                      value={receivedPieces}
+                      onChange={(e) => setReceivedPieces(e.target.value)}
+                      className="input"
+                    />
+                  </Field>
+
+                  <Field label="Gold Pieces Received Weight">
+                    <input
+                      type="number"
+                      step="0.001"
+                      value={receivedGoldWeight}
+                      onChange={(e) => setReceivedGoldWeight(e.target.value)}
+                      className="input"
+                    />
+                  </Field>
+
+                  <Field label="Rejected Pieces">
+                    <input
+                      type="number"
+                      value={rejectedPieces}
+                      onChange={(e) => setRejectedPieces(e.target.value)}
+                      className="input"
+                    />
+                  </Field>
+
+                  <Field label="Rejected Weight">
+                    <input
+                      type="number"
+                      step="0.001"
+                      value={rejectedWeight}
+                      onChange={(e) => setRejectedWeight(e.target.value)}
+                      className="input"
+                    />
+                  </Field>
+
+                  <Field label="Stone Setting Challan">
+                    <div className="rounded-xl bg-orange-50 p-3 text-sm font-bold text-orange-700">
+                      {stoneChallan.toFixed(3)} g
+                    </div>
+                  </Field>
+                </div>
+
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  <GreenStat
+                    label="Good To Buff"
+                    value={`${finalPiecesToBuff} pcs`}
+                  />
+                  <GreenStat
+                    label="Repair Received"
+                    value={`${Number(repairReceivedPieces || 0)} pcs`}
+                  />
+                  <GreenStat
+                    label="Rejected Scrap"
+                    value={`${Number(rejectedWeight || 0).toFixed(3)}g`}
+                  />
+                </div>
+
+                <div className="mt-3">
+                  <Field label="Remarks">
+                    <textarea
+                      rows={3}
+                      value={remarks}
+                      onChange={(e) => setRemarks(e.target.value)}
+                      className="input"
+                    />
+                  </Field>
+                </div>
+
+                <p className="mt-2 text-xs text-gray-500">
+                  Stone Setting Challan = Gold Issued + Stone Issued - Gold
+                  Received - Stone Received - Rejected - Repair Issued
+                </p>
+
+                <button
+                  disabled={saving}
+                  onClick={saveStoneSetting}
+                  className="mt-4 rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white disabled:bg-gray-400"
+                >
+                  {saving ? "Saving..." : "Save & Move To Buff"}
+                </button>
+              </Panel>
+            </>
+          )}
+
+          {activeTab === "repair" && (
+  <Panel title="Repair Handling">
+    <div className="grid gap-3 md:grid-cols-3">
+      <Field label="Repair Issued Pieces">
+        <input type="number" value={repairIssuedPieces} onChange={(e) => setRepairIssuedPieces(e.target.value)} className="input" />
+      </Field>
+
+      <Field label="Repair Issued Weight">
+        <input type="number" step="0.001" value={repairIssuedWeight} onChange={(e) => setRepairIssuedWeight(e.target.value)} className="input" />
+      </Field>
+
+      <Field label="Repair Received Pieces">
+        <input type="number" value={repairReceivedPieces} onChange={(e) => setRepairReceivedPieces(e.target.value)} className="input" />
+      </Field>
+
+      <Field label="Repair Received Weight">
+        <input type="number" step="0.001" value={repairReceivedWeight} onChange={(e) => setRepairReceivedWeight(e.target.value)} className="input" />
+      </Field>
+
+      <Field label="Repair Loss">
+        <div className="rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">
+          {repairLoss.toFixed(3)} g
+        </div>
+      </Field>
+    </div>
+
+    <div className="mt-5 rounded-2xl bg-white p-3">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h4 className="text-sm font-bold">Findings Issue / Receive</h4>
+        <button
+          type="button"
+          onClick={addRepairFindingRow}
+          className="rounded-xl bg-black px-4 py-2 text-xs font-bold text-white"
+        >
+          + Add Finding
+        </button>
+      </div>
+
+      <div className="space-y-3">
+        {repairFindingRows.length === 0 ? (
+          <p className="text-sm text-gray-500">No findings issued yet.</p>
+        ) : (
+          repairFindingRows.map((row, index) => (
+            <div key={index} className="rounded-2xl border border-gray-200 p-3">
+              <div className="grid gap-2 md:grid-cols-3">
+                <Field label="Finding">
+                  <select
+                    value={row.finding_item_id}
+                    onChange={(e) => updateRepairFinding(index, "finding_item_id", e.target.value)}
+                    className="input"
+                  >
+                    <option value="">Select finding</option>
+                    {findings.map((f) => (
+                      <option key={f.id} value={f.id}>{f.item_name}</option>
+                    ))}
+                  </select>
+                </Field>
+
+                <Field label="KT">
+                  <input value={row.kt} onChange={(e) => updateRepairFinding(index, "kt", e.target.value)} className="input" />
+                </Field>
+
+                <Field label="Issued Wt">
+                  <input type="number" step="0.001" value={row.issued_weight} onChange={(e) => updateRepairFinding(index, "issued_weight", e.target.value)} className="input" />
+                </Field>
+
+                <Field label="Issued Qty">
+                  <input type="number" value={row.issued_qty} onChange={(e) => updateRepairFinding(index, "issued_qty", e.target.value)} className="input" />
+                </Field>
+
+                <Field label="Received Wt">
+                  <input type="number" step="0.001" value={row.received_weight} onChange={(e) => updateRepairFinding(index, "received_weight", e.target.value)} className="input" />
+                </Field>
+
+                <Field label="Received Qty">
+                  <input type="number" value={row.received_qty} onChange={(e) => updateRepairFinding(index, "received_qty", e.target.value)} className="input" />
+                </Field>
+
+                <Field label="Remarks">
+                  <input value={row.remarks} onChange={(e) => updateRepairFinding(index, "remarks", e.target.value)} className="input" />
+                </Field>
+
+                <div className="flex items-end">
+                  <button
+                    type="button"
+                    onClick={() => setRepairFindingRows((p) => p.filter((_, i) => i !== index))}
+                    className="w-full rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <GreenStat label="Findings Issued" value={`${repairFindingsIssued.toFixed(3)}g`} />
+        <GreenStat label="Findings Received" value={`${repairFindingsReceived.toFixed(3)}g`} />
+      </div>
+    </div>
+
+<div className="mt-5 rounded-2xl bg-white p-3">
+  <div className="mb-3 flex items-center justify-between gap-3">
+    <h4 className="text-sm font-bold">Add Loss Type</h4>
+    <button
+      type="button"
+      onClick={addRepairLossRow}
+      className="rounded-xl bg-black px-4 py-2 text-xs font-bold text-white"
+    >
+      + Add Loss
+    </button>
+  </div>
+
+  <div className="space-y-3">
+    {repairLossRows.length === 0 ? (
+      <p className="text-sm text-gray-500">No repair loss added.</p>
+    ) : (
+      repairLossRows.map((row, index) => (
+        <div key={index} className="rounded-2xl border border-gray-200 p-3">
+          <div className="grid gap-2 md:grid-cols-3">
+            <Field label="Loss Type">
+              <select
+                value={row.loss_type}
+                onChange={(e) =>
+                  updateRepairLoss(index, "loss_type", e.target.value)
+                }
+                className="input"
+              >
+                <option value="">Select loss type</option>
+                <option value="Stone Setting Loss">Stone Setting Loss</option>
+                <option value="Ghis">Ghis</option>
+                <option value="Scrap">Scrap</option>
+                <option value="Other">Other</option>
+              </select>
+            </Field>
+
+            <Field label="Weight">
+              <input
+                type="number"
+                step="0.001"
+                value={row.weight}
+                onChange={(e) =>
+                  updateRepairLoss(index, "weight", e.target.value)
+                }
+                className="input"
+              />
+            </Field>
+
+            <Field label="Remarks">
+              <input
+                value={row.remarks}
+                onChange={(e) =>
+                  updateRepairLoss(index, "remarks", e.target.value)
+                }
+                className="input"
+              />
+            </Field>
+
+            <div className="flex items-end">
+              <button
+                type="button"
+                onClick={() =>
+                  setRepairLossRows((p) => p.filter((_, i) => i !== index))
+                }
+                className="w-full rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700"
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      ))
+    )}
+  </div>
+</div>
+
+
+    <p className="mt-3 text-xs text-gray-500">
+      Repair Loss = Repair Issued Weight + Findings Issued - Repair Received Weight - Findings Received
+    </p>
+  </Panel>
+)}
         </div>
       )}
     </section>

@@ -26,7 +26,7 @@ export default function CastingDashboardPage() {
         ),
         casting_batch_metal_inputs(*)
       `)
-      .not("status", "in", '("Magnet","Casting Failed","Completed")')
+      .in("status", ["Casting", "Casting Completed"])
       .order("created_at", { ascending: false });
 
     if (error) alert(error.message);
@@ -265,14 +265,15 @@ function CastingBatchCard({
     // ✅ Casting loss = issued metal - received pieces weight - scrap weight
     const loss = issueWeight - receivedPiecesWt - scrapWt;
 
-    const ok = await onUpdate(batch.id, {
-      good_pieces: Number(goodPieces || 0),
-      bad_pieces: Number(badPieces || 0),
-      received_weight: receivedPiecesWt,
-      scrap_weight: scrapWt,
-      casting_loss: loss,
-      status: "Casting Completed",
-    });
+const ok = await onUpdate(batch.id, {
+  good_pieces: Number(goodPieces || 0),
+  bad_pieces: Number(badPieces || 0),
+  received_weight: receivedPiecesWt,
+  scrap_weight: scrapWt,
+  casting_loss: loss,
+  status: "Casting Completed",
+  current_process: "casting",
+});
 
     if (!ok) {
       setSaving(false);
@@ -451,12 +452,14 @@ function CastingBatchCard({
                 {saving ? "Saving..." : "Save Result"}
               </button>
 
-              <button
-                onClick={() => onMove(batch)}
-                className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white"
-              >
-                Move To Magnet
-              </button>
+             {batch.status === "Casting Completed" && (
+  <button
+    onClick={() => onMove(batch)}
+    className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white"
+  >
+    Move To Magnet
+  </button>
+)}
 
               <button
                 onClick={() => onFail(batch)}
