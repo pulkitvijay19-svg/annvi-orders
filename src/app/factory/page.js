@@ -80,7 +80,7 @@ export default function FactoryPage() {
             </p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
             {processes.map((p, index) => {
               const activeCount = counts[p.status] || 0;
               const isActive = activeCount > 0;
@@ -89,7 +89,7 @@ export default function FactoryPage() {
                 <Link
                   key={p.href}
                   href={p.href}
-                  className={`group relative rounded-2xl border p-4 transition hover:-translate-y-1 hover:shadow-lg ${
+                  className={`group relative min-h-[135px] rounded-2xl border p-4 transition hover:-translate-y-1 hover:shadow-lg ${
                     isActive
                       ? "border-blue-600 bg-blue-600 text-white shadow-md"
                       : "border-gray-200 bg-slate-50 text-gray-900 hover:border-black"
