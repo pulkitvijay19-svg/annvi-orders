@@ -1,89 +1,79 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
+import MobileBottomNav from "@/components/MobileBottomNav";
 
 export default function FactoryPage() {
-  const [active, setActive] = useState({
-    name: "Casting",
-    href: "/factory/casting",
-  });
-
   const processes = [
-    { name: "Casting", href: "/factory/casting" },
-    { name: "Casting Dashboard", href: "/factory/casting/dashboard" },
-    { name: "Magnet", href: "/factory/magnet/dashboard" },
-    { name: "Filing / Bench", href: "/factory/bench/dashboard" },
-    { name: "Pre Polish", href: "/factory/pre-polish/dashboard" },
-    { name: "Final Repair", href: "/factory/final-repair/dashboard" },
-    { name: "Stone Setting", href: "/factory/stone-setting/dashboard" },
-    { name: "Buff", href: "/factory/buff/dashboard" },
-    { name: "Final QC", href: "/factory/final-qc/dashboard" },
-    { name: "Rhodium", href: "/factory/rhodium/dashboard" },
-    { name: "Tag Print", href: "/factory/tag-print/dashboard" },
-    { name: "Sale", href: "/factory/sale/dashboard" },
+    { name: "Casting", href: "/factory/casting", icon: "🔥" },
+    { name: "Casting Dashboard", href: "/factory/casting/dashboard", icon: "📊" },
+    { name: "Magnet", href: "/factory/magnet/dashboard", icon: "🧲" },
+    { name: "Filing / Bench", href: "/factory/bench/dashboard", icon: "🛠️" },
+    { name: "Pre Polish", href: "/factory/pre-polish/dashboard", icon: "✨" },
+    { name: "Final Repair", href: "/factory/final-repair/dashboard", icon: "🔧" },
+    { name: "Stone Setting", href: "/factory/stone-setting/dashboard", icon: "💎" },
+    { name: "Buff", href: "/factory/buff/dashboard", icon: "🌀" },
+    { name: "Final QC", href: "/factory/final-qc/dashboard", icon: "✅" },
+    { name: "Rhodium", href: "/factory/rhodium/dashboard", icon: "⚗️" },
+    { name: "Tag Print", href: "/factory/tag-print/dashboard", icon: "🏷️" },
+    { name: "Sale", href: "/factory/sale/dashboard", icon: "🧾" },
   ];
 
   return (
-    <main className="min-h-screen bg-slate-100 p-4">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">🏭 Manufacturing</h1>
-          <p className="text-sm text-gray-600">Factory process control panel</p>
-        </div>
-
-        <Link
-          href="/dashboard"
-          className="rounded-xl bg-black px-5 py-3 text-sm font-bold text-white"
-        >
-          Dashboard
-        </Link>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
-        <aside className="space-y-2 rounded-2xl bg-white p-3 shadow-sm">
-          {processes.map((p) => {
-            const isActive = active.href === p.href;
-
-            return (
-              <button
-                key={p.href}
-                type="button"
-                onClick={() => setActive(p)}
-                className={`flex w-full items-center gap-3 rounded-xl border px-4 py-4 text-left text-sm font-bold transition ${
-                  isActive
-                    ? "scale-[1.02] border-blue-600 bg-blue-600 text-white shadow-lg"
-                    : "border-gray-200 bg-slate-50 text-gray-800 hover:bg-blue-50"
-                }`}
-              >
-                <span className="rounded-lg bg-white/80 px-2 py-1 text-lg">
-                  🖼️
-                </span>
-                {p.name}
-              </button>
-            );
-          })}
-        </aside>
-
-        <section className="overflow-hidden rounded-2xl bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b bg-slate-50 px-4 py-3">
-            <h2 className="font-bold text-gray-900">{active.name}</h2>
-
-            <Link
-              href={active.href}
-              className="rounded-lg bg-black px-3 py-2 text-xs font-bold text-white"
-            >
-              Open Full Page
-            </Link>
+    <main className="min-h-screen bg-slate-100 p-4 pb-24 md:p-6">
+      <div className="mx-auto max-w-7xl">
+        <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">🏭 Manufacturing</h1>
+            <p className="text-sm text-gray-600">
+              Factory process shortcuts.
+            </p>
           </div>
 
-          <iframe
-            key={active.href}
-            src={active.href}
-            className="h-[calc(100vh-150px)] w-full border-0"
-          />
+          <Link
+            href="/dashboard"
+            className="rounded-xl bg-black px-5 py-3 text-center text-sm font-bold text-white"
+          >
+            Dashboard
+          </Link>
+        </div>
+
+        <section className="rounded-3xl bg-white p-4 shadow-sm md:p-6">
+          <div className="mb-4">
+            <h2 className="text-lg font-bold text-gray-900">Process Flow</h2>
+            <p className="text-sm text-gray-500">
+              Select any process to open its page.
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {processes.map((p, index) => (
+              <Link
+                key={p.href}
+                href={p.href}
+                className="group rounded-2xl border border-gray-200 bg-slate-50 p-4 transition hover:-translate-y-1 hover:border-black hover:bg-black hover:text-white hover:shadow-lg"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white text-2xl shadow-sm group-hover:bg-white">
+                    {p.icon}
+                  </div>
+<div>
+  <p className="text-xs font-bold text-gray-500 group-hover:text-gray-300">
+    Step {index + 1}
+  </p>
+
+  <p className="text-lg font-bold text-gray-900 group-hover:text-white">
+    {p.name}
+  </p>
+</div>
+                </div>
+              </Link>
+            ))}
+          </div>
         </section>
       </div>
+
+      <MobileBottomNav />
     </main>
   );
 }
