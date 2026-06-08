@@ -121,6 +121,26 @@ function PrePolishCard({ batch, isOpen, onOpen, onRefresh }) {
     Number(repairWeight || 0) -
     Number(rejectedWeight || 0);
 
+    const ktFineMap = {
+  "9K": 0.38,
+  "9KT": 0.38,
+  "14K": 0.59,
+  "14KT": 0.59,
+  "18K": 0.752,
+  "18KT": 0.752,
+  "20K": 0.84,
+  "20KT": 0.84,
+  "22K": 0.92,
+  "22KT": 0.92,
+};
+
+const normalizedKt = String(batch.kt || "").toUpperCase().replace(/\s/g, "");
+
+const expectedFineGold =
+  processType === "2C Polish" && Number(loss || 0) > 0
+    ? Number(loss || 0) * (ktFineMap[normalizedKt] || 0)
+    : 0;
+
   async function stockInRejectedScrap() {
     if (Number(rejectedWeight || 0) <= 0) return true;
 
@@ -209,6 +229,38 @@ function PrePolishCard({ batch, isOpen, onOpen, onRefresh }) {
     }
 
     if (Number(loss || 0) > 0) {
+
+      let activeBag = null;
+
+if (processType === "2C Polish") {
+  const { data: bagData, error: bagError } = await supabase
+    .from("buff_bags")
+    .select("*")
+    .eq("status", "Active")
+    .order("installed_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (bagError) {
+    setSaving(false);
+    alert(bagError.message);
+    return;
+  }
+
+  if (!bagData?.id) {
+    setSaving(false);
+    alert("Active Buff Bag nahi mila. Pehle Buff Bag install karo.");
+    return;
+  }
+
+  if (expectedFineGold <= 0) {
+    setSaving(false);
+    alert(`KT formula nahi mila: ${batch.kt}`);
+    return;
+  }
+
+  activeBag = bagData;
+}
       const lossTable =
         processType === "Electro Polish"
           ? "electro_polish_loss_records"
@@ -224,16 +276,42 @@ function PrePolishCard({ batch, isOpen, onOpen, onRefresh }) {
               recovery_status: "Pending",
               remarks: `${processType} loss from ${batch.batch_no}`,
             }
-          : {
-              casting_batch_id: batch.id,
-              pre_polish_result_id: resultData.id,
-              kt: batch.kt,
-              loss_weight: loss,
-              recovery_status: "Pending",
-              remarks: `${processType} loss from ${batch.batch_no}`,
-            };
+: {
+    casting_batch_id: batch.id,
+    pre_polish_result_id: resultData.id,
+    kt: batch.kt,
+    loss_weight: loss,
+    expected_fine_gold: expectedFineGold,
+    buff_bag_id: activeBag?.id || null,
+    recovery_status: "Pending",
+    remarks: `${processType} loss from ${batch.batch_no}`,
+  };
 
-      await supabase.from(lossTable).insert([payload]);
+      const { error: lossInsertError } = await supabase.from(lossTable).insert([payload]);
+
+if (lossInsertError) {
+  setSaving(false);
+  alert(lossInsertError.message);
+  return;
+}
+
+if (processType === "2C Polish" && activeBag?.id && expectedFineGold > 0) {
+  const newExpectedFine =
+    Number(activeBag.expected_fine_gold || 0) + Number(expectedFineGold || 0);
+
+  const { error: bagUpdateError } = await supabase
+    .from("buff_bags")
+    .update({
+      expected_fine_gold: newExpectedFine,
+    })
+    .eq("id", activeBag.id);
+
+  if (bagUpdateError) {
+    setSaving(false);
+    alert(bagUpdateError.message);
+    return;
+  }
+}
     }
 
     if (Number(repairPieces || 0) > 0 || Number(repairWeight || 0) > 0) {

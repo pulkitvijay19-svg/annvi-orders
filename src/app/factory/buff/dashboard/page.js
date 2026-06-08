@@ -10,8 +10,10 @@ export default function BuffDashboardPage() {
   const { loading: authLoading } = useRequireAuth();
   const [batches, setBatches] = useState([]);
   const [findings, setFindings] = useState([]);
+  const [activeBag, setActiveBag] = useState(null);
   const [openId, setOpenId] = useState(null);
   const [loading, setLoading] = useState(true);
+
 
   async function fetchData() {
     setLoading(true);
@@ -33,12 +35,24 @@ export default function BuffDashboardPage() {
       .eq("item_type", "Finding")
       .order("item_name", { ascending: true });
 
+
+        const { data: bagData } = await supabase
+  .from("buff_bags")
+  .select("*")
+  .eq("status", "Active")
+  .order("installed_date", { ascending: false })
+  .limit(1)
+  .maybeSingle();
+
+
     if (error) alert(error.message);
 
     setBatches(data || []);
     setFindings(findingData || []);
+    setActiveBag(bagData || null);
     setLoading(false);
   }
+
 
   useEffect(() => {
     fetchData();
@@ -68,6 +82,7 @@ export default function BuffDashboardPage() {
                 key={batch.id}
                 batch={batch}
                 findings={findings}
+                activeBag={activeBag}
                 isOpen={openId === batch.id}
                 onOpen={() => setOpenId(openId === batch.id ? null : batch.id)}
                 onRefresh={fetchData}
@@ -95,7 +110,7 @@ export default function BuffDashboardPage() {
   );
 }
 
-function BuffCard({ batch, findings, isOpen, onOpen, onRefresh }) {
+function BuffCard({ batch, findings, activeBag, isOpen, onOpen, onRefresh }) {
   const items = batch.casting_batch_items || [];
 
   const [activeTab, setActiveTab] = useState("buff");
@@ -159,6 +174,26 @@ function BuffCard({ batch, findings, isOpen, onOpen, onRefresh }) {
     Number(issuedWeight || 0) > 0
       ? (buffLoss / Number(issuedWeight || 0)) * 100
       : 0;
+
+const ktFineMap = {
+  "9K": 0.38,
+  "9KT": 0.38,
+  "14K": 0.59,
+  "14KT": 0.59,
+  "18K": 0.752,
+  "18KT": 0.752,
+  "20K": 0.84,
+  "20KT": 0.84,
+  "22K": 0.92,
+  "22KT": 0.92,
+};
+
+const normalizedKt = String(batch.kt || "").toUpperCase().replace(/\s/g, "");
+
+const expectedFineGold =
+  Number(buffLoss || 0) > 0
+    ? Number(buffLoss || 0) * (ktFineMap[normalizedKt] || 0)
+    : 0;
 
   const finalPiecesToQC =
     Number(receivedPieces || 0) + Number(repairReceivedPieces || 0);
@@ -273,6 +308,18 @@ function BuffCard({ batch, findings, isOpen, onOpen, onRefresh }) {
 
     setSaving(true);
 
+    if (Number(buffLoss || 0) > 0 && !activeBag?.id) {
+  setSaving(false);
+  alert("Active Buff Bag nahi mila. Pehle Buff Bag install karo.");
+  return;
+}
+
+if (Number(buffLoss || 0) > 0 && expectedFineGold <= 0) {
+  setSaving(false);
+  alert(`KT formula nahi mila: ${batch.kt}`);
+  return;
+}
+
     const { error } = await supabase.from("buff_results").insert([
       {
         casting_batch_id: batch.id,
@@ -311,6 +358,8 @@ function BuffCard({ batch, findings, isOpen, onOpen, onRefresh }) {
             casting_batch_id: batch.id,
             kt: batch.kt,
             loss_weight: Number(buffLoss || 0),
+            expected_fine_gold: expectedFineGold,
+            buff_bag_id: activeBag?.id || null,
             batch_no: batch.batch_no,
             party_name: parties.join(", "),
             recovery_status: "Pending",
@@ -324,6 +373,37 @@ function BuffCard({ batch, findings, isOpen, onOpen, onRefresh }) {
         return;
       }
     }
+
+    if (activeBag?.id && expectedFineGold > 0) {
+  const { data: freshBag, error: freshBagError } = await supabase
+    .from("buff_bags")
+    .select("expected_fine_gold")
+    .eq("id", activeBag.id)
+    .single();
+
+  if (freshBagError) {
+    setSaving(false);
+    alert(freshBagError.message);
+    return;
+  }
+
+  const newExpectedFine =
+    Number(freshBag?.expected_fine_gold || 0) +
+    Number(expectedFineGold || 0);
+
+  const { error: bagUpdateError } = await supabase
+    .from("buff_bags")
+    .update({
+      expected_fine_gold: newExpectedFine,
+    })
+    .eq("id", activeBag.id);
+
+  if (bagUpdateError) {
+    setSaving(false);
+    alert(bagUpdateError.message);
+    return;
+  }
+}
 
     for (const row of repairFindingRows) {
       if (!row.finding_item_id) continue;
@@ -706,6 +786,17 @@ if (row.loss_type === "Scrap") {
                     {buffLossPercent.toFixed(2)} %
                   </div>
                 </Field>
+                <Field label="Expected Fine Gold">
+  <div className="rounded-xl bg-yellow-50 p-3 text-sm font-bold text-yellow-700">
+    {expectedFineGold.toFixed(3)} g
+  </div>
+</Field>
+
+<Field label="Active Buff Bag">
+  <div className="rounded-xl bg-blue-50 p-3 text-sm font-bold text-blue-700">
+    {activeBag?.bag_no || "No Active Bag"}
+  </div>
+</Field>
               </div>
 
               <div className="mt-3 grid grid-cols-3 gap-2">
