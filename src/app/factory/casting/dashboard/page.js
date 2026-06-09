@@ -2,12 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useRequireAuth } from "@/lib/useRequireAuth";
 import MobileBottomNav from "@/components/MobileBottomNav";
 
 export default function CastingDashboardPage() {
   useRequireAuth();
+  const router = useRouter();
+const searchParams = useSearchParams();
 
   const [batches, setBatches] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -34,10 +37,16 @@ export default function CastingDashboardPage() {
 
     setLoading(false);
   }
+useEffect(() => {
+  fetchBatches();
+}, []);
 
   useEffect(() => {
-    fetchBatches();
-  }, []);
+  const batchId = searchParams.get("batch");
+  if (batchId) {
+    setOpenBatchId(batchId);
+  }
+}, [searchParams]);
 
   async function updateBatch(id, values) {
     const { error } = await supabase
@@ -101,8 +110,7 @@ async function moveToMagnet(batch) {
     return;
   }
 
-  alert("Moved to Magnet");
-  await fetchBatches();
+ router.push(`/factory/magnet/dashboard?batch=${batch.id}`);
 }
 
   if (loading) {

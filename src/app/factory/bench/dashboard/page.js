@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useRequireAuth } from "@/lib/useRequireAuth";
 import MobileBottomNav from "@/components/MobileBottomNav";
@@ -10,6 +11,7 @@ const KTS = ["9KT", "14KT", "18KT", "20KT", "22KT", "24KT"];
 
 export default function BenchDashboardPage() {
   const { loading: authLoading } = useRequireAuth();
+  const searchParams = useSearchParams();
   const [batches, setBatches] = useState([]);
   const [findings, setFindings] = useState([]);
   const [transactions, setTransactions] = useState([]);
@@ -47,10 +49,15 @@ export default function BenchDashboardPage() {
     setTransactions(txData || []);
     setLoading(false);
   }
-
-  useEffect(() => {
-    fetchData();
-  }, []);
+useEffect(() => {
+  fetchData();
+}, []);
+useEffect(() => {
+  const batchId = searchParams.get("batch");
+  if (batchId) {
+    setOpenId(batchId);
+  }
+}, [searchParams]);
 
   if (authLoading || loading) {
     return (
@@ -105,6 +112,7 @@ export default function BenchDashboardPage() {
 }
 
 function BenchCard({ batch, findings, transactions, isOpen, onOpen, onRefresh }) {
+  const router = useRouter();
   const items = batch.casting_batch_items || [];
   const oldFindings = batch.bench_findings || [];
 
@@ -415,9 +423,8 @@ async function saveFindingsOnly() {
       return;
     }
 
-    setSaving(false);
-    alert("Bench result saved. Ghis recorded. Batch moved to Pre Polish.");
-    onRefresh();
+  setSaving(false);
+router.push(`/factory/pre-polish/dashboard?batch=${batch.id}`);
   }
 
   return (

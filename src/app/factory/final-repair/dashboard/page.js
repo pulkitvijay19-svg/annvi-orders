@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useRequireAuth } from "@/lib/useRequireAuth";
 import MobileBottomNav from "@/components/MobileBottomNav";
@@ -11,6 +12,7 @@ const LOSS_TYPES = ["Ghis", "Buff Loss", "Electropolishing Loss", "Scrap"];
 
 export default function FinalRepairDashboardPage() {
   const { loading: authLoading } = useRequireAuth();
+  const searchParams = useSearchParams();
   const [queues, setQueues] = useState([]);
   const [findings, setFindings] = useState([]);
   const [transactions, setTransactions] = useState([]);
@@ -80,6 +82,13 @@ setQueues([...realQueues, ...dummyNoRepairQueues]);
   useEffect(() => {
     fetchData();
   }, []);
+
+useEffect(() => {
+  const batchId = searchParams.get("batch");
+  if (batchId) {
+    setOpenId(batchId);
+  }
+}, [searchParams]);
 
   const groupedBatches = useMemo(() => {
     const map = {};
@@ -152,6 +161,7 @@ setQueues([...realQueues, ...dummyNoRepairQueues]);
 }
 
 function RepairCard({ group, findings, transactions, isOpen, onOpen, onRefresh }) {
+  const router = useRouter();
   const batch = group.batch;
   const items = batch.casting_batch_items || [];
 
@@ -492,9 +502,8 @@ const { error: updateError } = await supabase
       return;
     }
 
-    setSaving(false);
-    alert("Final repair saved. Batch moved to Stone Setting.");
-    onRefresh();
+setSaving(false);
+router.push(`/factory/stone-setting/dashboard?batch=${batch.id}`);
   }
 
   return (

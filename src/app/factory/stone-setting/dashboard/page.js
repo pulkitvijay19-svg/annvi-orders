@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useRequireAuth } from "@/lib/useRequireAuth";
 import MobileBottomNav from "@/components/MobileBottomNav";
 
 export default function StoneSettingDashboardPage() {
   const { loading: authLoading } = useRequireAuth();
+  const searchParams = useSearchParams();
   const [batches, setBatches] = useState([]);
   const [stones, setStones] = useState([]);
   const [transactions, setTransactions] = useState([]);
@@ -54,10 +56,16 @@ export default function StoneSettingDashboardPage() {
     setFindings(findingData || []);
     setLoading(false);
   }
+useEffect(() => {
+  fetchData();
+}, []);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+useEffect(() => {
+  const batchId = searchParams.get("batch");
+  if (batchId) {
+    setOpenId(batchId);
+  }
+}, [searchParams]);
 
   if (authLoading || loading) {
     return (
@@ -121,6 +129,7 @@ function StoneSettingCard({
   onOpen,
   onRefresh,
 }) {
+  const router = useRouter();
   const items = batch.casting_batch_items || [];
 
   const [activeTab, setActiveTab] = useState("stone");
@@ -695,9 +704,8 @@ if (row.loss_type === "Scrap") {
       return;
     }
 
-    setSaving(false);
-    alert("Stone setting saved. Batch moved to Buff.");
-    onRefresh();
+setSaving(false);
+router.push(`/factory/buff/dashboard?batch=${batch.id}`);
   }
 
   return (

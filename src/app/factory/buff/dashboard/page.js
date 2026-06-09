@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useRequireAuth } from "@/lib/useRequireAuth";
 import MobileBottomNav from "@/components/MobileBottomNav";
 
 export default function BuffDashboardPage() {
   const { loading: authLoading } = useRequireAuth();
+  const searchParams = useSearchParams();
   const [batches, setBatches] = useState([]);
   const [findings, setFindings] = useState([]);
   const [activeBag, setActiveBag] = useState(null);
@@ -53,10 +55,16 @@ export default function BuffDashboardPage() {
     setLoading(false);
   }
 
+useEffect(() => {
+  fetchData();
+}, []);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+useEffect(() => {
+  const batchId = searchParams.get("batch");
+  if (batchId) {
+    setOpenId(batchId);
+  }
+}, [searchParams]);
 
   if (authLoading || loading) {
     return (
@@ -111,6 +119,7 @@ export default function BuffDashboardPage() {
 }
 
 function BuffCard({ batch, findings, activeBag, isOpen, onOpen, onRefresh }) {
+  const router = useRouter();
   const items = batch.casting_batch_items || [];
 
   const [activeTab, setActiveTab] = useState("buff");
@@ -636,9 +645,9 @@ if (row.loss_type === "Scrap") {
       return;
     }
 
-    setSaving(false);
-    alert("Buff result saved. Batch moved to Final Inspection QC.");
-    onRefresh();
+setSaving(false);
+router.push(`/factory/final-qc/dashboard?batch=${batch.id}`);
+
   }
 
   return (

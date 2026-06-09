@@ -2,13 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useRequireAuth } from "@/lib/useRequireAuth";
 import MobileBottomNav from "@/components/MobileBottomNav";
 
 export default function MagnetDashboardPage() {
   const { user, loading: authLoading } = useRequireAuth();
-
+  const searchParams = useSearchParams();
   const [castingBatches, setCastingBatches] = useState([]);
   const [magnetBatches, setMagnetBatches] = useState([]);
   const [selectionMode, setSelectionMode] = useState(false);
@@ -61,6 +62,13 @@ export default function MagnetDashboardPage() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+  const batchId = searchParams.get("batch");
+  if (batchId) {
+    setOpenId(batchId);
+  }
+}, [searchParams]);
 
   function toggleSelect(id) {
     setSelectedIds((prev) =>
@@ -341,11 +349,11 @@ export default function MagnetDashboardPage() {
                       </div>
 
                       <Link
-                        href="/factory/magnet/process"
-                        className="rounded-xl bg-black px-3 py-2 text-xs font-semibold text-white"
-                      >
-                        Process
-                      </Link>
+  href={`/factory/magnet/process?batch=${batch.id}`}
+  className="rounded-xl bg-black px-3 py-2 text-xs font-semibold text-white"
+>
+  Process
+</Link>
                     </div>
 
                     <div className="mt-3 grid grid-cols-3 gap-2">

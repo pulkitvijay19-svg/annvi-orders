@@ -12,7 +12,7 @@ export default function FactoryPage() {
     { name: "Casting", href: "/factory/casting", status: "Casting", icon: "🔥" },
     { name: "Casting Dashboard", href: "/factory/casting/dashboard", status: "Casting Completed", icon: "📊" },
     { name: "Magnet", href: "/factory/magnet/dashboard", status: "Magnet", icon: "🧲" },
-    { name: "Filing / Bench", href: "/factory/bench/dashboard", status: "Bench", icon: "🛠️" },
+    { name: "Filing / Bench", href: "/factory/bench/dashboard", status: "Filing", icon: "🛠️" },
     { name: "Pre Polish", href: "/factory/pre-polish/dashboard", status: "Pre Polish", icon: "✨" },
     { name: "Final Repair", href: "/factory/final-repair/dashboard", status: "Final Repair", icon: "🔧" },
     { name: "Stone Setting", href: "/factory/stone-setting/dashboard", status: "Stone Setting", icon: "💎" },
@@ -21,6 +21,7 @@ export default function FactoryPage() {
     { name: "Rhodium", href: "/factory/rhodium/dashboard", status: "Rhodium / Plating", icon: "⚗️" },
     { name: "Tag Print", href: "/factory/tag-print/dashboard", status: "Tag Print", icon: "🏷️" },
     { name: "Sale", href: "/factory/sale/dashboard", status: "Sale", icon: "🧾" },
+    { name: "Buff Bag", href: "/factory/buff-bag", status: "Buff Bag", icon: "🧹" },
   ];
 
   async function fetchCounts() {

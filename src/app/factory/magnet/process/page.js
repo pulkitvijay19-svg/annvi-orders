@@ -2,13 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useRequireAuth } from "@/lib/useRequireAuth";
 import MobileBottomNav from "@/components/MobileBottomNav";
 
 export default function MagnetProcessPage() {
   const { loading: authLoading } = useRequireAuth();
-
+  const searchParams = useSearchParams();
   const [singleBatches, setSingleBatches] = useState([]);
   const [clubBatches, setClubBatches] = useState([]);
   const [openKey, setOpenKey] = useState(null);
@@ -58,6 +59,14 @@ export default function MagnetProcessPage() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+  const batchId = searchParams.get("batch");
+
+  if (batchId) {
+    setOpenKey(`single-${batchId}`);
+  }
+}, [searchParams]);
 
   if (authLoading || loading) {
     return (
@@ -207,6 +216,7 @@ async function stockInMagnetScrap({ kt, batchNo, weight, quantity = 0 }) {
 }
 
 function SingleProcessCard({ batch, isOpen, onOpen, onRefresh }) {
+  const router = useRouter();
   const [piecesReceived, setPiecesReceived] = useState("");
   const [receivedWeight, setReceivedWeight] = useState("");
   const [scrapWeight, setScrapWeight] = useState("");
@@ -304,9 +314,8 @@ function SingleProcessCard({ batch, isOpen, onOpen, onRefresh }) {
   }
 }
 
-    setSaving(false);
-    alert("Magnet result saved. Scrap stock-in done. Batch moved to Filing.");
-    onRefresh();
+ setSaving(false);
+router.push(`/factory/bench/dashboard?batch=${batch.id}`);
   }
 
   return (
@@ -353,6 +362,7 @@ function SingleProcessCard({ batch, isOpen, onOpen, onRefresh }) {
 }
 
 function ClubProcessCard({ batch, isOpen, onOpen, onRefresh }) {
+  const router = useRouter();
   const [piecesReceived, setPiecesReceived] = useState(
     batch.pieces_received || ""
   );
@@ -496,9 +506,15 @@ function ClubProcessCard({ batch, isOpen, onOpen, onRefresh }) {
   }
 }
 
-    setSaving(false);
-    alert("Magnet club result saved. Scrap stock-in done. Batches moved to Filing.");
-    onRefresh();
+   setSaving(false);
+
+const firstCastingId = castings[0]?.id;
+
+if (firstCastingId) {
+  router.push(`/factory/bench/dashboard?batch=${firstCastingId}`);
+} else {
+  router.push("/factory/bench/dashboard");
+}
   }
 
   return (

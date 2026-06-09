@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useRequireAuth } from "@/lib/useRequireAuth";
 import MobileBottomNav from "@/components/MobileBottomNav";
 
 export default function FinalQCDashboardPage() {
   const { loading: authLoading } = useRequireAuth();
+  const searchParams = useSearchParams();
   const [batches, setBatches] = useState([]);
   const [openId, setOpenId] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -30,10 +32,16 @@ export default function FinalQCDashboardPage() {
     setBatches(data || []);
     setLoading(false);
   }
+useEffect(() => {
+  fetchData();
+}, []);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+useEffect(() => {
+  const batchId = searchParams.get("batch");
+  if (batchId) {
+    setOpenId(batchId);
+  }
+}, [searchParams]);
 
   if (authLoading || loading) {
     return (
@@ -86,6 +94,7 @@ export default function FinalQCDashboardPage() {
 }
 
 function QCCard({ batch, isOpen, onOpen, onRefresh }) {
+  const router = useRouter();
   const items = batch.casting_batch_items || [];
 
   const [inspectorName, setInspectorName] = useState("");
@@ -245,9 +254,9 @@ function QCCard({ batch, isOpen, onOpen, onRefresh }) {
       return;
     }
 
-    setSaving(false);
-    alert("Final QC saved. Batch moved to Rhodium / Plating.");
-    onRefresh();
+setSaving(false);
+alert("Redirecting to Rhodium now");
+router.push(`/factory/rhodium/dashboard?batch=${batch.id}`);
   }
 
   return (

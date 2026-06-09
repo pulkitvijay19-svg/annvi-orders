@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useRequireAuth } from "@/lib/useRequireAuth";
 import MobileBottomNav from "@/components/MobileBottomNav";
@@ -10,6 +11,7 @@ const PROCESS_TYPES = ["Electro Polish", "2C Polish"];
 
 export default function PrePolishDashboardPage() {
   const { loading: authLoading } = useRequireAuth();
+  const searchParams = useSearchParams();
   const [batches, setBatches] = useState([]);
   const [openId, setOpenId] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -35,6 +37,14 @@ export default function PrePolishDashboardPage() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+  const batchId = searchParams.get("batch");
+
+  if (batchId) {
+    setOpenId(batchId);
+  }
+}, [searchParams]); 
 
   if (authLoading || loading) {
     return (
@@ -87,6 +97,7 @@ export default function PrePolishDashboardPage() {
 }
 
 function PrePolishCard({ batch, isOpen, onOpen, onRefresh }) {
+  const router = useRouter();
   const items = batch.casting_batch_items || [];
 
   const issuedDefaultPieces =
@@ -360,9 +371,8 @@ const { error: updateError } = await supabase
       return;
     }
 
-    setSaving(false);
-    alert(`${processType} saved. Batch moved to Final Repair.`);
-    onRefresh();
+setSaving(false);
+router.push(`/factory/final-repair/dashboard?batch=${batch.id}`);
   }
 
   return (

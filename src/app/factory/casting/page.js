@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useRequireAuth } from "@/lib/useRequireAuth";
 import MobileBottomNav from "@/components/MobileBottomNav";
@@ -10,6 +11,7 @@ const KARATS = ["9KT", "14KT", "18KT", "20KT", "22KT"];
 
 export default function CastingPage() {
   const { user, loading: authLoading } = useRequireAuth();
+  const router = useRouter();
 
   const [orders, setOrders] = useState([]);
   const [selectedOrderIds, setSelectedOrderIds] = useState([]);
@@ -500,6 +502,9 @@ function getInventoryItemId(sourceType) {
     setOrderItems([]);
     setSelectedItems([]);
     fetchData();
+    alert(`Casting batch created: ${batchNo}`);
+
+router.push(`/factory/casting/dashboard?batch=${batchId}`);
   }
 
   if (authLoading) {

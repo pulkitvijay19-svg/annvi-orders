@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useRequireAuth } from "@/lib/useRequireAuth";
 import MobileBottomNav from "@/components/MobileBottomNav";
 
 export default function RhodiumDashboardPage() {
   const { loading: authLoading } = useRequireAuth();
+  const searchParams = useSearchParams();
   const [batches, setBatches] = useState([]);
   const [openId, setOpenId] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -30,10 +32,16 @@ export default function RhodiumDashboardPage() {
     setBatches(data || []);
     setLoading(false);
   }
+useEffect(() => {
+  fetchData();
+}, []);
+useEffect(() => {
+  const batchId = searchParams.get("batch");
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  if (batchId) {
+    setOpenId(batchId);
+  }
+}, [searchParams]);
 
   if (authLoading || loading) {
     return (
@@ -86,6 +94,7 @@ export default function RhodiumDashboardPage() {
 }
 
 function RhodiumCard({ batch, isOpen, onOpen, onRefresh }) {
+  const router = useRouter();
   const items = batch.casting_batch_items || [];
 
   const [operatorName, setOperatorName] = useState("");
@@ -256,9 +265,18 @@ if (orderIds.length > 0) {
       return;
     }
 
-    setSaving(false);
-    alert("Rhodium / Plating saved. Batch moved to Tag Print.");
-    onRefresh();
+setSaving(false);
+
+const firstOrderId =
+  batch.casting_batch_items?.[0]?.order_id;
+
+if (firstOrderId) {
+  router.push(
+    `/factory/tag-print/dashboard?order=${firstOrderId}`
+  );
+} else {
+  router.push("/factory/tag-print/dashboard");
+}
   }
 
   return (
