@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useRequireAuth } from "@/lib/useRequireAuth";
 import MobileBottomNav from "@/components/MobileBottomNav";
@@ -20,7 +20,7 @@ export default function BenchDashboardPage() {
 
 function BenchDashboardContent() {
   const { loading: authLoading } = useRequireAuth();
-  const searchParams = useSearchParams();
+  const [targetBatchNo, setTargetBatchNo] = useState("");
   const [batches, setBatches] = useState([]);
   const [findings, setFindings] = useState([]);
   const [transactions, setTransactions] = useState([]);
@@ -62,11 +62,16 @@ useEffect(() => {
   fetchData();
 }, []);
 useEffect(() => {
-  const batchId = searchParams.get("batch");
+  const batchId = targetBatchNo;
   if (batchId) {
     setOpenId(batchId);
   }
 }, [searchParams]);
+
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  setTargetBatchNo(params.get("batch") || "");
+}, []);
 
   if (authLoading || loading) {
     return (
