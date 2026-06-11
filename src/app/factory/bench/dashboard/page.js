@@ -66,7 +66,7 @@ useEffect(() => {
   if (batchId) {
     setOpenId(batchId);
   }
-}, [searchParams]);
+}, [targetBatchNo]);
 
 useEffect(() => {
   const params = new URLSearchParams(window.location.search);
