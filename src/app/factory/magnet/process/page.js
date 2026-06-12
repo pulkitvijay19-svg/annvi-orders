@@ -2,18 +2,23 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useRequireAuth } from "@/lib/useRequireAuth";
 import MobileBottomNav from "@/components/MobileBottomNav";
 
 export default function MagnetProcessPage() {
   const { loading: authLoading } = useRequireAuth();
-  const searchParams = useSearchParams();
   const [singleBatches, setSingleBatches] = useState([]);
   const [clubBatches, setClubBatches] = useState([]);
   const [openKey, setOpenKey] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [targetBatchNo, setTargetBatchNo] = useState("");
+
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  setTargetBatchNo(params.get("batch") || "");
+}, []);
 
   async function fetchData() {
     setLoading(true);
@@ -61,12 +66,12 @@ export default function MagnetProcessPage() {
   }, []);
 
   useEffect(() => {
-  const batchId = searchParams.get("batch");
+  const batchId = targetBatchNo;
 
   if (batchId) {
     setOpenKey(`single-${batchId}`);
   }
-}, [searchParams]);
+}, [targetBatchNo]);
 
   if (authLoading || loading) {
     return (

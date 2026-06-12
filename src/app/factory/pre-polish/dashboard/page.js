@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useRequireAuth } from "@/lib/useRequireAuth";
 import MobileBottomNav from "@/components/MobileBottomNav";
@@ -11,7 +11,7 @@ const PROCESS_TYPES = ["Electro Polish", "2C Polish"];
 
 export default function PrePolishDashboardPage() {
   const { loading: authLoading } = useRequireAuth();
-  const searchParams = useSearchParams();
+  const [targetBatchNo, setTargetBatchNo] = useState("");
   const [batches, setBatches] = useState([]);
   const [openId, setOpenId] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -39,12 +39,17 @@ export default function PrePolishDashboardPage() {
   }, []);
 
   useEffect(() => {
-  const batchId = searchParams.get("batch");
+  const batchId = targetBatchNo;
 
   if (batchId) {
     setOpenId(batchId);
   }
-}, [searchParams]); 
+}, [targetBatchNo]); 
+
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  setTargetBatchNo(params.get("batch") || "");
+}, []);
 
   if (authLoading || loading) {
     return (

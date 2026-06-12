@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useRequireAuth } from "@/lib/useRequireAuth";
 import MobileBottomNav from "@/components/MobileBottomNav";
@@ -16,7 +15,7 @@ export default function TagPrintDashboard() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const searchParams = useSearchParams();
+  const [targetBatchNo, setTargetBatchNo] = useState("");
   const [scaleWeight, setScaleWeight] = useState("0.000");
 
 useEffect(() => {
@@ -27,7 +26,8 @@ useEffect(() => {
 }, []);
 
 useEffect(() => {
-  const orderId = searchParams.get("order");
+  const params = new URLSearchParams(window.location.search);
+  const orderId = params.get("order");
 
   if (!orderId || orders.length === 0) return;
 
@@ -36,7 +36,7 @@ useEffect(() => {
   if (matchedOrder) {
     openOrder(matchedOrder);
   }
-}, [searchParams, orders]);
+}, [orders]);
 
   async function fetchScaleWeight() {
     try {

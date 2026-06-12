@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useRequireAuth } from "@/lib/useRequireAuth";
 import MobileBottomNav from "@/components/MobileBottomNav";
@@ -10,7 +10,7 @@ import MobileBottomNav from "@/components/MobileBottomNav";
 export default function CastingDashboardPage() {
   useRequireAuth();
   const router = useRouter();
-const searchParams = useSearchParams();
+const [targetBatchNo, setTargetBatchNo] = useState("");
 
   const [batches, setBatches] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -42,11 +42,16 @@ useEffect(() => {
 }, []);
 
   useEffect(() => {
-  const batchId = searchParams.get("batch");
+  const batchId = targetBatchNo;
   if (batchId) {
     setOpenBatchId(batchId);
   }
-}, [searchParams]);
+}, [targetBatchNo]);
+
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  setTargetBatchNo(params.get("batch") || "");
+}, []);
 
   async function updateBatch(id, values) {
     const { error } = await supabase

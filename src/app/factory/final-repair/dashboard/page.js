@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useRequireAuth } from "@/lib/useRequireAuth";
 import MobileBottomNav from "@/components/MobileBottomNav";
@@ -12,7 +12,7 @@ const LOSS_TYPES = ["Ghis", "Buff Loss", "Electropolishing Loss", "Scrap"];
 
 export default function FinalRepairDashboardPage() {
   const { loading: authLoading } = useRequireAuth();
-  const searchParams = useSearchParams();
+  const [targetBatchNo, setTargetBatchNo] = useState("");
   const [queues, setQueues] = useState([]);
   const [findings, setFindings] = useState([]);
   const [transactions, setTransactions] = useState([]);
@@ -84,11 +84,16 @@ setQueues([...realQueues, ...dummyNoRepairQueues]);
   }, []);
 
 useEffect(() => {
-  const batchId = searchParams.get("batch");
+  const batchId = targetBatchNo;
   if (batchId) {
     setOpenId(batchId);
   }
-}, [searchParams]);
+}, [targetBatchNo]);
+
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  setTargetBatchNo(params.get("batch") || "");
+}, []);
 
   const groupedBatches = useMemo(() => {
     const map = {};

@@ -2,14 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useRequireAuth } from "@/lib/useRequireAuth";
 import MobileBottomNav from "@/components/MobileBottomNav";
 
 export default function MagnetDashboardPage() {
   const { user, loading: authLoading } = useRequireAuth();
-  const searchParams = useSearchParams();
+  const [targetBatchNo, setTargetBatchNo] = useState("");
   const [castingBatches, setCastingBatches] = useState([]);
   const [magnetBatches, setMagnetBatches] = useState([]);
   const [selectionMode, setSelectionMode] = useState(false);
@@ -64,11 +64,16 @@ export default function MagnetDashboardPage() {
   }, []);
 
   useEffect(() => {
-  const batchId = searchParams.get("batch");
+  const batchId = targetBatchNo;
   if (batchId) {
     setOpenId(batchId);
   }
-}, [searchParams]);
+}, [targetBatchNo]);
+
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  setTargetBatchNo(params.get("batch") || "");
+}, []);
 
   function toggleSelect(id) {
     setSelectedIds((prev) =>
