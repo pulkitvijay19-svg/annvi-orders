@@ -22,8 +22,11 @@ export default function FactoryPage() {
     { name: "Tag Print", href: "/factory/tag-print/dashboard", status: "Tag Print", icon: "🏷️" },
     { name: "Sale", href: "/factory/sale/dashboard", status: "Sale", icon: "🧾" },
     { name: "Buff Bag", href: "/factory/buff-bag", status: "Buff Bag", icon: "🧹" },
+    { name: "Manufacturing Dashboard", href: "/factory/manufacturing-dashboard", status: "Dashboard", icon: "📊"}
   ];
 
+
+  
   async function fetchCounts() {
     const { data, error } = await supabase
       .from("casting_batches")
