@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
-import { useRequireAuth } from "@/lib/useRequireAuth";
-import MobileBottomNav from "@/components/MobileBottomNav";
+import { supabase } from "../../../lib/supabaseClient";
+import { useRequireAuth } from "../../../lib/useRequireAuth";
+import MobileBottomNav from "../../../components/MobileBottomNav";
 
 const CATEGORIES = [
   "Ladies Ring",

@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
-import { useRequireAuth } from "@/lib/useRequireAuth";
-import MobileBottomNav from "@/components/MobileBottomNav";
+import { supabase } from "../../../../lib/supabaseClient";
+import { useRequireAuth } from "../../../../lib/useRequireAuth";
+import MobileBottomNav from "../../../../components/MobileBottomNav";
 import Link from "next/link";
 
 
@@ -65,11 +65,48 @@ export default function EditOrderPage() {
   const [newImages, setNewImages] = useState([]);
 
   useEffect(() => {
-    if (orderId) {
-      fetchOrder();
-      fetchSampleItems();
-    }
-  }, [orderId]);
+  fetchOrders().then(() => {
+    firstLoadDone.current = true;
+  });
+
+  const interval = setInterval(() => {
+    fetchOrders();
+  }, 10000);
+
+  const channel = supabase
+    .channel("orders-live-notification")
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "orders",
+      },
+      (payload) => {
+        if (!firstLoadDone.current) return;
+
+        const newOrder = payload.new;
+
+        setNewOrderAlert({
+          order_no: newOrder.order_no,
+          customer_name: newOrder.customer_name,
+        });
+
+        playBeep();
+        fetchOrders();
+
+        setTimeout(() => {
+          setNewOrderAlert(null);
+        }, 8000);
+      }
+    )
+    .subscribe();
+
+  return () => {
+    clearInterval(interval);
+    supabase.removeChannel(channel);
+  };
+}, []);
 
   async function fetchOrder() {
     setLoading(true);

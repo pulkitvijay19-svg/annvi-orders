@@ -3,10 +3,9 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
-import { useRequireAuth } from "@/lib/useRequireAuth";
-import MobileBottomNav from "@/components/MobileBottomNav";
-
+import { supabase } from "../../lib/supabaseClient";
+import { useRequireAuth } from "../../lib/useRequireAuth";
+import MobileBottomNav from "../../components/MobileBottomNav";
 const STATUS_OPTIONS = [
   "All",
   "New",

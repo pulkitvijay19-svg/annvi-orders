@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { supabase } from "@/lib/supabaseClient";
-import { useRequireAuth } from "@/lib/useRequireAuth";
-import MobileBottomNav from "@/components/MobileBottomNav";
+import { supabase } from "../../../lib/supabaseClient";
+import { useRequireAuth } from "../../../lib/useRequireAuth";
+import MobileBottomNav from "../../../components/MobileBottomNav";
 
 const STATUS_OPTIONS = [
   "New",

@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
-import { useRequireAuth } from "@/lib/useRequireAuth";
-import MobileBottomNav from "@/components/MobileBottomNav";
+import { supabase } from "../../../../lib/supabaseClient";
+import { useRequireAuth } from "../../../../lib/useRequireAuth";
+import MobileBottomNav from "../../../../components/MobileBottomNav";
 
 const SCALE_URL = "http://localhost:5056/weight";
 const PRINT_URL = "http://localhost:5055/print";

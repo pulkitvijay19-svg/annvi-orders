@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
-import { useRequireAuth } from "@/lib/useRequireAuth";
-import MobileBottomNav from "@/components/MobileBottomNav";
-import { enablePushNotifications } from "@/lib/pushNotifications";
+import { supabase } from "../../lib/supabaseClient";
+import { useRequireAuth } from "../../lib/useRequireAuth";
+import MobileBottomNav from "../../components/MobileBottomNav";
+import { enablePushNotifications } from "../../lib/pushNotifications";
 
 export default function DashboardPage() {
   const router = useRouter();

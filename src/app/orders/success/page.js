@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { supabase } from "@/lib/supabaseClient";
-import { useRequireAuth } from "@/lib/useRequireAuth";
+import { supabase } from "../../../lib/supabaseClient";
+import { useRequireAuth } from "../../../lib/useRequireAuth";
 import { Suspense } from "react";
 const CHACHA_WHATSAPP = "917000062670";
 

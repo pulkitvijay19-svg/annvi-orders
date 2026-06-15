@@ -2,19 +2,19 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "../../../lib/supabaseClient";
 
 const PROCESS_MAP = [
-  ["Casting", "Casting", "/factory/casting"],
-  ["Magnet", "Magnet", "/factory/magnet/dashboard"],
-  ["Bench", "Bench", "/factory/bench/dashboard"],
-  ["Pre Polish", "Pre Polish", "/factory/pre-polish/dashboard"],
-  ["Final Repair", "Final Repair", "/factory/final-repair/dashboard"],
-  ["Stone Setting", "Stone Setting", "/factory/stone-setting/dashboard"],
-  ["Buff", "Buff", "/factory/buff/dashboard"],
-  ["Final QC", "Final Inspection QC", "/factory/final-qc/dashboard"],
-  ["Rhodium", "Rhodium / Plating", "/factory/rhodium/dashboard"],
-  ["Tag Print", "Tag Print", "/factory/tag-print/dashboard"],
+  { label: "Casting", status: "Casting", href: "/factory/casting", icon: "♨️" },
+  { label: "Magnet", status: "Magnet", href: "/factory/magnet/dashboard", icon: "🧲" },
+  { label: "Bench", status: "Bench", href: "/factory/bench/dashboard", icon: "🛠️" },
+  { label: "Pre Polish", status: "Pre Polish", href: "/factory/pre-polish/dashboard", icon: "✨" },
+  { label: "Final Repair", status: "Final Repair", href: "/factory/final-repair/dashboard", icon: "🔧" },
+  { label: "Stone Setting", status: "Stone Setting", href: "/factory/stone-setting/dashboard", icon: "💎" },
+  { label: "Buff", status: "Buff", href: "/factory/buff/dashboard", icon: "🌀" },
+  { label: "Final QC", status: "Final Inspection QC", href: "/factory/final-qc/dashboard", icon: "✅" },
+  { label: "Rhodium", status: "Rhodium / Plating", href: "/factory/rhodium/dashboard", icon: "⚗️" },
+  { label: "Tag Print", status: "Tag Print", href: "/factory/tag-print/dashboard", icon: "🏷️" },
 ];
 
 const KT_RATE = {
@@ -33,16 +33,84 @@ const KT_RATE = {
   "999": 0.999,
 };
 
+function n(v) {
+  return Number(v || 0);
+}
+
+function fmt(v, digits = 3) {
+  return n(v).toFixed(digits);
+}
+
 function normKt(kt) {
   return String(kt || "Unknown").toUpperCase().replace(/\s/g, "");
 }
 
 function fineFromKt(kt, weight) {
-  return Number(weight || 0) * Number(KT_RATE[normKt(kt)] || 0);
+  return n(weight) * n(KT_RATE[normKt(kt)] || 0);
+}
+
+function daysOld(date) {
+  if (!date) return 0;
+  const diff = Date.now() - new Date(date).getTime();
+  return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)));
+}
+
+function groupByKt(rows, weightKey) {
+  return (rows || []).reduce((acc, row) => {
+    const kt = row.kt || "Unknown";
+    acc[kt] = n(acc[kt]) + n(row[weightKey]);
+    return acc;
+  }, {});
+}
+
+function groupByKey(rows, key, weightKey) {
+  return (rows || []).reduce((acc, row) => {
+    const label = row[key] || "Unknown";
+    acc[label] = n(acc[label]) + n(row[weightKey]);
+    return acc;
+  }, {});
+}
+
+function makeFineMap(weightMap) {
+  return Object.entries(weightMap || {}).reduce((acc, [kt, wt]) => {
+    acc[kt] = fineFromKt(kt, wt);
+    return acc;
+  }, {});
+}
+
+function inventoryByType(txns, itemType) {
+  const out = {};
+
+  (txns || []).forEach((t) => {
+    const item = t.inventory_items;
+    if (item?.item_type !== itemType) return;
+
+    const kt = t.kt || "Unknown";
+    const sign = t.transaction_type === "Stock Out" ? -1 : 1;
+    out[kt] = n(out[kt]) + sign * n(t.weight);
+  });
+
+  return out;
+}
+
+function goldStock(txns, text) {
+  return (txns || []).reduce((sum, t) => {
+    const name = String(t.inventory_items?.item_name || "").toLowerCase();
+    if (!name.includes(String(text).toLowerCase())) return sum;
+
+    const sign = t.transaction_type === "Stock Out" ? -1 : 1;
+    return sum + sign * n(t.weight);
+  }, 0);
+}
+
+function sumObj(obj) {
+  return Object.values(obj || {}).reduce((s, v) => s + n(v), 0);
 }
 
 export default function ManufacturingDashboardPage() {
   const [loading, setLoading] = useState(true);
+  const [errorText, setErrorText] = useState("");
+
   const [batches, setBatches] = useState([]);
   const [orders, setOrders] = useState([]);
   const [buffLoss, setBuffLoss] = useState([]);
@@ -52,15 +120,16 @@ export default function ManufacturingDashboardPage() {
   const [buffBag, setBuffBag] = useState(null);
   const [inventoryItems, setInventoryItems] = useState([]);
   const [inventoryTxns, setInventoryTxns] = useState([]);
-  const [errorText, setErrorText] = useState("");
 
-  async function safeQuery(label, query) {
+  async function safe(label, query, single = false) {
     const res = await query;
+
     if (res.error) {
       console.warn(label, res.error.message);
-      return label === "buffBag" ? null : [];
+      return single ? null : [];
     }
-    return res.data || (label === "buffBag" ? null : []);
+
+    return res.data || (single ? null : []);
   }
 
   async function fetchDashboard() {
@@ -79,74 +148,76 @@ export default function ManufacturingDashboardPage() {
         itemsData,
         txnsData,
       ] = await Promise.all([
-        safeQuery(
+        safe(
           "batches",
           supabase
             .from("casting_batches")
-            .select(
-              `
+            .select(`
               *,
               casting_batch_items(*, orders(order_no, customer_name, status, delivery_date, created_at))
-            `
-            )
+            `)
             .order("updated_at", { ascending: false })
         ),
 
-        safeQuery(
+        safe(
           "orders",
           supabase
             .from("orders")
-            .select(`*, order_items(id, quantity, approx_weight, category)`)
+            .select("*, order_items(id, quantity, approx_weight, category)")
             .order("created_at", { ascending: false })
         ),
 
-        safeQuery(
-          "buffLoss",
+        safe(
+          "buff_loss_records",
           supabase
             .from("buff_loss_records")
             .select("*")
             .order("created_at", { ascending: false })
         ),
 
-        safeQuery(
-          "electroLoss",
+        safe(
+          "electro_polish_loss_records",
           supabase
             .from("electro_polish_loss_records")
             .select("*")
             .order("created_at", { ascending: false })
         ),
 
-        safeQuery(
-          "castingLoss",
+        safe(
+          "casting_loss_records",
           supabase
             .from("casting_loss_records")
             .select("*")
             .order("created_at", { ascending: false })
         ),
 
-        safeQuery(
-          "ghis",
+        safe(
+          "ghis_records",
           supabase
             .from("ghis_records")
             .select("*")
             .order("created_at", { ascending: false })
         ),
 
-        safeQuery(
-          "buffBag",
+        safe(
+          "buff_bags",
           supabase
             .from("buff_bags")
             .select("*")
             .eq("status", "Active")
             .order("installed_date", { ascending: false })
             .limit(1)
-            .maybeSingle()
+            .maybeSingle(),
+          true
         ),
 
-        safeQuery("items", supabase.from("inventory_items").select("*")),
+        safe(
+          "inventory_items",
+          supabase.from("inventory_items").select("*")
+        ),
 
-        safeQuery(
-          "txns",
+        safe(
+          "inventory_transactions",
           supabase
             .from("inventory_transactions")
             .select("*, inventory_items(*)")
@@ -185,43 +256,38 @@ export default function ManufacturingDashboardPage() {
 
   const processCounts = useMemo(() => {
     const obj = {};
-    PROCESS_MAP.forEach(([label, status]) => {
-      obj[label] = batches.filter((b) => b.status === status).length;
+
+    PROCESS_MAP.forEach((p) => {
+      obj[p.label] = batches.filter((b) => b.status === p.status).length;
     });
+
     return obj;
   }, [batches]);
 
   const orderRows = useMemo(() => {
-    return activeBatches.slice(0, 12).map((b) => {
+    return activeBatches.slice(0, 8).map((b) => {
       const firstItem = b.casting_batch_items?.[0];
       const order = firstItem?.orders;
 
       return {
         id: b.id,
         batchNo: b.batch_no || "-",
-        party: order?.customer_name || "-",
         orderNo: order?.order_no || "-",
+        party: order?.customer_name || "-",
         kt: b.kt || "-",
-        pieces: Number(b.current_pieces || b.good_pieces || 0),
-        weight: Number(b.current_weight || b.received_weight || 0),
+        pieces: n(b.current_pieces || b.good_pieces),
+        weight: n(b.current_weight || b.received_weight),
         process: b.status || "-",
         age: daysOld(b.updated_at || b.created_at),
       };
     });
   }, [activeBatches]);
 
-  const totalActivePieces = activeBatches.reduce(
-    (s, b) => s + Number(b.current_pieces || b.good_pieces || 0),
-    0
-  );
-
-  const totalActiveWeight = activeBatches.reduce(
-    (s, b) => s + Number(b.current_weight || b.received_weight || 0),
-    0
-  );
-
   const allLossRows = [
-    ...buffLoss.map((r) => ({ ...r, source: "Buff / 2C" })),
+    ...buffLoss.map((r) => ({
+      ...r,
+      source: String(r.remarks || "").includes("2C") ? "Pre Polish" : "Buff",
+    })),
     ...electroLoss.map((r) => ({ ...r, source: "Electro Polish" })),
     ...castingLoss.map((r) => ({ ...r, source: "Casting" })),
   ];
@@ -229,39 +295,59 @@ export default function ManufacturingDashboardPage() {
   const lossByKt = groupByKt(allLossRows, "loss_weight");
   const lossFineByKt = makeFineMap(lossByKt);
   const lossByProcess = groupByKey(allLossRows, "source", "loss_weight");
+
   const ghisByKt = groupByKt(ghis, "ghis_weight");
   const ghisFineByKt = makeFineMap(ghisByKt);
 
-  const scrapByKt = calcInventoryByType(inventoryTxns, "Scrap");
-  const findingsByKt = calcInventoryByType(inventoryTxns, "Finding");
-  const gold995 = calcGoldStock(inventoryTxns, "995");
-  const gold999 = calcGoldStock(inventoryTxns, "999");
+  const scrapByKt = inventoryByType(inventoryTxns, "Scrap");
+  const findingsByKt = inventoryByType(inventoryTxns, "Finding");
+  const goldStockByKt = inventoryByType(inventoryTxns, "Gold");
 
-  const totalExpectedFine = buffLoss.reduce(
-    (s, r) => s + Number(r.expected_fine_gold || 0),
+  const gold995 = goldStock(inventoryTxns, "995");
+  const gold999 = goldStock(inventoryTxns, "999");
+
+  const totalActivePieces = activeBatches.reduce(
+    (s, b) => s + n(b.current_pieces || b.good_pieces),
     0
   );
 
-  const buffRecovered = Number(buffBag?.recovered_fine_gold || 0);
-  const buffExpected = Number(buffBag?.expected_fine_gold || 0);
-  const recoveryPercent =
-    buffExpected > 0 ? (buffRecovered / buffExpected) * 100 : 0;
-
-  const totalRecoverable =
-    Object.values(scrapByKt).reduce((s, v) => s + Number(v || 0), 0) +
-    Object.values(ghisByKt).reduce((s, v) => s + Number(v || 0), 0) +
-    Number(gold995 || 0) +
-    Number(gold999 || 0);
+  const totalActiveWeight = activeBatches.reduce(
+    (s, b) => s + n(b.current_weight || b.received_weight),
+    0
+  );
 
   const completedOrders = orders.filter((o) =>
     ["COMPLETED", "Completed"].includes(o.status)
   ).length;
 
+  const buffExpected = n(buffBag?.expected_fine_gold);
+  const buffRecovered = n(buffBag?.recovered_fine_gold);
+
+  const recoveryPercent =
+    buffExpected > 0 ? (buffRecovered / buffExpected) * 100 : 0;
+
+  const totalRecoverable =
+    sumObj(scrapByKt) + sumObj(ghisByKt) + gold995 + gold999;
+
+  const totalLossWeight = sumObj(lossByKt);
+  const totalLossFine = sumObj(lossFineByKt);
+
+  const negativeStockCount = [
+    ...Object.values(scrapByKt),
+    ...Object.values(findingsByKt),
+    ...Object.values(goldStockByKt),
+  ].filter((v) => n(v) < 0).length;
+
   const alerts = [
     {
       text: "Orders stuck more than 3 days",
-      count: orderRows.filter((o) => Number(o.age) > 3).length,
-      danger: orderRows.filter((o) => Number(o.age) > 3).length > 0,
+      count: orderRows.filter((o) => o.age > 3).length,
+      danger: orderRows.some((o) => o.age > 3),
+    },
+    {
+      text: "Negative stock items",
+      count: negativeStockCount,
+      danger: negativeStockCount > 0,
     },
     {
       text: "No active buff bag",
@@ -274,128 +360,150 @@ export default function ManufacturingDashboardPage() {
       danger: recoveryPercent > 0 && recoveryPercent < 80,
     },
     {
-      text: "Pending buff recovery records",
+      text: "Pending buff recovery",
       count: buffLoss.filter((x) => x.recovery_status === "Pending").length,
-      danger: buffLoss.filter((x) => x.recovery_status === "Pending").length > 0,
+      danger: buffLoss.some((x) => x.recovery_status === "Pending"),
     },
   ];
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#07111f] p-6 text-white">
+      <main className="grid min-h-screen place-items-center bg-[#07111f] text-white">
         Loading Manufacturing Dashboard...
       </main>
     );
   }
-
-  return (
-    <main className="min-h-screen bg-[#07111f] text-slate-100">
+    return (
+    <main className="min-h-screen bg-[#06111f] text-slate-100">
       <div className="flex">
-        <aside className="hidden min-h-screen w-64 shrink-0 border-r border-slate-800 bg-[#0b1628] p-4 lg:block">
-          <h1 className="mb-6 text-xl font-black text-white">Annvi ERP</h1>
+        <Sidebar />
 
-          <SideLink href="/dashboard" label="Dashboard" />
-          <SideLink href="/orders" label="Orders" />
-
-          <SideTitle title="Manufacturing" />
-          {PROCESS_MAP.map(([label, status, href]) => (
-            <SideLink key={label} href={href} label={label} />
-          ))}
-
-          <SideTitle title="Inventory" />
-          <SideLink href="/factory/inventory" label="Inventory" />
-          <SideLink href="/factory/buff-bag" label="Buff Bag" />
-
-          <SideTitle title="Reports" />
-          <SideLink
-            href="/factory/manufacturing-dashboard"
-            label="Manufacturing Dashboard"
-            active
-          />
-        </aside>
-
-        <div className="min-w-0 flex-1 p-3 md:p-5">
-          <Header onRefresh={fetchDashboard} />
+        <div className="min-w-0 flex-1 p-3">
+          <Topbar onRefresh={fetchDashboard} />
 
           {errorText && (
-            <div className="mb-4 rounded-2xl border border-red-500 bg-red-500/10 p-3 text-sm text-red-300">
+            <div className="mb-3 rounded-xl border border-red-500 bg-red-500/10 p-3 text-sm text-red-300">
               {errorText}
             </div>
           )}
 
-          <div className="grid gap-4">
-            <Section title="1 Factory Live Status">
-              <div className="grid gap-3 xl:grid-cols-[1fr_1.25fr]">
-                <div className="grid gap-3 md:grid-cols-3">
-                  <BigStat label="Total Active Orders" value={activeBatches.length} />
-                  <BigStat label="Total Active Pieces" value={totalActivePieces} />
-                  <BigStat
-                    label="Total Active Weight"
-                    value={`${totalActiveWeight.toFixed(3)} g`}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
-                  {PROCESS_MAP.map(([label]) => (
-                    <ProcessCard
-                      key={label}
-                      label={label}
-                      count={processCounts[label] || 0}
+          <div className="grid gap-2">
+            <div className="grid gap-2 xl:grid-cols-[1fr_260px]">
+              <Section number="1" title="Factory Live Status">
+                <div className="grid gap-2 xl:grid-cols-[1fr_1.2fr]">
+                  <div className="grid gap-2 md:grid-cols-3">
+                    <MetricCard
+                      label="Total Active Orders"
+                      value={activeBatches.length}
+                      sub="Live WIP batches"
                     />
-                  ))}
-                </div>
-              </div>
-            </Section>
 
-            <div className="grid gap-4 xl:grid-cols-[1.35fr_1fr]">
-              <Section title="2 Order Tracking">
-                <div className="mb-3 grid gap-3 md:grid-cols-3">
-                  <SmallStat label="Total Orders" value={orders.length} />
-                  <SmallStat label="Completed" value={completedOrders} />
-                  <SmallStat label="Live Batches" value={activeBatches.length} />
+                    <MetricCard
+                      label="Total Active Pieces"
+                      value={totalActivePieces}
+                      sub="Across factory"
+                    />
+
+                    <MetricCard
+                      label="Total Active Weight"
+                      value={`${fmt(totalActiveWeight)} g`}
+                      sub="Current WIP weight"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="mb-2 text-xs font-black uppercase text-slate-300">
+                      Process wise WIP
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
+                      {PROCESS_MAP.map((p) => (
+                        <ProcessBox
+                          key={p.label}
+                          process={p}
+                          count={processCounts[p.label] || 0}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </Section>
+
+              <QuickActions />
+            </div>
+
+            <div className="grid gap-2 xl:grid-cols-[1.2fr_0.9fr]">
+              <Section number="2" title="Order Tracking">
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap gap-2">
+                    <Pill>All Orders ({orders.length})</Pill>
+                    <Pill>
+                      Stuck Orders (
+                      {orderRows.filter((o) => o.age > 3).length})
+                    </Pill>
+                    <Pill>Priority Orders (0)</Pill>
+                  </div>
+
+                  <div className="rounded-lg border border-slate-700 bg-[#091627] px-3 py-2 text-xs text-slate-400">
+                    Search Order...
+                  </div>
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[900px] text-sm">
+                  <table className="w-full min-w-[760px] text-xs">
                     <thead>
                       <tr className="border-b border-slate-700 text-left text-slate-400">
-                        <th className="p-3">Batch No</th>
-                        <th className="p-3">Order</th>
-                        <th className="p-3">Party</th>
-                        <th className="p-3">KT</th>
-                        <th className="p-3">Pcs</th>
-                        <th className="p-3">Weight</th>
-                        <th className="p-3">Current Process</th>
-                        <th className="p-3">Age</th>
+                        <th className="p-2">Batch No</th>
+                        <th className="p-2">Order No</th>
+                        <th className="p-2">Party Name</th>
+                        <th className="p-2">Karat</th>
+                        <th className="p-2">Qty</th>
+                        <th className="p-2">Weight</th>
+                        <th className="p-2">Current Process</th>
+                        <th className="p-2">Since / Age</th>
+                        <th className="p-2">Status</th>
                       </tr>
                     </thead>
+
                     <tbody>
                       {orderRows.length === 0 ? (
                         <tr>
-                          <td colSpan={8} className="p-4 text-slate-400">
-                            No active batches.
+                          <td colSpan={9} className="p-3 text-slate-400">
+                            No active orders.
                           </td>
                         </tr>
                       ) : (
                         orderRows.map((o) => (
-                          <tr key={o.id} className="border-b border-slate-800">
-                            <td className="p-3 font-bold">{o.batchNo}</td>
-                            <td className="p-3">{o.orderNo}</td>
-                            <td className="p-3">{o.party}</td>
-                            <td className="p-3">
-                              <Badge>{o.kt}</Badge>
+                          <tr
+                            key={o.id}
+                            className="border-b border-slate-800"
+                          >
+                            <td className="p-2 font-bold text-white">
+                              {o.batchNo}
                             </td>
-                            <td className="p-3">{o.pieces}</td>
-                            <td className="p-3">{o.weight.toFixed(3)} g</td>
-                            <td className="p-3">
+                            <td className="p-2">{o.orderNo}</td>
+                            <td className="p-2">{o.party}</td>
+                            <td className="p-2">
+                              <KtBadge kt={o.kt} />
+                            </td>
+                            <td className="p-2">{o.pieces}</td>
+                            <td className="p-2">{fmt(o.weight)}</td>
+                            <td className="p-2">
                               <ProcessBadge>{o.process}</ProcessBadge>
                             </td>
                             <td
-                              className={`p-3 ${
-                                o.age > 3 ? "font-bold text-red-400" : ""
+                              className={`p-2 ${
+                                o.age > 3
+                                  ? "font-black text-red-400"
+                                  : ""
                               }`}
                             >
                               {o.age} Days
+                            </td>
+                            <td className="p-2">
+                              <StatusBadge danger={o.age > 3}>
+                                {o.age > 3 ? "Stuck" : "In Progress"}
+                              </StatusBadge>
                             </td>
                           </tr>
                         ))
@@ -405,155 +513,332 @@ export default function ManufacturingDashboardPage() {
                 </div>
               </Section>
 
-              <Section title="3 Gold Position">
-                <div className="grid gap-3 md:grid-cols-2">
-                  <MiniPanel title="Scrap Gold">
+              <Section number="3" title="Gold Position">
+                <div className="grid gap-2 md:grid-cols-3">
+                  <InfoPanel title="Scrap Gold (Loss)">
                     <KaratRows data={scrapByKt} />
-                  </MiniPanel>
+                  </InfoPanel>
 
-                  <MiniPanel title="Ghis Karat Wise">
+                  <InfoPanel title="Ghis (Karat Wise Total)">
                     <KaratRows data={ghisByKt} />
-                  </MiniPanel>
+                  </InfoPanel>
 
-                  <MiniPanel title="Findings Stock">
+                  <InfoPanel title="Findings Stock">
                     <KaratRows data={findingsByKt} />
-                  </MiniPanel>
+                  </InfoPanel>
+                </div>
 
-                  <MiniPanel title="Pure Gold Stock">
-                    <Row label="995 Gold" value={`${gold995.toFixed(3)} g`} />
-                    <Row label="999 Gold" value={`${gold999.toFixed(3)} g`} />
-                  </MiniPanel>
+                <div className="mt-2 grid gap-2 md:grid-cols-[1fr_1fr]">
+                  <InfoPanel title="Pure Gold Stock">
+                    <Line label="995 Gold" value={`${fmt(gold995)} g`} />
+                    <Line label="999 Gold" value={`${fmt(gold999)} g`} />
+                  </InfoPanel>
 
-                  <div className="rounded-2xl border border-yellow-500 bg-yellow-500/10 p-4 md:col-span-2">
-                    <p className="text-sm font-bold text-yellow-300">
+                  <div className="rounded-xl border border-yellow-500 bg-yellow-500/10 p-3">
+                    <p className="text-xs font-black uppercase text-yellow-300">
                       Total Recoverable Gold
                     </p>
-                    <p className="mt-2 text-3xl font-black text-yellow-300">
-                      {totalRecoverable.toFixed(3)} g
-                    </p>
+
+                    <div className="mt-2 flex items-center justify-between">
+                      <p className="text-3xl font-black text-yellow-300">
+                        {fmt(totalRecoverable)} g
+                      </p>
+
+                      <span className="text-4xl">🟨</span>
+                    </div>
                   </div>
                 </div>
               </Section>
             </div>
 
-            <div className="grid gap-4 xl:grid-cols-[1.15fr_1fr]">
-              <Section title="4 Buff Recovery Dashboard">
-                <div className="grid gap-3 md:grid-cols-3">
-                  <MiniPanel title="Active Buff Bag">
-                    <Row label="Bag No" value={buffBag?.bag_no || "-"} />
-                    <Row
+            <div className="grid gap-2 xl:grid-cols-[1.15fr_0.85fr]">
+              <Section number="4" title="Buff Recovery Dashboard">
+                <div className="grid gap-2 md:grid-cols-[1fr_1fr_1.4fr]">
+                  <InfoPanel title="Active Buff Bag">
+                    <Line
+                      label="Bag No."
+                      value={buffBag?.bag_no || "-"}
+                      highlight
+                    />
+
+                    <Line
+                      label="Installed Date"
+                      value={buffBag?.installed_date || "-"}
+                    />
+
+                    <Line
                       label="Expected Fine"
-                      value={`${buffExpected.toFixed(3)} g`}
+                      value={`${fmt(buffExpected)} g`}
                     />
-                    <Row
+
+                    <Line
                       label="Recovered Fine"
-                      value={`${buffRecovered.toFixed(3)} g`}
+                      value={`${fmt(buffRecovered)} g`}
                     />
-                    <Row label="Recovery %" value={`${recoveryPercent.toFixed(2)} %`} />
-                  </MiniPanel>
 
-                  <MiniPanel title="Recovery Chart">
-                    <DonutChart percent={recoveryPercent} />
-                  </MiniPanel>
+                    <Line
+                      label="Recovery %"
+                      value={`${recoveryPercent.toFixed(2)}%`}
+                      green
+                    />
 
-                  <MiniPanel title="Party Wise Fine">
-                    {buffLoss.slice(0, 6).map((r) => (
-                      <Row
-                        key={r.id}
-                        label={r.party_name || r.batch_no || "-"}
-                        value={`${Number(r.expected_fine_gold || 0).toFixed(3)} g`}
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-800">
+                      <div
+                        className="h-full rounded-full bg-green-500"
+                        style={{
+                          width: `${Math.min(100, recoveryPercent)}%`,
+                        }}
                       />
-                    ))}
-                    {buffLoss.length === 0 && <Row label="No Data" value="0.000 g" />}
-                  </MiniPanel>
+                    </div>
+                  </InfoPanel>
+
+                  <InfoPanel title="Recovery Summary">
+                    <div className="grid place-items-center">
+                      <Donut percent={recoveryPercent} />
+                    </div>
+                  </InfoPanel>
+
+                  <InfoPanel title="Party Wise (Loss → Expected Fine)">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-slate-700 text-slate-400">
+                          <th className="py-2 text-left">Party</th>
+                          <th className="py-2 text-right">Loss</th>
+                          <th className="py-2 text-right">Expected Fine</th>
+                        </tr>
+                      </thead>
+
+                      <tbody>
+                        {buffLoss.slice(0, 5).map((r) => (
+                          <tr
+                            key={r.id}
+                            className="border-b border-slate-800"
+                          >
+                            <td className="py-2">
+                              {r.party_name || r.batch_no || "-"}
+                            </td>
+                            <td className="py-2 text-right">
+                              {fmt(r.loss_weight)}
+                            </td>
+                            <td className="py-2 text-right">
+                              {fmt(r.expected_fine_gold)}
+                            </td>
+                          </tr>
+                        ))}
+
+                        {buffLoss.length === 0 && (
+                          <tr>
+                            <td
+                              colSpan={3}
+                              className="py-2 text-slate-400"
+                            >
+                              No data
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </InfoPanel>
                 </div>
               </Section>
 
-              <Section title="5 Loss Dashboard">
-                <div className="grid gap-3 md:grid-cols-3">
-                  <MiniPanel title="Karat Wise Loss">
-                    <KaratRows data={lossByKt} />
-                  </MiniPanel>
+              <Section number="5" title="Loss Dashboard">
+                <div className="grid gap-2 md:grid-cols-3">
+                  <InfoPanel title="Karat Wise Loss">
+                    <KaratRows data={lossByKt} total />
+                  </InfoPanel>
 
-                  <MiniPanel title="Karat Wise Fine">
-                    <KaratRows data={lossFineByKt} />
-                  </MiniPanel>
+                  <InfoPanel title="Process Wise Loss">
+                    <KaratRows data={lossByProcess} total />
+                  </InfoPanel>
 
-                  <MiniPanel title="Loss By Process">
-                    <KaratRows data={lossByProcess} />
-                  </MiniPanel>
+                  <InfoPanel title="Loss Type Wise">
+                    <Line
+                      label="Ghis"
+                      value={`${fmt(sumObj(ghisByKt))} g`}
+                    />
+
+                    <Line
+                      label="Buff / 2C"
+                      value={`${fmt(
+                        sumObj(
+                          groupByKey(
+                            buffLoss,
+                            "recovery_status",
+                            "loss_weight"
+                          )
+                        )
+                      )} g`}
+                    />
+
+                    <Line
+                      label="Electro"
+                      value={`${fmt(
+                        sumObj(
+                          groupByKey(
+                            electroLoss,
+                            "recovery_status",
+                            "loss_weight"
+                          )
+                        )
+                      )} g`}
+                    />
+
+                    <Line
+                      label="Casting"
+                      value={`${fmt(
+                        sumObj(
+                          groupByKey(
+                            castingLoss,
+                            "recovery_status",
+                            "loss_weight"
+                          )
+                        )
+                      )} g`}
+                    />
+
+                    <Line
+                      label="Total Fine"
+                      value={`${fmt(totalLossFine)} g`}
+                      highlight
+                    />
+                  </InfoPanel>
                 </div>
               </Section>
             </div>
 
-            <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
-              <Section title="6 Charts">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <BarChart
-                    title="Process Wise WIP"
-                    data={PROCESS_MAP.map(([label]) => ({
-                      label,
-                      value: processCounts[label] || 0,
-                    }))}
-                  />
+            <div className="grid gap-2 xl:grid-cols-[1fr_0.75fr_0.75fr]">
+              <Section number="6" title="Inventory Dashboard">
+                <div className="grid gap-2 md:grid-cols-3">
+                  <InfoPanel title="Gold Stock (Karat Wise)">
+                    <KaratRows data={goldStockByKt} />
+                  </InfoPanel>
 
-                  <BarChart
-                    title="Loss Karat Wise"
-                    data={Object.entries(lossByKt).map(([label, value]) => ({
-                      label,
-                      value,
-                    }))}
-                    suffix="g"
-                  />
+                  <InfoPanel title="Findings">
+                    <Line
+                      label="Available"
+                      value={`${fmt(sumObj(findingsByKt))} g`}
+                    />
+                    <Line
+                      label="KT Groups"
+                      value={Object.keys(findingsByKt).length}
+                    />
+                    <Line
+                      label="Items"
+                      value={
+                        inventoryItems.filter(
+                          (i) => i.item_type === "Finding"
+                        ).length
+                      }
+                    />
+                  </InfoPanel>
 
-                  <BarChart
-                    title="Ghis Karat Wise"
-                    data={Object.entries(ghisByKt).map(([label, value]) => ({
-                      label,
-                      value,
-                    }))}
-                    suffix="g"
-                  />
-
-                  <BarChart
-                    title="Scrap Gold Karat Wise"
-                    data={Object.entries(scrapByKt).map(([label, value]) => ({
-                      label,
-                      value,
-                    }))}
-                    suffix="g"
-                  />
+                  <InfoPanel title="Scrap Inventory">
+                    <KaratRows data={scrapByKt} />
+                  </InfoPanel>
                 </div>
               </Section>
 
-              <Section title="7 Production Summary & Alerts">
-                <div className="grid gap-3 md:grid-cols-2">
-                  <MiniPanel title="Production Summary">
-                    <Row label="Total Orders" value={orders.length} />
-                    <Row label="Completed Orders" value={completedOrders} />
-                    <Row label="Active Batches" value={activeBatches.length} />
-                    <Row label="Loss Records" value={allLossRows.length} />
-                  </MiniPanel>
+              <Section number="7" title="Production Summary">
+                <div className="grid gap-2">
+                  <InfoPanel title="Today">
+                    <Line
+                      label="Orders Completed"
+                      value={completedOrders}
+                    />
+                    <Line
+                      label="Live Batches"
+                      value={activeBatches.length}
+                    />
+                    <Line
+                      label="Live Weight"
+                      value={`${fmt(totalActiveWeight)} g`}
+                    />
+                  </InfoPanel>
 
-                  <MiniPanel title="Alerts">
-                    <div className="space-y-2">
-                      {alerts.map((a) => (
-                        <div
-                          key={a.text}
-                          className={`flex items-center justify-between rounded-xl border p-3 text-sm ${
-                            a.danger
-                              ? "border-red-500/40 bg-red-500/10 text-red-300"
-                              : "border-green-500/40 bg-green-500/10 text-green-300"
-                          }`}
-                        >
-                          <span>{a.text}</span>
-                          <b>{a.count}</b>
-                        </div>
-                      ))}
+                  <InfoPanel title="This Month">
+                    <Line label="Total Orders" value={orders.length} />
+                    <Line
+                      label="Average Order Weight"
+                      value={`${fmt(
+                        totalActiveWeight /
+                          Math.max(activeBatches.length, 1)
+                      )} g`}
+                    />
+                  </InfoPanel>
+
+                  <InfoPanel title="Average Production Time">
+                    <Line label="Casting → Tag Print" value="-" />
+                    <Line label="Tag Print → Sale" value="-" />
+                  </InfoPanel>
+                </div>
+              </Section>
+
+              <Section number="8" title="Alerts">
+                <div className="space-y-2">
+                  {alerts.map((a) => (
+                    <div
+                      key={a.text}
+                      className={`flex items-center justify-between rounded-lg border px-3 py-2 text-xs ${
+                        a.danger
+                          ? "border-red-500/30 bg-red-500/10 text-red-300"
+                          : "border-green-500/30 bg-green-500/10 text-green-300"
+                      }`}
+                    >
+                      <span>{a.text}</span>
+                      <b className="rounded bg-black/30 px-2 py-1">
+                        {a.count}
+                      </b>
                     </div>
-                  </MiniPanel>
+                  ))}
                 </div>
+
+                <Link
+                  href="/factory"
+                  className="mt-3 block rounded-lg border border-slate-700 py-2 text-center text-xs text-slate-300"
+                >
+                  View All Alerts →
+                </Link>
               </Section>
+            </div>
+
+            <div className="grid gap-2 md:grid-cols-4 xl:grid-cols-8">
+              <BottomStat label="Total Orders" value={orders.length} />
+              <BottomStat
+                label="Completed Orders"
+                value={completedOrders}
+              />
+              <BottomStat
+                label="Live Orders"
+                value={activeBatches.length}
+              />
+              <BottomStat
+                label="Gold in Factory"
+                value={`${fmt(totalRecoverable)} g`}
+                gold
+              />
+              <BottomStat
+                label="Total Loss"
+                value={`${fmt(totalLossWeight)} g`}
+                red
+              />
+              <BottomStat
+                label="Loss Fine"
+                value={`${fmt(totalLossFine)} g`}
+                red
+              />
+              <BottomStat
+                label="Buff Recovery"
+                value={`${recoveryPercent.toFixed(2)}%`}
+                green
+              />
+
+              <Link
+                href="/factory"
+                className="grid place-items-center rounded-xl border border-purple-500/50 bg-purple-600/40 p-3 text-sm font-bold text-white"
+              >
+                View Reports
+              </Link>
             </div>
           </div>
         </div>
@@ -561,179 +846,253 @@ export default function ManufacturingDashboardPage() {
     </main>
   );
 }
-
-function Header({ onRefresh }) {
+function Sidebar() {
   return (
-    <div className="mb-4 flex flex-col gap-3 border-b border-slate-800 pb-4 md:flex-row md:items-center md:justify-between">
-      <div>
-        <h1 className="text-2xl font-black text-white md:text-3xl">
-          ✨ Manufacturing Dashboard
-        </h1>
-        <p className="text-sm text-slate-400">
-          Real-time factory overview, gold position, losses and recovery.
-        </p>
+    <aside className="hidden min-h-screen w-60 shrink-0 border-r border-slate-800 bg-[#081424] p-3 lg:block">
+      <div className="mb-5 flex items-center gap-2 text-lg font-black text-white">
+        <span>♻️</span> Annvi ERP
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <Link
-          href="/factory"
-          className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-bold"
-        >
-          Factory
-        </Link>
-        <button
-          onClick={onRefresh}
-          className="rounded-xl bg-yellow-500 px-4 py-2 text-sm font-bold text-black"
-        >
-          Refresh
-        </button>
+      <SideLink href="/dashboard" label="Dashboard" active />
+      <SideLink href="/orders" label="Orders" arrow />
+
+      <SideTitle>Manufacturing</SideTitle>
+      {PROCESS_MAP.map((p) => (
+        <SideLink key={p.label} href={p.href} label={p.label} />
+      ))}
+
+      <SideTitle>Inventory</SideTitle>
+      <SideLink href="/factory/inventory" label="Gold Stock" />
+      <SideLink href="/factory/inventory" label="Findings" />
+      <SideLink href="/factory/inventory" label="Scrap Gold" />
+      <SideLink href="/factory/buff-bag" label="Buff Bag" />
+
+      <SideTitle>Reports</SideTitle>
+      <SideLink
+        href="/factory/manufacturing-dashboard"
+        label="Loss Report"
+      />
+      <SideLink
+        href="/factory/manufacturing-dashboard"
+        label="Production Report"
+      />
+      <SideLink href="/factory/buff-bag" label="Recovery Report" />
+
+      <SideTitle>Masters</SideTitle>
+      <SideLink href="/catalog/upload" label="Karat Master" />
+      <SideLink href="/catalog/upload" label="Loss Type Master" />
+      <SideLink href="/parties" label="Party Master" />
+      <SideLink href="/profiles" label="Users" />
+
+      <div className="mt-6 rounded-lg border border-slate-800 px-3 py-2 text-xs text-slate-400">
+        « Collapse
       </div>
-    </div>
+    </aside>
   );
 }
 
-function Section({ title, children }) {
-  const first = title.split(" ")[0];
+function Topbar({ onRefresh }) {
+  return (
+    <header className="mb-2 flex flex-col gap-2 border-b border-yellow-500/40 pb-3 md:flex-row md:items-center md:justify-between">
+      <div>
+        <h1 className="text-xl font-black text-white">
+          ✨ Manufacturing Dashboard
+        </h1>
+        <p className="text-xs text-slate-400">
+          Real-time factory overview & analytics
+        </p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300">
+          Date: Today
+        </div>
+
+        <button className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300">
+          Filter
+        </button>
+
+        <button
+          onClick={onRefresh}
+          className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300"
+        >
+          Refresh
+        </button>
+
+        <div className="flex items-center gap-2 rounded-lg px-2 py-1">
+          <div className="grid h-8 w-8 place-items-center rounded-full bg-emerald-400 text-black">
+            P
+          </div>
+
+          <div>
+            <p className="text-xs font-bold text-white">Pulkit Vijay</p>
+            <p className="text-[10px] text-slate-400">Admin</p>
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function QuickActions() {
+  const actions = [
+    ["New Order", "/orders/add"],
+    ["Manufacturing Entry", "/factory"],
+    ["Loss Entry", "/factory/manufacturing-dashboard"],
+    ["Buff Recovery Entry", "/factory/buff-bag"],
+    ["Stock Adjustment", "/factory/inventory"],
+  ];
 
   return (
-    <section className="rounded-2xl border border-yellow-500/40 bg-[#0b1628] p-3 shadow-lg">
-      <h2 className="mb-3 text-sm font-black uppercase tracking-wide text-white">
-        <span className="mr-2 rounded bg-yellow-400 px-2 py-1 text-black">
-          {first}
-        </span>
-        {title.replace(first, "")}
+    <Section number="" title="Quick Actions">
+      <div className="space-y-2">
+        {actions.map(([label, href]) => (
+          <Link
+            key={label}
+            href={href}
+            className="flex items-center gap-2 rounded-lg px-2 py-2 text-xs hover:bg-slate-800"
+          >
+            <span className="grid h-6 w-6 place-items-center rounded bg-purple-600 text-white">
+              +
+            </span>
+            {label}
+          </Link>
+        ))}
+      </div>
+    </Section>
+  );
+}
+
+function Section({ number, title, children }) {
+  return (
+    <section className="rounded-xl border border-yellow-500/45 bg-[#0b1628] p-3 shadow-[0_0_20px_rgba(234,179,8,0.05)]">
+      <h2 className="mb-3 text-xs font-black uppercase tracking-wide text-white">
+        {number ? (
+          <span className="mr-2 rounded bg-yellow-400 px-2 py-1 text-black">
+            {number}
+          </span>
+        ) : null}
+        {title}
       </h2>
+
       {children}
     </section>
   );
 }
 
-function BigStat({ label, value }) {
+function MetricCard({ label, value, sub }) {
   return (
-    <div className="rounded-2xl border border-slate-700 bg-[#101d31] p-5">
-      <p className="text-sm text-slate-400">{label}</p>
-      <p className="mt-3 text-3xl font-black text-white">{value}</p>
-    </div>
-  );
-}
-
-function SmallStat({ label, value }) {
-  return (
-    <div className="rounded-xl border border-slate-700 bg-[#101d31] p-3">
+    <div className="rounded-xl border border-slate-700 bg-[#0d1a2c] p-4">
       <p className="text-xs text-slate-400">{label}</p>
-      <p className="mt-1 text-xl font-black text-white">{value}</p>
+      <p className="mt-3 text-3xl font-black text-white">{value}</p>
+      <p className="mt-3 text-xs text-green-400">↑ {sub}</p>
     </div>
   );
 }
 
-function ProcessCard({ label, count }) {
+function ProcessBox({ process, count }) {
   const active = count > 0;
 
   return (
     <Link
-      href={PROCESS_MAP.find(([x]) => x === label)?.[2] || "/factory"}
-      className={`rounded-xl border p-3 transition hover:-translate-y-1 ${
+      href={process.href}
+      className={`rounded-lg border p-2 text-xs transition hover:-translate-y-0.5 ${
         active
-          ? "border-yellow-500 bg-yellow-500/15 text-yellow-200"
-          : "border-slate-700 bg-[#101d31] text-slate-300"
+          ? "border-yellow-500 bg-yellow-500/20 text-yellow-100"
+          : "border-slate-700 bg-[#0e1c30] text-slate-300"
       }`}
     >
-      <p className="text-xs font-bold">{label}</p>
-      <p className="mt-2 text-xl font-black">{count}</p>
-      <p className="text-xs">Orders</p>
+      <div className="flex items-center gap-1 font-bold">
+        <span>{process.icon}</span> {process.label}
+      </div>
+
+      <p className="mt-1 text-lg font-black">{count}</p>
+      <p>Orders</p>
     </Link>
   );
 }
 
-function MiniPanel({ title, children }) {
+function InfoPanel({ title, children }) {
   return (
-    <div className="rounded-2xl border border-slate-700 bg-[#101d31] p-4">
+    <div className="rounded-xl border border-slate-700 bg-[#0d1a2c] p-3">
       <h3 className="mb-3 text-xs font-black uppercase text-slate-300">
         {title}
       </h3>
+
       <div className="space-y-2">{children}</div>
     </div>
   );
 }
 
-function Row({ label, value }) {
+function Line({ label, value, highlight, green }) {
   return (
-    <div className="flex items-center justify-between gap-3 text-sm">
-      <span className="text-slate-300">{label}</span>
-      <b className="text-white">{value}</b>
+    <div className="flex items-center justify-between gap-3 text-xs">
+      <span
+        className={
+          highlight
+            ? "text-yellow-300"
+            : green
+            ? "text-green-400"
+            : "text-slate-300"
+        }
+      >
+        {label}
+      </span>
+
+      <b
+        className={
+          highlight
+            ? "text-yellow-300"
+            : green
+            ? "text-green-400"
+            : "text-white"
+        }
+      >
+        {value}
+      </b>
     </div>
   );
 }
 
-function KaratRows({ data }) {
-  const entries = Object.entries(data || {});
-  if (entries.length === 0) return <Row label="No Data" value="0.000 g" />;
+function KaratRows({ data, total }) {
+  const rows = Object.entries(data || {});
 
-  return entries.map(([kt, wt]) => (
-    <Row key={kt} label={kt} value={`${Number(wt || 0).toFixed(3)} g`} />
-  ));
-}
-
-function BarChart({ title, data, suffix = "" }) {
-  const clean = (data || []).filter((d) => Number(d.value || 0) !== 0);
-  const max = Math.max(...clean.map((d) => Math.abs(Number(d.value || 0))), 1);
+  if (rows.length === 0) {
+    return <Line label="No Data" value="0.000 g" />;
+  }
 
   return (
-    <div className="rounded-2xl border border-slate-700 bg-[#101d31] p-4">
-      <h3 className="mb-4 text-xs font-black uppercase text-slate-300">
-        {title}
-      </h3>
+    <>
+      {rows.map(([kt, wt]) => (
+        <Line key={kt} label={kt} value={`${fmt(wt)} g`} />
+      ))}
 
-      <div className="space-y-3">
-        {clean.length === 0 ? (
-          <p className="text-sm text-slate-400">No chart data</p>
-        ) : (
-          clean.map((d) => {
-            const width = Math.max(
-              5,
-              (Math.abs(Number(d.value || 0)) / max) * 100
-            );
-
-            return (
-              <div key={d.label}>
-                <div className="mb-1 flex items-center justify-between text-xs">
-                  <span className="text-slate-300">{d.label}</span>
-                  <b className="text-yellow-300">
-                    {Number(d.value || 0).toFixed(suffix ? 3 : 0)}
-                    {suffix ? ` ${suffix}` : ""}
-                  </b>
-                </div>
-
-                <div className="h-2 overflow-hidden rounded-full bg-slate-800">
-                  <div
-                    className="h-full rounded-full bg-yellow-400"
-                    style={{ width: `${width}%` }}
-                  />
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
-    </div>
+      {total && (
+        <div className="border-t border-slate-700 pt-2">
+          <Line label="Total" value={`${fmt(sumObj(data))} g`} highlight />
+        </div>
+      )}
+    </>
   );
 }
 
-function DonutChart({ percent }) {
-  const safe = Math.max(0, Math.min(100, Number(percent || 0)));
+function Donut({ percent }) {
+  const safe = Math.max(0, Math.min(100, n(percent)));
 
   return (
-    <div className="flex flex-col items-center justify-center">
+    <div className="grid place-items-center">
       <div
-        className="grid h-32 w-32 place-items-center rounded-full"
+        className="grid h-28 w-28 place-items-center rounded-full"
         style={{
           background: `conic-gradient(#22c55e ${safe}%, #1e293b 0)`,
         }}
       >
-        <div className="grid h-20 w-20 place-items-center rounded-full bg-[#101d31]">
-          <div className="text-center">
-            <p className="text-xl font-black text-white">{safe.toFixed(1)}%</p>
-            <p className="text-xs text-slate-400">Recovery</p>
+        <div className="grid h-16 w-16 place-items-center rounded-full bg-[#0d1a2c] text-center">
+          <div>
+            <p className="text-sm font-black text-white">
+              {safe.toFixed(2)}%
+            </p>
+            <p className="text-[10px] text-slate-400">Recover</p>
           </div>
         </div>
       </div>
@@ -741,95 +1100,86 @@ function DonutChart({ percent }) {
   );
 }
 
-function Badge({ children }) {
+function Pill({ children }) {
   return (
-    <span className="rounded bg-blue-600 px-2 py-1 text-xs font-bold text-white">
+    <span className="rounded-lg border border-slate-700 bg-[#0a1728] px-3 py-2 text-xs text-slate-300">
       {children}
+    </span>
+  );
+}
+
+function KtBadge({ kt }) {
+  return (
+    <span className="rounded bg-blue-600 px-2 py-1 text-[10px] font-black text-white">
+      {kt}
     </span>
   );
 }
 
 function ProcessBadge({ children }) {
   return (
-    <span className="rounded bg-purple-600 px-2 py-1 text-xs font-bold text-white">
+    <span className="rounded bg-purple-600 px-2 py-1 text-[10px] font-black text-white">
       {children}
     </span>
   );
 }
 
-function SideTitle({ title }) {
+function StatusBadge({ children, danger }) {
   return (
-    <p className="mt-5 px-3 text-xs font-bold uppercase text-slate-500">
-      {title}
+    <span
+      className={`rounded px-2 py-1 text-[10px] font-black ${
+        danger
+          ? "bg-red-600/40 text-red-200"
+          : "bg-green-600/40 text-green-200"
+      }`}
+    >
+      {children}
+    </span>
+  );
+}
+
+function BottomStat({ label, value, gold, red, green }) {
+  return (
+    <div className="rounded-lg border border-slate-700 bg-[#0d1a2c] p-3">
+      <p className="text-xs text-slate-400">{label}</p>
+
+      <p
+        className={`mt-1 text-lg font-black ${
+          gold
+            ? "text-yellow-300"
+            : red
+            ? "text-red-400"
+            : green
+            ? "text-green-400"
+            : "text-white"
+        }`}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function SideTitle({ children }) {
+  return (
+    <p className="mt-5 px-2 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+      {children}
     </p>
   );
 }
 
-function SideLink({ href, label, active }) {
+function SideLink({ href, label, active, arrow }) {
   return (
     <Link
       href={href}
-      className={`mt-1 block rounded-xl px-3 py-2 text-sm font-semibold ${
-        active ? "bg-purple-600 text-white" : "text-slate-300 hover:bg-slate-800"
+      className={`mt-1 flex items-center justify-between rounded-lg px-3 py-2 text-xs font-semibold ${
+        active
+          ? "bg-purple-600 text-white"
+          : "text-slate-300 hover:bg-slate-800"
       }`}
     >
-      {label}
+      <span>{label}</span>
+      {arrow ? <span>›</span> : null}
     </Link>
   );
-}
-
-function groupByKt(rows, weightKey) {
-  return (rows || []).reduce((acc, row) => {
-    const kt = row.kt || "Unknown";
-    acc[kt] = Number(acc[kt] || 0) + Number(row[weightKey] || 0);
-    return acc;
-  }, {});
-}
-
-function groupByKey(rows, key, weightKey) {
-  return (rows || []).reduce((acc, row) => {
-    const label = row[key] || "Unknown";
-    acc[label] = Number(acc[label] || 0) + Number(row[weightKey] || 0);
-    return acc;
-  }, {});
-}
-
-function makeFineMap(weightMap) {
-  return Object.entries(weightMap || {}).reduce((acc, [kt, wt]) => {
-    acc[kt] = fineFromKt(kt, wt);
-    return acc;
-  }, {});
-}
-
-function calcInventoryByType(txns, itemType) {
-  const out = {};
-
-  (txns || []).forEach((t) => {
-    const item = t.inventory_items;
-    if (item?.item_type !== itemType) return;
-
-    const kt = t.kt || "Unknown";
-    const sign = t.transaction_type === "Stock Out" ? -1 : 1;
-    out[kt] = Number(out[kt] || 0) + sign * Number(t.weight || 0);
-  });
-
-  return out;
-}
-
-function calcGoldStock(txns, goldType) {
-  return (txns || []).reduce((sum, t) => {
-    const item = t.inventory_items;
-    const name = String(item?.item_name || "").toLowerCase();
-
-    if (!name.includes(goldType)) return sum;
-
-    const sign = t.transaction_type === "Stock Out" ? -1 : 1;
-    return sum + sign * Number(t.weight || 0);
-  }, 0);
-}
-
-function daysOld(date) {
-  if (!date) return 0;
-  const diff = Date.now() - new Date(date).getTime();
-  return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)));
 }

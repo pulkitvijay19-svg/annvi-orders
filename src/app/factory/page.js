@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { supabase } from "@/lib/supabaseClient";
-import MobileBottomNav from "@/components/MobileBottomNav";
-
+import { supabase } from "../../lib/supabaseClient";
+import MobileBottomNav from "../../components/MobileBottomNav";
 export default function FactoryPage() {
   const [counts, setCounts] = useState({});
 

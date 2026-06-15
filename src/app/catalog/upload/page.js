@@ -3,9 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import * as XLSX from "xlsx";
-import { supabase } from "@/lib/supabaseClient";
-import { useRequireAuth } from "@/lib/useRequireAuth";
-import MobileBottomNav from "@/components/MobileBottomNav";
+import { supabase } from "../../../lib/supabaseClient";
+import { useRequireAuth } from "../../../lib/useRequireAuth";
+import MobileBottomNav from "../../../components/MobileBottomNav";
 
 const CATEGORIES = [
   "Ladies Ring",

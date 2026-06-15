@@ -3,9 +3,9 @@
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
-import { useRequireAuth } from "@/lib/useRequireAuth";
-import MobileBottomNav from "@/components/MobileBottomNav";
+import { supabase } from "../../../../lib/supabaseClient";
+import { useRequireAuth } from "../../../../lib/useRequireAuth";
+import MobileBottomNav from "../../../../components/MobileBottomNav";
 
 
 const KTS = ["9KT", "14KT", "18KT", "20KT", "22KT", "24KT"];

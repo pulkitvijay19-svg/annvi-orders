@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
-import { useRequireAuth } from "@/lib/useRequireAuth";
-import MobileBottomNav from "@/components/MobileBottomNav";
+import { supabase } from "../../../../lib/supabaseClient";
+import { useRequireAuth } from "../../../../lib/useRequireAuth";
+import MobileBottomNav from "../../../../components/MobileBottomNav";
 
 export default function BuffDashboardPage() {
   const { loading: authLoading } = useRequireAuth();

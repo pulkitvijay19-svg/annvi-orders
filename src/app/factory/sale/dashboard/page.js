@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
-import { supabase } from "@/lib/supabaseClient";
-import { useRequireAuth } from "@/lib/useRequireAuth";
-import MobileBottomNav from "@/components/MobileBottomNav";
+import { supabase } from "../../../../lib/supabaseClient";
+import { useRequireAuth } from "../../../../lib/useRequireAuth";
+import MobileBottomNav from "../../../../components/MobileBottomNav";
 
 function n(value) {
   return Number(value || 0);

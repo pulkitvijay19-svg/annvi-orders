@@ -1,6 +1,6 @@
 import { getToken } from "firebase/messaging";
-import { getFirebaseMessaging } from "@/lib/firebaseClient";
-import { supabase } from "@/lib/supabaseClient";
+import { getFirebaseMessaging } from "./firebaseClient";
+import { supabase } from "./supabaseClient";
 
 export async function enablePushNotifications(user) {
   if (!user) {
