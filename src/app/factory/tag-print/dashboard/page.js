@@ -263,6 +263,13 @@ die_no: null,
       return;
     }
 
+    await supabase
+  .from("orders")
+  .update({
+    status: "DELIVERED"
+  })
+  .eq("id", selectedOrder.id);
+
     alert("Tag printed and inventory created");
   } catch {
     alert("Print bridge nahi chal raha. Pehle node print-bridge.js chalao.");
@@ -282,12 +289,24 @@ die_no: null,
   return (
     <main className="min-h-screen bg-slate-100 p-3 pb-24 text-gray-900 md:p-5">
       <div className="mx-auto max-w-7xl space-y-5">
-        <header>
-          <h1 className="text-2xl font-bold md:text-3xl">Tag Printing</h1>
-          <p className="text-sm text-gray-600">
-            Completed orders, live scale weight and Godex tag printing.
-          </p>
-        </header>
+        <header className="flex items-center justify-between">
+  <div>
+    <h1 className="text-2xl font-bold md:text-3xl">
+      Tag Printing
+    </h1>
+
+    <p className="text-sm text-gray-600">
+      Completed orders, live scale weight and Godex tag printing.
+    </p>
+  </div>
+
+  <a
+    href="/dashboard"
+    className="rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white"
+  >
+    Dashboard
+  </a>
+</header>
 
         <div className="rounded-3xl bg-white p-4 shadow-sm">
           <p className="text-xs font-semibold text-gray-500">Live Scale</p>

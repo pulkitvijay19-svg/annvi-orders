@@ -65,48 +65,12 @@ export default function EditOrderPage() {
   const [newImages, setNewImages] = useState([]);
 
   useEffect(() => {
-  fetchOrders().then(() => {
-    firstLoadDone.current = true;
-  });
+  if (!orderId) return;
 
-  const interval = setInterval(() => {
-    fetchOrders();
-  }, 10000);
+  fetchOrder();
+  fetchSampleItems();
+}, [orderId]);
 
-  const channel = supabase
-    .channel("orders-live-notification")
-    .on(
-      "postgres_changes",
-      {
-        event: "INSERT",
-        schema: "public",
-        table: "orders",
-      },
-      (payload) => {
-        if (!firstLoadDone.current) return;
-
-        const newOrder = payload.new;
-
-        setNewOrderAlert({
-          order_no: newOrder.order_no,
-          customer_name: newOrder.customer_name,
-        });
-
-        playBeep();
-        fetchOrders();
-
-        setTimeout(() => {
-          setNewOrderAlert(null);
-        }, 8000);
-      }
-    )
-    .subscribe();
-
-  return () => {
-    clearInterval(interval);
-    supabase.removeChannel(channel);
-  };
-}, []);
 
   async function fetchOrder() {
     setLoading(true);

@@ -18,6 +18,52 @@ export default function DashboardPage() {
 
   const firstLoadDone = useRef(false);
 
+  const [hardwareStatus, setHardwareStatus] = useState({
+  print: false,
+  scale: false,
+});
+
+async function fetchHardwareStatus() {
+  try {
+    const res = await fetch("http://localhost:5058/status");
+    const data = await res.json();
+
+    setHardwareStatus({
+      print: !!data.print,
+      scale: !!data.scale,
+    });
+  } catch {
+    setHardwareStatus({
+      print: false,
+      scale: false,
+    });
+  }
+}
+
+async function startBridge(type) {
+  try {
+    await fetch(`http://localhost:5058/start/${type}`, {
+      method: "POST",
+    });
+
+    fetchHardwareStatus();
+  } catch {
+    alert("Hardware Manager चालू नहीं है. पहले start-hardware-manager.bat चलाओ.");
+  }
+}
+
+async function stopBridge(type) {
+  try {
+    await fetch(`http://localhost:5058/stop/${type}`, {
+      method: "POST",
+    });
+
+    fetchHardwareStatus();
+  } catch {
+    alert("Hardware Manager चालू नहीं है.");
+  }
+}
+
   async function handleLogout() {
     await supabase.auth.signOut();
     router.push("/login");
@@ -104,6 +150,13 @@ export default function DashboardPage() {
     };
   }, []);
 
+  useEffect(() => {
+  fetchHardwareStatus();
+
+  const timer = setInterval(fetchHardwareStatus, 3000);
+  return () => clearInterval(timer);
+}, []);
+
   function getOrderTotals(order) {
     const pieces =
       order.order_items?.reduce(
@@ -187,6 +240,8 @@ export default function DashboardPage() {
 >
   Enable Notifications
 </button>
+
+
             <button
               onClick={handleLogout}
               className="rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white"
@@ -216,6 +271,13 @@ export default function DashboardPage() {
 
 
             </Link>
+
+            <Link
+  href="/tag-print"
+  className="rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white"
+>
+  🏷️ Direct Tag Print
+</Link>
   
 {isFactoryAdmin && (
   <Link
@@ -225,6 +287,7 @@ export default function DashboardPage() {
     🏭 Manufacturing
   </Link>
 )}
+
           </div>
         </div>
 
@@ -261,6 +324,39 @@ export default function DashboardPage() {
             </section>
 
             <section className="mt-6 rounded-2xl bg-white p-4 shadow-sm md:p-5">
+            <section className="mt-6 rounded-2xl bg-white p-5 shadow-sm">
+  <div className="mb-4 flex items-center justify-between">
+    <div>
+      <h2 className="text-lg font-bold text-gray-900">Hardware Manager</h2>
+      <p className="text-sm text-gray-500">Print bridge aur scale bridge status</p>
+    </div>
+
+    <button
+      onClick={fetchHardwareStatus}
+      className="rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white"
+    >
+      Refresh
+    </button>
+  </div>
+
+  <div className="grid gap-4 md:grid-cols-2">
+    <HardwareBox
+      title="Print Bridge"
+      icon="🖨️"
+      connected={hardwareStatus.print}
+      onStart={() => startBridge("print")}
+      onStop={() => stopBridge("print")}
+    />
+
+    <HardwareBox
+      title="Scale Bridge"
+      icon="⚖️"
+      connected={hardwareStatus.scale}
+      onStart={() => startBridge("scale")}
+      onStop={() => stopBridge("scale")}
+    />
+  </div>
+</section>
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-gray-900">
                   Recent Orders
@@ -470,6 +566,31 @@ function InfoBox({ label, value }) {
     <div className="rounded-xl bg-slate-50 p-3">
       <p className="text-xs font-semibold text-gray-500">{label}</p>
       <p className="mt-1 font-semibold text-gray-900">{value}</p>
+    </div>
+  );
+}
+
+function HardwareBox({ title, icon, connected, onStart, onStop }) {
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-slate-50 p-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="font-bold text-gray-900">{title}</p>
+          <p className={`text-sm font-semibold ${connected ? "text-green-600" : "text-red-600"}`}>
+            {connected ? "Connected" : "Disconnected"}
+          </p>
+        </div>
+        <span className="text-3xl">{icon}</span>
+      </div>
+
+      <div className="mt-4 flex gap-2">
+        <button onClick={onStart} className="rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white">
+          Start
+        </button>
+        <button onClick={onStop} className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white">
+          Stop
+        </button>
+      </div>
     </div>
   );
 }

@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.1",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
     "firebase": "^12.13.0",
     "html5-qrcode": "^2.3.8",
     "lucide-react": "^1.16.0",
@@ -25,5 +27,18 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4"
-  }
+  },
+  "description": "This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pulkitvijay19-svg/annvi-orders.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+    "bugs": {
+    "url": "https://github.com/pulkitvijay19-svg/annvi-orders/issues"
+  },
+  "homepage": "https://github.com/pulkitvijay19-svg/annvi-orders#readme"
 }

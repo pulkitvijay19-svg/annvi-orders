@@ -127,6 +127,7 @@ function PrePolishCard({ batch, isOpen, onOpen, onRefresh }) {
   const [rejectedWeight, setRejectedWeight] = useState("");
   const [remarks, setRemarks] = useState("");
   const [saving, setSaving] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
 
   const parties = [...new Set(items.map((i) => i.orders?.customer_name).filter(Boolean))];
   const orders = [...new Set(items.map((i) => i.orders?.order_no).filter(Boolean))];
@@ -136,6 +137,40 @@ function PrePolishCard({ batch, isOpen, onOpen, onRefresh }) {
     Number(goodWeight || 0) -
     Number(repairWeight || 0) -
     Number(rejectedWeight || 0);
+
+    async function loadDraft() {
+  const { data } = await supabase
+    .from("process_drafts")
+    .select("*")
+    .eq("batch_id", batch.id)
+    .eq("process_name", "PRE_POLISH")
+    .maybeSingle();
+
+  if (!data) return;
+
+  setProcessType(data.process_type || "Electro Polish");
+  setOperator(data.operator || "");
+
+  setIssuedPieces(data.issued_pieces || "");
+  setIssuedWeight(data.issued_weight || "");
+
+  setGoodPieces(data.good_pieces || "");
+  setGoodWeight(data.good_weight || "");
+
+  setRepairPieces(data.repair_pieces || "");
+  setRepairWeight(data.repair_weight || "");
+
+  setRejectedPieces(data.rejected_pieces || "");
+  setRejectedWeight(data.rejected_weight || "");
+
+  setRemarks(data.remarks || "");
+}
+
+useEffect(() => {
+  if (isOpen) {
+    loadDraft();
+  }
+}, [isOpen]);
 
     const ktFineMap = {
   "9K": 0.38,
@@ -156,6 +191,49 @@ const expectedFineGold =
   processType === "2C Polish" && Number(loss || 0) > 0
     ? Number(loss || 0) * (ktFineMap[normalizedKt] || 0)
     : 0;
+
+async function saveDraft() {
+  setSavingDraft(true);
+
+  const { error } = await supabase
+    .from("process_drafts")
+    .upsert(
+      {
+        batch_id: batch.id,
+        process_name: "PRE_POLISH",
+
+        process_type: processType,
+        operator,
+
+        issued_pieces: issuedPieces,
+        issued_weight: issuedWeight,
+
+        good_pieces: goodPieces,
+        good_weight: goodWeight,
+
+        repair_pieces: repairPieces,
+        repair_weight: repairWeight,
+
+        rejected_pieces: rejectedPieces,
+        rejected_weight: rejectedWeight,
+
+        remarks,
+      },
+      {
+        onConflict: "batch_id,process_name",
+      }
+    );
+
+  setSavingDraft(false);
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  alert("Draft Saved");
+}
+
 
   async function stockInRejectedScrap() {
     if (Number(rejectedWeight || 0) <= 0) return true;
@@ -376,6 +454,12 @@ const { error: updateError } = await supabase
       return;
     }
 
+    await supabase
+  .from("process_drafts")
+  .delete()
+  .eq("batch_id", batch.id)
+  .eq("process_name", "PRE_POLISH");
+
 setSaving(false);
 router.push(`/factory/final-repair/dashboard?batch=${batch.id}`);
   }
@@ -546,13 +630,26 @@ router.push(`/factory/final-repair/dashboard?batch=${batch.id}`);
               Loss = Issued Weight - Good Weight - Repair Weight - Rejected Weight
             </p>
 
-            <button
-              disabled={saving}
-              onClick={savePrePolishResult}
-              className="mt-4 rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white disabled:bg-gray-400"
-            >
-              {saving ? "Saving..." : "Save & Move To Final Repair"}
-            </button>
+            <div className="mt-4 flex gap-3">
+  <button
+    type="button"
+    disabled={savingDraft}
+    onClick={saveDraft}
+    className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white"
+  >
+    {savingDraft ? "Saving..." : "Save Draft"}
+  </button>
+
+  <button
+    disabled={saving}
+    onClick={savePrePolishResult}
+    className="rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white"
+  >
+    {saving ? "Saving..." : "Save & Move To Final Repair"}
+  </button>
+</div>
+
+            
           </div>
         </div>
       )}

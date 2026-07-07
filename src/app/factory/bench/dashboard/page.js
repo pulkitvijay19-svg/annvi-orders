@@ -138,10 +138,12 @@ function BenchCard({ batch, findings, transactions, isOpen, onOpen, onRefresh })
   const [receivedWeight, setReceivedWeight] = useState("");
   const [ghisWeight, setGhisWeight] = useState("");
   const [brokenPieces, setBrokenPieces] = useState("");
+  const [rejectedWeight, setRejectedWeight] = useState("");
   const [repairPieces, setRepairPieces] = useState("");
   const [remarks, setRemarks] = useState("");
   const [saving, setSaving] = useState(false);
   const [savingFindings, setSavingFindings] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
 
   const [findingRows, setFindingRows] = useState(() =>
     oldFindings.map((f) => ({
@@ -161,6 +163,35 @@ function BenchCard({ batch, findings, transactions, isOpen, onOpen, onRefresh })
     }))
   );
 
+useEffect(() => {
+  loadDraft();
+}, []);
+
+async function loadDraft() {
+  const { data } = await supabase
+    .from("process_drafts")
+    .select("*")
+    .eq("batch_id", batch.id)
+    .eq("process_name", "BENCH")
+    .maybeSingle();
+
+  if (!data?.draft_data) return;
+
+  const d = data.draft_data;
+
+  setKarigar(d.karigar || "");
+  setIssuedBy(d.issuedBy || "");
+  setIssuedPieces(d.issuedPieces || "");
+  setIssuedWeight(d.issuedWeight || "");
+  setReceivedPieces(d.receivedPieces || "");
+  setReceivedWeight(d.receivedWeight || "");
+  setGhisWeight(d.ghisWeight || "");
+  setBrokenPieces(d.brokenPieces || "");
+  setRepairPieces(d.repairPieces || "");
+  setRemarks(d.remarks || "");
+  setFindingRows(d.findingRows || []);
+}
+
   const parties = [...new Set(items.map((i) => i.orders?.customer_name).filter(Boolean))];
   const orders = [...new Set(items.map((i) => i.orders?.order_no).filter(Boolean))];
 
@@ -172,7 +203,8 @@ function BenchCard({ batch, findings, transactions, isOpen, onOpen, onRefresh })
     findingsIssuedWeight -
     Number(receivedWeight || 0) -
     findingsReceivedWeight -
-    Number(ghisWeight || 0);
+    Number(ghisWeight || 0) -
+    rejectedWeight;
 
   function stockBalance(itemId, kt) {
     return transactions.reduce((sum, tx) => {
@@ -217,6 +249,47 @@ function BenchCard({ batch, findings, transactions, isOpen, onOpen, onRefresh })
   function removeFinding(index) {
     setFindingRows((prev) => prev.filter((_, i) => i !== index));
   }
+
+  async function saveDraft() {
+  setSavingDraft(true);
+
+  const draftData = {
+    karigar,
+    issuedBy,
+    issuedPieces,
+    issuedWeight,
+    receivedPieces,
+    receivedWeight,
+    ghisWeight,
+    brokenPieces,
+    repairPieces,
+    remarks,
+    findingRows,
+  };
+
+  const { error } = await supabase
+    .from("process_drafts")
+    .upsert(
+      {
+        batch_id: batch.id,
+        process_name: "BENCH",
+        draft_data: draftData,
+        updated_at: new Date().toISOString(),
+      },
+      {
+        onConflict: "batch_id,process_name",
+      }
+    );
+
+  setSavingDraft(false);
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  alert("Draft Saved");
+}
 
 async function saveFindingsOnly() {
   setSavingFindings(true);
@@ -381,6 +454,7 @@ async function saveFindingsOnly() {
       loss_weight: filingLoss,
 
       broken_pieces: Number(brokenPieces || 0),
+      rejected_weight: Number(rejectedWeight || 0),
       repair_pieces: Number(repairPieces || 0),
 
       remarks,
@@ -420,6 +494,67 @@ async function saveFindingsOnly() {
       }
     }
 
+    if (Number(rejectedWeight || 0) > 0) {
+  const scrapItemName = `Scrap Gold (${batch.kt})`;
+
+  let { data: scrapItem, error: scrapItemError } = await supabase
+    .from("inventory_items")
+    .select("*")
+    .eq("item_name", scrapItemName)
+    .eq("item_type", "Scrap")
+    .maybeSingle();
+
+  if (scrapItemError) {
+    setSaving(false);
+    alert(scrapItemError.message);
+    return;
+  }
+
+  if (!scrapItem) {
+    const { data: newScrapItem, error: createScrapError } = await supabase
+      .from("inventory_items")
+      .insert([
+        {
+          item_name: scrapItemName,
+          item_type: "Scrap",
+          is_active: true,
+        },
+      ])
+      .select()
+      .single();
+
+    if (createScrapError) {
+      setSaving(false);
+      alert(createScrapError.message);
+      return;
+    }
+
+    scrapItem = newScrapItem;
+  }
+
+  const { error: scrapTxnError } = await supabase
+    .from("inventory_transactions")
+    .insert([
+      {
+        inventory_item_id: scrapItem.id,
+        kt: batch.kt,
+        transaction_type: "Stock In",
+        purpose: "Bench Rejected Scrap",
+        reference_no: batch.batch_no,
+        weight: Number(rejectedWeight || 0),
+        quantity: Number(brokenPieces || 0),
+        weight_source: "manual",
+        remarks: `Rejected scrap from ${batch.batch_no}`,
+      },
+    ]);
+
+  if (scrapTxnError) {
+    setSaving(false);
+    alert(scrapTxnError.message);
+    return;
+  }
+}
+
     const { error: updateError } =await supabase
   .from("casting_batches")
   .update({
@@ -436,6 +571,12 @@ async function saveFindingsOnly() {
       alert(updateError.message);
       return;
     }
+
+    await supabase
+  .from("process_drafts")
+  .delete()
+  .eq("batch_id", batch.id)
+  .eq("process_name", "BENCH");
 
   setSaving(false);
 router.push(`/factory/pre-polish/dashboard?batch=${batch.id}`);
@@ -586,6 +727,16 @@ router.push(`/factory/pre-polish/dashboard?batch=${batch.id}`);
                 <input type="number" value={brokenPieces} onChange={(e) => setBrokenPieces(e.target.value)} className="input" />
               </Field>
 
+<Field label="Rejected Weight">
+  <input
+    type="number"
+    step="0.001"
+    value={rejectedWeight}
+    onChange={(e) => setRejectedWeight(e.target.value)}
+    className="input"
+  />
+</Field>
+
               <Field label="Repair Pieces">
                 <input type="number" value={repairPieces} onChange={(e) => setRepairPieces(e.target.value)} className="input" />
               </Field>
@@ -606,6 +757,14 @@ router.push(`/factory/pre-polish/dashboard?batch=${batch.id}`);
             <p className="mt-2 text-xs text-gray-500">
               Filing Loss = (Pieces Issued Wt + Findings Issued Wt) - (Pieces Received Wt + Findings Received Wt + Ghis Wt)
             </p>
+
+<button
+  onClick={saveDraft}
+  disabled={savingDraft}
+  className="mr-3 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white"
+>
+  {savingDraft ? "Saving Draft..." : "Save Draft"}
+</button>
 
             <button disabled={saving} onClick={saveBenchResult} className="mt-4 rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white disabled:bg-gray-400">
               {saving ? "Saving..." : "Move To Pre Polish"}
