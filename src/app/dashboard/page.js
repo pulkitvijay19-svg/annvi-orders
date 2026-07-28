@@ -7,9 +7,10 @@ import { supabase } from "../../lib/supabaseClient";
 import { useRequireAuth } from "../../lib/useRequireAuth";
 import MobileBottomNav from "../../components/MobileBottomNav";
 import { enablePushNotifications } from "../../lib/pushNotifications";
+import { useLanguage } from "../../context/LanguageContext";
 
 export default function DashboardPage() {
-  const router = useRouter();
+  const { t } = useLanguage();
   const { user, loading: authLoading } = useRequireAuth();
 
   const [orders, setOrders] = useState([]);
@@ -48,7 +49,7 @@ async function startBridge(type) {
 
     fetchHardwareStatus();
   } catch {
-    alert("Hardware Manager चालू नहीं है. पहले start-hardware-manager.bat चलाओ.");
+    alert(t("hardware_not_running"));
   }
 }
 
@@ -60,7 +61,7 @@ async function stopBridge(type) {
 
     fetchHardwareStatus();
   } catch {
-    alert("Hardware Manager चालू नहीं है.");
+    alert(t("hardware_not_running"));
   }
 }
 
@@ -207,7 +208,7 @@ async function stopBridge(type) {
   if (authLoading) {
     return (
       <main className="min-h-screen bg-slate-100 p-6">
-        <p className="text-gray-700">Checking login...</p>
+        <p className="text-gray-700">{t("checking_login")}</p>
       </main>
     );
   }
@@ -216,7 +217,7 @@ async function stopBridge(type) {
     <main className="min-h-screen overscroll-y-contain bg-slate-100 p-3 pb-24 md:p-6">
       {newOrderAlert && (
         <div className="fixed right-4 top-4 z-50 rounded-2xl bg-green-600 p-4 text-white shadow-lg">
-          <p className="font-bold">New Order Received</p>
+          <p className="font-bold">{t("new_order_received")}</p>
           <p className="text-sm">{newOrderAlert.order_no}</p>
           <p className="text-sm">{newOrderAlert.customer_name}</p>
         </div>
@@ -226,10 +227,10 @@ async function stopBridge(type) {
         <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">
-              Annvi Orders Dashboard
+              {t("dashboard")}
             </h1>
             <p className="mt-1 text-sm text-gray-600">
-              Daily order control and delivery planning.
+              {t("dashboard_subtitle")}
             </p>
           </div>
 
@@ -238,7 +239,7 @@ async function stopBridge(type) {
   onClick={() => enablePushNotifications(user)}
   className="rounded-xl bg-green-600 px-5 py-3 text-sm font-semibold text-white"
 >
-  Enable Notifications
+  {t("enable_notifications")}
 </button>
 
 
@@ -246,28 +247,28 @@ async function stopBridge(type) {
               onClick={handleLogout}
               className="rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white"
             >
-              Logout
+              {t("logout")}
             </button>
 
             <Link
               href="/orders"
               className="rounded-xl bg-white px-5 py-3 text-sm font-semibold text-gray-900 shadow-sm"
             >
-              View Orders
+              {t("view_orders")}
             </Link>
 
             <Link
               href="/orders/add"
               className="rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white"
             >
-              + Add Order
+              {t("add_order")}
             </Link>
 
             <Link
               href="/catalog/upload"
               className="rounded-xl bg-purple-600 px-5 py-3 text-sm font-semibold text-white"
             >
-              Sample Catalog
+              {t("sample_catalog")}
 
 
             </Link>
@@ -276,7 +277,7 @@ async function stopBridge(type) {
   href="/tag-print"
   className="rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white"
 >
-  🏷️ Direct Tag Print
+  🏷️ {t("direct_tag_print")}
 </Link>
   
 {isFactoryAdmin && (
@@ -284,7 +285,7 @@ async function stopBridge(type) {
     href="/factory"
     className="rounded-xl bg-yellow-600 px-5 py-3 text-sm font-semibold text-white"
   >
-    🏭 Manufacturing
+    🏭 {t("manufacturing")}
   </Link>
 )}
 
@@ -296,27 +297,27 @@ async function stopBridge(type) {
         ) : (
           <>
             <section className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-              <StatCard title="Total Orders" value={stats.total} href="/orders" />
-              <StatCard title="Pending" value={stats.pending} href="/orders" />
+              <StatCard title={t("total_orders")}value={stats.total} href="/orders" />
+              <StatCard title={t("pending")} value={stats.pending} href="/orders" />
               <StatCard
-                title="Today Delivery"
+                title={t("today_delivery")}
                 value={stats.todayDelivery}
                 href="/orders?date=Today"
               />
               <StatCard
-                title="Delayed"
+                title={t("delayed")}
                 value={stats.delayed}
                 href="/orders?date=Delayed"
                 danger
               />
               <StatCard
-                title="Ready"
+                title={t("ready")}
                 value={stats.ready}
                 href="/orders?status=Ready"
                 success
               />
               <StatCard
-                title="Urgent"
+                title={t("urgent")}
                 value={stats.urgent}
                 href="/orders?priority=Urgent"
                 warning
@@ -327,15 +328,15 @@ async function stopBridge(type) {
             <section className="mt-6 rounded-2xl bg-white p-5 shadow-sm">
   <div className="mb-4 flex items-center justify-between">
     <div>
-      <h2 className="text-lg font-bold text-gray-900">Hardware Manager</h2>
-      <p className="text-sm text-gray-500">Print bridge aur scale bridge status</p>
+      <h2 className="text-lg font-bold text-gray-900">{t("hardware_manager")}</h2>
+      <p className="text-sm text-gray-500">{t("hardware_status")}</p>
     </div>
 
     <button
       onClick={fetchHardwareStatus}
       className="rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white"
     >
-      Refresh
+      {t("refresh")}
     </button>
   </div>
 
@@ -359,14 +360,14 @@ async function stopBridge(type) {
 </section>
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-gray-900">
-                  Recent Orders
+                  {t("recent_orders")}
                 </h2>
 
                 <Link
                   href="/orders"
                   className="text-sm font-semibold text-gray-700 hover:text-black"
                 >
-                  View All →
+                  {t("view_all")} →
                 </Link>
               </div>
 
@@ -374,14 +375,14 @@ async function stopBridge(type) {
                 <table className="w-full min-w-[900px] border-collapse">
                   <thead>
                     <tr className="border-b text-left text-sm text-gray-500">
-                      <th className="p-3">Order No</th>
-                      <th className="p-3">Customer</th>
-                      <th className="p-3">Delivery</th>
-                      <th className="p-3">Pieces</th>
-                      <th className="p-3">Weight</th>
-                      <th className="p-3">Priority</th>
-                      <th className="p-3">Status</th>
-                      <th className="p-3">Action</th>
+                      <th className="p-3">{t("order_no")}</th>
+                      <th className="p-3">{t("customer")}</th>
+                      <th className="p-3">{t("delivery")}</th>
+                      <th className="p-3">{t("pieces")}</th>
+                      <th className="p-3">{t("weight")}</th>
+                      <th className="p-3">{t("priority")}</th>
+                      <th className="p-3">{t("status")}</th>
+                      <th className="p-3">{t("action")}</th>
                     </tr>
                   </thead>
 
@@ -571,13 +572,16 @@ function InfoBox({ label, value }) {
 }
 
 function HardwareBox({ title, icon, connected, onStart, onStop }) {
+
+  const { t } = useLanguage();
+
   return (
     <div className="rounded-2xl border border-gray-200 bg-slate-50 p-4">
       <div className="flex items-center justify-between">
         <div>
           <p className="font-bold text-gray-900">{title}</p>
           <p className={`text-sm font-semibold ${connected ? "text-green-600" : "text-red-600"}`}>
-            {connected ? "Connected" : "Disconnected"}
+            {connected ? t("connected") : t("disconnected")}
           </p>
         </div>
         <span className="text-3xl">{icon}</span>
@@ -585,10 +589,10 @@ function HardwareBox({ title, icon, connected, onStart, onStop }) {
 
       <div className="mt-4 flex gap-2">
         <button onClick={onStart} className="rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white">
-          Start
+          {t("start")}
         </button>
         <button onClick={onStop} className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white">
-          Stop
+          {t("stop")}
         </button>
       </div>
     </div>

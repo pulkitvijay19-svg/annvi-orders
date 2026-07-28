@@ -6,9 +6,12 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../../../../lib/supabaseClient";
 import { useRequireAuth } from "../../../../lib/useRequireAuth";
 import MobileBottomNav from "../../../../components/MobileBottomNav";
+import { useLanguage } from "../../../../context/LanguageContext";
 
 export default function MagnetDashboardPage() {
   const { user, loading: authLoading } = useRequireAuth();
+  const { t } = useLanguage();
+
   const [targetBatchNo, setTargetBatchNo] = useState("");
   const [castingBatches, setCastingBatches] = useState([]);
   const [magnetBatches, setMagnetBatches] = useState([]);
@@ -112,7 +115,7 @@ useEffect(() => {
     if (clubbing) return;
 
     if (selectedIds.length === 0) {
-      alert("Select casting batches");
+      alert(t("select_casting_batches"));
       return;
     }
 
@@ -120,7 +123,7 @@ useEffect(() => {
     const ktSet = [...new Set(selected.map((b) => b.kt))];
 
     if (ktSet.length > 1) {
-      alert("Only same KT batches can be clubbed");
+      alert(t("same_kt_batches_only"));
       return;
     }
 
@@ -187,7 +190,7 @@ useEffect(() => {
       .update({ status: "Clubbed In Magnet" })
       .in("id", selectedIds);
 
-    alert(`Magnet batch created: ${magnetBatchNo}`);
+    alert(`${t("magnet_batch_created")}: ${magnetBatchNo}`);
 
     setSelectedIds([]);
     setSelectionMode(false);
@@ -196,7 +199,7 @@ useEffect(() => {
   }
 
   async function removeCastingFromClub(row) {
-    const ok = confirm("Is casting ko club se remove karna hai?");
+    const ok = confirm(t("confirm_remove_casting_club"));
     if (!ok) return;
 
     await supabase
@@ -218,14 +221,14 @@ useEffect(() => {
         .eq("id", row.magnet_batch_id);
     }
 
-    alert("Casting removed from club");
+    alert(t("casting_removed_from_club"));
     fetchData();
   }
 
   async function deleteMagnetBatch(batch) {
-    const ok = confirm(
-      `${batch.magnet_batch_no} delete karna hai? Saare casting batches wapas Magnet me aa jayenge.`
-    );
+   const ok = confirm(
+  `${batch.magnet_batch_no} - ${t("confirm_delete_magnet_batch")}`
+);
     if (!ok) return;
 
     const rows = batch.magnet_batch_castings || [];
@@ -248,14 +251,16 @@ useEffect(() => {
       return;
     }
 
-    alert("Magnet batch deleted");
+    alert(t("magnet_batch_deleted"));
     fetchData();
   }
 
   if (authLoading || loading) {
     return (
       <main className="min-h-screen bg-slate-100 p-6">
-        <p className="text-sm text-gray-700">Loading magnet dashboard...</p>
+        <p className="text-sm text-gray-700">
+  {t("loading_magnet_dashboard")}
+</p>
       </main>
     );
   }
@@ -264,15 +269,16 @@ useEffect(() => {
     <main className="min-h-screen overscroll-y-contain bg-slate-100 p-3 pb-24 text-gray-900 md:p-5">
       <div className="mx-auto max-w-7xl space-y-5">
         <Header
-          selectionMode={selectionMode}
-          setSelectionMode={setSelectionMode}
-        />
+  t={t}
+  selectionMode={selectionMode}
+  setSelectionMode={setSelectionMode}
+/>
 
         {selectionMode && (
           <div className="sticky top-3 z-30 rounded-2xl bg-black p-3 text-white shadow-lg">
             <div className="flex items-center justify-between gap-3">
               <p className="text-sm font-semibold">
-                Selected: {selectedIds.length}
+                {t("selected")}: {selectedIds.length}
               </p>
 
               <button
@@ -280,30 +286,33 @@ useEffect(() => {
                 onClick={clubSelectedBatches}
                 className="rounded-xl bg-white px-4 py-2 text-sm font-bold text-black disabled:bg-gray-300"
               >
-                {clubbing ? "Creating..." : "Club These Batches"}
+                {clubbing ? t("creating") : t("club_these_batches")}
               </button>
             </div>
           </div>
         )}
 
         <section>
-          <h2 className="mb-3 text-lg font-bold">Active Magnet Clubs</h2>
+          <h2 className="mb-3 text-lg font-bold">
+  {t("active_magnet_clubs")}
+</h2>
 
           {magnetBatches.length === 0 ? (
-            <Empty text="No clubbed magnet batch yet." />
+            <Empty text={t("no_clubbed_magnet_batch")} />
           ) : (
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {magnetBatches.map((batch) => (
                 <MagnetClubCard
-                  key={batch.id}
-                  batch={batch}
-                  isOpen={openId === batch.id}
-                  onOpen={() =>
-                    setOpenId(openId === batch.id ? null : batch.id)
-                  }
-                  onDelete={deleteMagnetBatch}
-                  onRemove={removeCastingFromClub}
-                />
+  key={batch.id}
+  batch={batch}
+  t={t}
+  isOpen={openId === batch.id}
+  onOpen={() =>
+    setOpenId(openId === batch.id ? null : batch.id)
+  }
+  onDelete={deleteMagnetBatch}
+  onRemove={removeCastingFromClub}
+/>
               ))}
             </div>
           )}
@@ -311,8 +320,8 @@ useEffect(() => {
 
         <section>
           <h2 className="mb-3 text-lg font-bold">
-            Single Casting Batches Ready For Magnet
-          </h2>
+  {t("single_casting_ready_for_magnet")}
+</h2>
 
           {castingBatches.length === 0 ? (
             <Empty text="No single casting batch waiting for magnet." />
@@ -344,33 +353,33 @@ useEffect(() => {
                           <Badge>{batch.kt}</Badge>
                         </div>
 
-                        <p className="mt-2 text-xs font-semibold text-gray-500">
-                          Order: {s.orderNos.join(", ") || "-"}
-                        </p>
+<p className="mt-2 text-xs font-semibold text-gray-500">
+  {t("order")}: {s.orderNos.join(", ") || "-"}
+</p>
 
-                        <p className="text-xs text-gray-500">
-                          Party: {s.parties.join(", ") || "-"}
-                        </p>
+<p className="text-xs text-gray-500">
+  {t("party")}: {s.parties.join(", ") || "-"}
+</p>
                       </div>
 
-                      <Link
+<Link
   href={`/factory/magnet/process?batch=${batch.id}`}
   className="rounded-xl bg-black px-3 py-2 text-xs font-semibold text-white"
 >
-  Process
+  {t("process")}
 </Link>
                     </div>
 
                     <div className="mt-3 grid grid-cols-3 gap-2">
                       <MiniStat label="Pieces" value={s.pieces} />
-                      <MiniStat
-                        label="Pieces Wt"
-                        value={`${s.piecesWeight.toFixed(3)}g`}
-                      />
-                      <MiniStat
-                        label="Scrap"
-                        value={`${s.scrapWeight.toFixed(3)}g`}
-                      />
+<MiniStat
+  label={t("pieces_weight")}
+  value={`${s.piecesWeight.toFixed(3)}g`}
+/>
+<MiniStat
+  label={t("scrap")}
+  value={`${s.scrapWeight.toFixed(3)}g`}
+/>
                     </div>
                   </div>
                 );

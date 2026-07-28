@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
 import { useRequireAuth } from "../../../lib/useRequireAuth";
 import MobileBottomNav from "../../../components/MobileBottomNav";
+import { useLanguage } from "../../../context/LanguageContext";
 
 const CATEGORIES = [
   "Ladies Ring",
@@ -57,6 +58,7 @@ export default function AddOrderPage() {
   const [items, setItems] = useState([blankItem()]);
   const { user, loading: authLoading } = useRequireAuth();
   const [saving, setSaving] = useState(false);
+  const { t } = useLanguage();
   
 
 
@@ -378,23 +380,26 @@ if (authLoading) {
     <main className="min-h-screen overscroll-y-contain bg-slate-100 p-3 pb-24 md:p-6">
       <div className="mx-auto max-w-5xl">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">Add New Order</h1>
-          <p className="mt-1 text-sm text-gray-600">
-            Create and track customer orders.
-          </p>
+          <h1 className="text-3xl font-bold text-gray-900">
+  {t("add_new_order")}
+</h1>
+
+<p className="mt-1 text-sm text-gray-600">
+  {t("create_track_orders")}
+</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
           <section className="rounded-2xl bg-white p-4 shadow-sm md:p-5">
             <h2 className="mb-4 text-lg font-semibold text-gray-900">
-              Customer Details
+              {t("customer_details")}
             </h2>
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="relative">
                 <input
                   className="w-full rounded-xl border border-gray-300 bg-white p-3 text-gray-900 placeholder:text-gray-400 focus:border-black focus:outline-none"
-                  placeholder="Customer Name *"
+                  placeholder={t("customer_name")}
                   value={customerName}
                   onFocus={() => setShowPartySuggestions(true)}
                   onChange={(e) => {
@@ -429,7 +434,7 @@ if (authLoading) {
 
               <input
                 className="rounded-xl border border-gray-300 bg-white p-3 text-gray-900 placeholder:text-gray-400 focus:border-black focus:outline-none"
-                placeholder="Mobile Number"
+                placeholder={t("mobile_number")}
                 value={customerMobile}
                 onChange={(e) => setCustomerMobile(e.target.value)}
               />
@@ -437,7 +442,7 @@ if (authLoading) {
               <div className="relative">
                 {!deliveryDate && (
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                    Delivery Date
+                    {t("delivery_date")}
                   </span>
                 )}
 
@@ -474,7 +479,7 @@ if (authLoading) {
           <section className="rounded-2xl bg-white p-4 shadow-sm md:p-5">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">
-                Order Items
+                {t("order_items")}
               </h2>
 
               <button
@@ -482,7 +487,7 @@ if (authLoading) {
                 onClick={addItem}
                 className="rounded-xl bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
               >
-                + Add Category
+              {t("add_category")}
               </button>
             </div>
 
@@ -506,7 +511,7 @@ if (authLoading) {
                           onClick={() => removeItem(index)}
                           className="text-sm font-medium text-red-600"
                         >
-                          Remove
+                          {t("remove")}
                         </button>
                       )}
                     </div>
@@ -559,7 +564,7 @@ if (authLoading) {
                       <input
                         type="number"
                         className="rounded-xl border border-gray-300 bg-white p-3 text-gray-900 placeholder:text-gray-400 focus:border-black focus:outline-none"
-                        placeholder="Quantity"
+                        placeholder={t("quantity")}
                         value={item.quantity}
                         onChange={(e) =>
                           updateItem(index, "quantity", e.target.value)
@@ -583,7 +588,7 @@ if (authLoading) {
                         type="number"
                         step="0.001"
                         className="rounded-xl border border-gray-300 bg-white p-3 text-gray-900 placeholder:text-gray-400 focus:border-black focus:outline-none"
-                        placeholder="Approx Weight"
+                        placeholder={t("approx_weight")}
                         value={item.approx_weight}
                         onChange={(e) =>
                           updateItem(index, "approx_weight", e.target.value)
@@ -592,7 +597,7 @@ if (authLoading) {
 
                       <input
                         className="rounded-xl border border-gray-300 bg-white p-3 text-gray-900 placeholder:text-gray-400 focus:border-black focus:outline-none"
-                        placeholder="Size"
+                        placeholder={t("size")}
                         value={item.size}
                         onChange={(e) =>
                           updateItem(index, "size", e.target.value)
@@ -601,7 +606,7 @@ if (authLoading) {
 
                       <input
                         className="rounded-xl border border-gray-300 bg-white p-3 text-gray-900 placeholder:text-gray-400 focus:border-black focus:outline-none md:col-span-2"
-                        placeholder="Item Remarks"
+                        placeholder={t("item_remarks")}
                         value={item.remarks}
                         onChange={(e) =>
                           updateItem(index, "remarks", e.target.value)
@@ -612,7 +617,7 @@ if (authLoading) {
                     {item.selected_samples.length > 0 && (
                       <div className="mt-4 rounded-xl bg-slate-50 p-3">
                         <p className="mb-2 text-sm font-semibold text-gray-700">
-                          Selected Samples
+                          placeholder={t("sample_search")}
                         </p>
 
                         <div className="flex flex-wrap gap-2">
@@ -651,7 +656,7 @@ if (authLoading) {
 
           <section className="rounded-2xl bg-white p-4 shadow-sm md:p-5">
             <h2 className="mb-4 text-lg font-semibold text-gray-900">
-              Design Images
+              {t("design_images")}
             </h2>
 
             <input
@@ -673,7 +678,7 @@ if (authLoading) {
   disabled={saving}
   className="fixed bottom-20 left-3 right-3 z-40 rounded-2xl bg-black p-4 text-lg font-semibold text-white shadow-xl disabled:bg-gray-400 md:static md:w-full"
 >
-            {saving ? "Saving Order..." : "Save Order"}
+            {saving ? t("saving_order") : t("save_order")}
           </button>
         </form>
       </div>

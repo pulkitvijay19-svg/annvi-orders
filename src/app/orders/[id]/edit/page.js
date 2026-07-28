@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { supabase } from "../../../../lib/supabaseClient";
 import { useRequireAuth } from "../../../../lib/useRequireAuth";
 import MobileBottomNav from "../../../../components/MobileBottomNav";
+import { useLanguage } from "../../../../context/LanguageContext";
 import Link from "next/link";
 
 
@@ -63,6 +64,7 @@ export default function EditOrderPage() {
 
   const [existingImages, setExistingImages] = useState([]);
   const [newImages, setNewImages] = useState([]);
+  const { t } = useLanguage();
 
   useEffect(() => {
   if (!orderId) return;
@@ -303,9 +305,9 @@ export default function EditOrderPage() {
   return (
     <main className="min-h-screen overscroll-y-contain bg-slate-100 p-3 pb-24 md:p-6">
       <div className="mx-auto max-w-6xl">
-        <h1 className="text-3xl font-bold text-gray-900">Edit Order</h1>
+        <h1 className="text-3xl font-bold text-gray-900">{t("edit_order")}</h1>
         <p className="mt-1 text-sm text-gray-600">
-          Update customer, items, sample ID, die no and images.
+          {t("edit_order_subtitle")}
         </p>
 
 <div className="mt-4 flex flex-wrap gap-3">
@@ -313,34 +315,34 @@ export default function EditOrderPage() {
     href={`/orders/${orderId}`}
     className="rounded-xl bg-white px-4 py-3 text-sm font-semibold text-gray-900 shadow-sm"
   >
-    ← Back to Order
+    ← {t("back_to_order")}
   </Link>
 
   <Link
     href="/orders"
     className="rounded-xl bg-white px-4 py-3 text-sm font-semibold text-gray-900 shadow-sm"
   >
-    Orders
+    {t("orders")}
   </Link>
 </div>
 
         <form onSubmit={handleUpdate} className="mt-6 space-y-6">
           <section className="rounded-2xl bg-white p-5 shadow-sm">
             <h2 className="mb-4 text-lg font-semibold text-gray-900">
-              Customer Details
+              {t("customer_details")}
             </h2>
 
             <div className="grid gap-4 md:grid-cols-2">
               <input
                 className="rounded-xl border border-gray-300 bg-white p-3 text-gray-900"
-                placeholder="Customer Name *"
+                placeholder={t("customer_name")}
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
               />
 
               <input
                 className="rounded-xl border border-gray-300 bg-white p-3 text-gray-900"
-                placeholder="Mobile Number"
+                placeholder={t("mobile_number")}
                 value={customerMobile}
                 onChange={(e) => setCustomerMobile(e.target.value)}
               />
@@ -366,7 +368,7 @@ export default function EditOrderPage() {
             <textarea
               rows="4"
               className="mt-4 w-full rounded-xl border border-gray-300 bg-white p-3 text-gray-900"
-              placeholder="Order remarks"
+              placeholder={t("order_remarks")}
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
             />
@@ -383,7 +385,7 @@ export default function EditOrderPage() {
                 onClick={addItem}
                 className="rounded-xl bg-black px-4 py-2 text-sm font-medium text-white"
               >
-                + Add Item
+                + {t("add_item")}
               </button>
             </div>
 
@@ -406,7 +408,7 @@ export default function EditOrderPage() {
                         onClick={() => removeItem(index)}
                         className="text-sm font-medium text-red-600"
                       >
-                        Remove
+                        {t("remove")}
                       </button>
                     </div>
 
@@ -426,7 +428,7 @@ export default function EditOrderPage() {
                       <div className="relative">
                         <input
                           className="w-full rounded-xl border border-gray-300 bg-white p-3 text-gray-900"
-                          placeholder="Sample ID / Last 3 digits"
+                          placeholder={t("sample_id")}
                           value={item.sample_unique_id || ""}
                           onChange={(e) =>
                             updateItem(
@@ -461,7 +463,7 @@ export default function EditOrderPage() {
 
                       <input
                         className="rounded-xl border border-gray-300 bg-white p-3 text-gray-900"
-                        placeholder="Die No"
+                        placeholder={t("die_no")}
                         value={item.die_no || ""}
                         onChange={(e) =>
                           updateItem(index, "die_no", e.target.value)
@@ -471,7 +473,7 @@ export default function EditOrderPage() {
                       <input
                         type="number"
                         className="rounded-xl border border-gray-300 bg-white p-3 text-gray-900"
-                        placeholder="Quantity"
+                        placeholder={t("quantity")}
                         value={item.quantity}
                         onChange={(e) =>
                           updateItem(index, "quantity", e.target.value)
@@ -494,7 +496,7 @@ export default function EditOrderPage() {
                         type="number"
                         step="0.001"
                         className="rounded-xl border border-gray-300 bg-white p-3 text-gray-900"
-                        placeholder="Approx Weight"
+                        placeholder={t("approx_weight")}
                         value={item.approx_weight || ""}
                         onChange={(e) =>
                           updateItem(index, "approx_weight", e.target.value)
@@ -503,7 +505,7 @@ export default function EditOrderPage() {
 
                       <input
                         className="rounded-xl border border-gray-300 bg-white p-3 text-gray-900"
-                        placeholder="Size"
+                        placeholder={t("size")}
                         value={item.size || ""}
                         onChange={(e) =>
                           updateItem(index, "size", e.target.value)
@@ -512,7 +514,7 @@ export default function EditOrderPage() {
 
                       <input
                         className="rounded-xl border border-gray-300 bg-white p-3 text-gray-900 md:col-span-2"
-                        placeholder="Item Remarks"
+                        placeholder={t("item_remarks")}
                         value={item.remarks || ""}
                         onChange={(e) =>
                           updateItem(index, "remarks", e.target.value)
@@ -527,7 +529,7 @@ export default function EditOrderPage() {
 
           <section className="rounded-2xl bg-white p-5 shadow-sm">
             <h2 className="mb-4 text-lg font-semibold text-gray-900">
-              Existing Images
+              {t("existing_images")}
             </h2>
 
             {existingImages.length > 0 ? (
@@ -542,11 +544,11 @@ export default function EditOrderPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-gray-600">No images uploaded.</p>
+              <p className="text-gray-600">{t("no_images_uploaded")}</p>
             )}
 
             <h2 className="mt-6 mb-4 text-lg font-semibold text-gray-900">
-              Add More Images
+              {t("add_more_images")}
             </h2>
 
             <input
@@ -562,7 +564,7 @@ export default function EditOrderPage() {
             disabled={saving}
             className="w-full rounded-2xl bg-black p-4 text-lg font-semibold text-white disabled:bg-gray-400"
           >
-            {saving ? "Saving Changes..." : "Update Order"}
+            {saving ? t("saving_changes") : t("update_order")}
           </button>
         </form>
       </div>

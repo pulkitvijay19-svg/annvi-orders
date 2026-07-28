@@ -6,9 +6,12 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../../../../lib/supabaseClient";
 import { useRequireAuth } from "../../../../lib/useRequireAuth";
 import MobileBottomNav from "../../../../components/MobileBottomNav";
+import { useLanguage } from "../../../../context/LanguageContext";
 
 export default function MagnetProcessPage() {
   const { loading: authLoading } = useRequireAuth();
+  const { t } = useLanguage();
+
   const [singleBatches, setSingleBatches] = useState([]);
   const [clubBatches, setClubBatches] = useState([]);
   const [openKey, setOpenKey] = useState(null);
@@ -76,7 +79,9 @@ useEffect(() => {
   if (authLoading || loading) {
     return (
       <main className="min-h-screen bg-slate-100 p-6">
-        <p className="text-sm text-gray-700">Loading magnet process...</p>
+        <p className="text-sm text-gray-700">
+  {t("loading_magnet_process")}
+</p>
       </main>
     );
   }
@@ -86,9 +91,11 @@ useEffect(() => {
       <div className="mx-auto max-w-7xl space-y-5">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-2xl font-bold md:text-3xl">Magnet Process</h1>
+            <h1 className="text-2xl font-bold md:text-3xl">
+  {t("magnet_process")}
+</h1>
             <p className="text-sm text-gray-600">
-              Single casting aur clubbed batches ka magnet result save karo.
+              {t("magnet_process_subtitle")}
             </p>
           </div>
 
@@ -97,29 +104,32 @@ useEffect(() => {
               href="/factory/magnet/dashboard"
               className="rounded-xl bg-white px-4 py-2 text-sm font-semibold shadow-sm"
             >
-              Magnet Dashboard
+              {t("magnet_dashboard")}
             </Link>
 
             <Link
               href="/dashboard"
               className="rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white"
             >
-              Dashboard
+              {t("dashboard")}
             </Link>
           </div>
         </div>
 
         <section>
-          <h2 className="mb-3 text-lg font-bold">Clubbed Magnet Batches</h2>
+          <h2 className="mb-3 text-lg font-bold">
+            {t("clubbed_magnet_batches")}
+            </h2>
 
           {clubBatches.length === 0 ? (
-            <Empty text="No clubbed magnet batch pending." />
+            <Empty text={t("no_clubbed_magnet_pending")} />
           ) : (
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {clubBatches.map((batch) => (
                 <ClubProcessCard
                   key={batch.id}
                   batch={batch}
+                  t={t}
                   isOpen={openKey === `club-${batch.id}`}
                   onOpen={() =>
                     setOpenKey(
@@ -134,16 +144,19 @@ useEffect(() => {
         </section>
 
         <section>
-          <h2 className="mb-3 text-lg font-bold">Single Casting Batches</h2>
+          <h2 className="mb-3 text-lg font-bold">
+            {t("single_casting_batches")}
+            </h2>
 
           {singleBatches.length === 0 ? (
-            <Empty text="No single casting batch pending for magnet." />
+            <Empty text={t("no_single_magnet_pending")} />
           ) : (
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {singleBatches.map((batch) => (
                 <SingleProcessCard
                   key={batch.id}
                   batch={batch}
+                  t={t}
                   isOpen={openKey === `single-${batch.id}`}
                   onOpen={() =>
                     setOpenKey(
@@ -220,7 +233,7 @@ async function stockInMagnetScrap({ kt, batchNo, weight, quantity = 0 }) {
   return true;
 }
 
-function SingleProcessCard({ batch, isOpen, onOpen, onRefresh }) {
+function SingleProcessCard({ batch, t, isOpen, onOpen, onRefresh }) {
   const router = useRouter();
   const [piecesReceived, setPiecesReceived] = useState("");
   const [receivedWeight, setReceivedWeight] = useState("");
@@ -237,7 +250,7 @@ function SingleProcessCard({ batch, isOpen, onOpen, onRefresh }) {
 
   async function saveSingleResult() {
     if (!receivedWeight && !scrapWeight) {
-      alert("Pieces weight ya scrap weight enter karo");
+      alert(t("enter_pieces_or_scrap_weight"));
       return;
     }
 
@@ -326,6 +339,7 @@ router.push(`/factory/bench/dashboard?batch=${batch.id}`);
   return (
     <section className="rounded-2xl bg-white p-4 shadow-sm">
       <CardHeader
+        t={t}
         title={batch.batch_no}
         kt={batch.kt}
         status="Single Magnet"
@@ -337,18 +351,22 @@ router.push(`/factory/bench/dashboard?batch=${batch.id}`);
 
       <div className="mt-3 grid grid-cols-3 gap-2">
         <MiniStat label="Pieces" value={summary.pieces} />
-        <MiniStat label="Issued" value={`${issuedMetal.toFixed(3)}g`} />
+        <MiniStat label={t("issued")} value={`${issuedMetal.toFixed(3)}g`} />
         <MiniStat
-          label="Old Scrap"
+          label={t("old_scrap")}
           value={`${Number(batch.scrap_weight || 0).toFixed(3)}g`}
         />
       </div>
 
       {isOpen && (
         <div className="mt-4 space-y-4">
-          <ItemsSummary items={items} />
+          <ItemsSummary
+  t={t}
+  items={items}
+/>
 
           <ResultBox
+            t={t}
             piecesReceived={piecesReceived}
             setPiecesReceived={setPiecesReceived}
             receivedWeight={receivedWeight}
@@ -366,7 +384,7 @@ router.push(`/factory/bench/dashboard?batch=${batch.id}`);
   );
 }
 
-function ClubProcessCard({ batch, isOpen, onOpen, onRefresh }) {
+function ClubProcessCard({ batch, t, isOpen, onOpen, onRefresh }) {
   const router = useRouter();
   const [piecesReceived, setPiecesReceived] = useState(
     batch.pieces_received || ""
@@ -535,18 +553,20 @@ if (firstCastingId) {
       />
 
       <div className="mt-3 grid grid-cols-3 gap-2">
-        <MiniStat label="Batches" value={castings.length} />
+        <MiniStat label={t("batches")} value={castings.length} />
         <MiniStat
-          label="Pieces"
+          label={t("pieces")}
           value={castings.reduce((sum, cb) => sum + Number(cb.good_pieces || 0), 0)}
         />
-        <MiniStat label="Issued" value={`${totalIssuedMetal.toFixed(3)}g`} />
+        <MiniStat label={t("issued")} value={`${totalIssuedMetal.toFixed(3)}g`} />
       </div>
 
       {isOpen && (
         <div className="mt-4 space-y-4">
           <div className="rounded-2xl bg-slate-50 p-3">
-            <h4 className="mb-2 text-sm font-bold">Included Castings</h4>
+            <h4 className="mb-2 text-sm font-bold">
+              {t("included_castings")}
+              </h4>
 
             <div className="grid max-h-[260px] gap-2 overflow-y-auto md:grid-cols-2">
               {castings.map((cb) => (
@@ -555,17 +575,23 @@ if (firstCastingId) {
                   className="rounded-xl border border-gray-200 bg-white p-3"
                 >
                   <p className="font-bold">{cb.batch_no}</p>
-                  <p className="text-xs text-gray-500">
-                    Issued: {Number(cb.actual_metal_weight || 0).toFixed(3)}g ·
-                    Pieces Wt: {Number(cb.received_weight || 0).toFixed(3)}g ·
-                    Scrap: {Number(cb.scrap_weight || 0).toFixed(3)}g
-                  </p>
+<p className="text-xs text-gray-500">
+  {t("issued")}:{" "}
+  {Number(cb.actual_metal_weight || 0).toFixed(3)}g
+  {" · "}
+  {t("pieces_weight")}:{" "}
+  {Number(cb.received_weight || 0).toFixed(3)}g
+  {" · "}
+  {t("scrap")}:{" "}
+  {Number(cb.scrap_weight || 0).toFixed(3)}g
+</p>
                 </div>
               ))}
             </div>
           </div>
 
           <ResultBox
+            t={t}
             piecesReceived={piecesReceived}
             setPiecesReceived={setPiecesReceived}
             receivedWeight={receivedWeight}
@@ -584,6 +610,7 @@ if (firstCastingId) {
 }
 
 function ResultBox({
+  t,
   piecesReceived,
   setPiecesReceived,
   receivedWeight,
@@ -597,10 +624,12 @@ function ResultBox({
 }) {
   return (
     <div className="rounded-2xl border border-gray-200 p-3">
-      <h4 className="mb-3 text-sm font-bold">Magnet Result</h4>
+      <h4 className="mb-3 text-sm font-bold">
+        {t("magnet_result")}
+      </h4>
 
       <div className="grid gap-3 md:grid-cols-3">
-        <Field label="Pieces Received">
+        <Field label={t("pieces_received")}>
           <input
             type="number"
             value={piecesReceived}
@@ -610,7 +639,7 @@ function ResultBox({
           />
         </Field>
 
-        <Field label="Pieces Weight After Magnet">
+        <Field label={t("pieces_weight_after_magnet")}>
           <input
             type="number"
             step="0.001"
@@ -621,7 +650,7 @@ function ResultBox({
           />
         </Field>
 
-        <Field label="Scrap Weight After Magnet">
+        <Field label={t("scrap_weight_after_magnet")}>
           <input
             type="number"
             step="0.001"
@@ -634,18 +663,27 @@ function ResultBox({
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
-        <MiniStat label="Total Issued" value={`${totalIssuedMetal.toFixed(3)}g`} />
         <MiniStat
-          label="Received + Scrap"
+          label={t("total_issued")}
+          value={`${totalIssuedMetal.toFixed(3)}g`}
+        />
+
+        <MiniStat
+          label={t("received_plus_scrap")}
           value={`${(
             Number(receivedWeight || 0) + Number(scrapWeight || 0)
           ).toFixed(3)}g`}
         />
+
         <MiniStat
-          label="Final Casting Loss"
+          label={t("final_casting_loss")}
           value={`${finalCastingLoss.toFixed(3)}g`}
         />
-        <MiniStat label="Pieces" value={piecesReceived || 0} />
+
+        <MiniStat
+          label={t("pieces")}
+          value={piecesReceived || 0}
+        />
       </div>
 
       <button
@@ -653,16 +691,19 @@ function ResultBox({
         onClick={onSave}
         className="mt-4 rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white disabled:bg-gray-400"
       >
-        {saving ? "Saving..." : "Save Magnet Result"}
+        {saving ? t("saving") : t("save_magnet_result")}
       </button>
     </div>
   );
 }
 
-function ItemsSummary({ items }) {
+function ItemsSummary({ t, items }) {
   return (
     <div className="rounded-2xl bg-slate-50 p-3">
-      <h4 className="mb-2 text-sm font-bold">Items Summary</h4>
+      <h4 className="mb-2 text-sm font-bold">
+        {t("items_summary")}
+      </h4>
+
       <div className="grid max-h-[260px] gap-2 overflow-y-auto md:grid-cols-2">
         {items.map((item) => (
           <div
@@ -670,13 +711,21 @@ function ItemsSummary({ items }) {
             className="rounded-xl border border-gray-200 bg-white p-3"
           >
             <p className="text-xs font-semibold text-gray-500">
-              {item.orders?.order_no || "-"} · {item.orders?.customer_name || "-"}
+              {item.orders?.order_no || "-"} ·{" "}
+              {item.orders?.customer_name || "-"}
             </p>
-            <p className="mt-1 text-sm font-bold">{item.category}</p>
+
+            <p className="mt-1 text-sm font-bold">
+              {item.category}
+            </p>
+
             <p className="text-xs text-gray-500">
-              {item.sample_unique_id} · Die {item.die_no}
+              {item.sample_unique_id} · {t("die")} {item.die_no}
             </p>
-            <p className="mt-2 text-xs font-bold">Qty: {item.selected_quantity}</p>
+
+            <p className="mt-2 text-xs font-bold">
+              {t("qty")}: {item.selected_quantity}
+            </p>
           </div>
         ))}
       </div>
@@ -684,25 +733,48 @@ function ItemsSummary({ items }) {
   );
 }
 
-function CardHeader({ title, kt, status, party, orders, isOpen, onOpen }) {
+function CardHeader({
+  t,
+  title,
+  kt,
+  status,
+  party,
+  orders,
+  isOpen,
+  onOpen,
+}) {
+  const translatedStatus =
+    status === "Single Magnet"
+      ? t("single_magnet")
+      : status === "In Magnet"
+      ? t("in_magnet")
+      : status === "Magnet Completed"
+      ? t("magnet_completed")
+      : status;
+
   return (
     <div className="flex items-start justify-between gap-3">
       <div>
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="font-bold">{title}</h3>
           <Badge>{kt}</Badge>
-          <Badge blue>{status}</Badge>
+          <Badge blue>{translatedStatus}</Badge>
         </div>
 
-        <p className="mt-2 text-xs font-semibold text-gray-500">Party: {party}</p>
-        <p className="text-xs text-gray-500">Order: {orders}</p>
+        <p className="mt-2 text-xs font-semibold text-gray-500">
+          {t("party")}: {party}
+        </p>
+
+        <p className="text-xs text-gray-500">
+          {t("order")}: {orders}
+        </p>
       </div>
 
       <button
         onClick={onOpen}
         className="rounded-xl bg-black px-4 py-2 text-xs font-semibold text-white"
       >
-        {isOpen ? "Close" : "Open"}
+        {isOpen ? t("close") : t("open")}
       </button>
     </div>
   );

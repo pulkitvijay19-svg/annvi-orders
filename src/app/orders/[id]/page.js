@@ -6,6 +6,7 @@ import Link from "next/link";
 import { supabase } from "../../../lib/supabaseClient";
 import { useRequireAuth } from "../../../lib/useRequireAuth";
 import MobileBottomNav from "../../../components/MobileBottomNav";
+import { useLanguage } from "../../../context/LanguageContext";
 
 const STATUS_OPTIONS = [
   "New",
@@ -33,7 +34,7 @@ export default function OrderDetailPage() {
   const [savingStatus, setSavingStatus] = useState(false);
   const [showStatusWhatsApp, setShowStatusWhatsApp] = useState(false);
   const { loading: authLoading } = useRequireAuth();
-
+  const { t } = useLanguage();
 
 
   useEffect(() => {
@@ -184,7 +185,7 @@ Please check Annvi Orders.`;
     return (
       <main className="min-h-screen bg-slate-100 p-6">
         <div className="mx-auto max-w-3xl rounded-2xl bg-white p-6 shadow-sm">
-          <p className="text-gray-700">Loading order...</p>
+          <p className="text-gray-700">{t("loading_order")}</p>
         </div>
       </main>
     );
@@ -205,7 +206,7 @@ const totalWeight =
   if (authLoading) {
   return (
     <main className="min-h-screen bg-slate-100 p-6">
-      <p className="text-gray-700">Checking login...</p>
+      <p className="text-gray-700">{t("checking_login")}</p>
       
     </main>
   );
@@ -338,7 +339,7 @@ p {
               {order.order_no}
             </h1>
             <p className="mt-1 text-sm text-gray-600">
-              Full order details and status update.
+              {t("order_detail_subtitle")}
             </p>
           </div>
 
@@ -347,21 +348,21 @@ p {
               href="/orders"
               className="rounded-xl bg-white px-4 py-3 text-sm font-semibold text-gray-900 shadow-sm"
             >
-              ← Back
+              ← {t("back")}
             </Link>
 
             <Link
               href="/orders/add"
               className="rounded-xl bg-black px-4 py-3 text-sm font-semibold text-white"
             >
-              + Add Order
+              {t("add_order")}
             </Link>
 
             <Link
               href={`/orders/${order.id}/edit`}
               className="rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white"
             >
-              Edit
+              {t("edit")}
             </Link>
 
             <button
@@ -369,7 +370,7 @@ p {
               onClick={() => window.print()}
               className="rounded-xl bg-green-600 px-4 py-3 text-sm font-semibold text-white"
             >
-              Print Order
+              {t("print_order")}
             </button>
 
             <button
@@ -377,36 +378,36 @@ p {
               onClick={deleteOrder}
               className="rounded-xl bg-red-600 px-4 py-3 text-sm font-semibold text-white"
             >
-              Delete
+              {t("delete")}
             </button>
           </div>
         </div>
 
         <section className="rounded-2xl bg-white p-5 shadow-sm">
           <h2 className="mb-4 text-lg font-semibold text-gray-900">
-            Customer Details
+            {t("customer_details")}
           </h2>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Info label="Customer Name" value={order.customer_name} />
-            <Info label="Mobile" value={order.customer_mobile || "-"} />
-            <Info label="Delivery Date" value={order.delivery_date || "-"} />
-            <Info label="Priority" value={order.priority || "-"} />
-            <Info label="Current Status" value={order.status || "-"} />
+            <Info label={t("customer_name")} value={order.customer_name} />
+            <Info label={t("mobile_number")} value={order.customer_mobile || "-"} />
+            <Info label={t("delivery_date")} value={order.delivery_date || "-"} />
+            <Info label={t("priority")} value={order.priority || "-"} />
+            <Info label={t("current_status")} value={order.status || "-"} />
             <Info
-              label="Created"
-              value={
-                order.created_at
-                  ? new Date(order.created_at).toLocaleString()
-                  : "-"
-              }
-            />
+  label={t("created")}
+  value={
+    order.created_at
+      ? new Date(order.created_at).toLocaleString()
+      : "-"
+  }
+/>
           </div>
 
           {order.remarks && (
             <div className="mt-5 rounded-xl bg-slate-50 p-4">
               <p className="text-xs font-semibold uppercase text-gray-500">
-                Remarks
+                {t("remarks")}
               </p>
               <p className="mt-1 text-gray-900">{order.remarks}</p>
             </div>
@@ -415,7 +416,7 @@ p {
 
         <section className="mt-6 rounded-2xl bg-white p-5 shadow-sm no-print">
           <h2 className="mb-4 text-lg font-semibold text-gray-900">
-            Update Status
+            {t("update_status")}
           </h2>
 
           <select
@@ -437,7 +438,7 @@ p {
             disabled={savingStatus}
             className="mt-4 w-full rounded-xl bg-black p-3 font-semibold text-white disabled:bg-gray-400"
           >
-            {savingStatus ? "Updating..." : "Update Status"}
+            {savingStatus ? t("updating") : t("update_status")}
           </button>
 
           {showStatusWhatsApp && (
@@ -447,7 +448,7 @@ p {
                 onClick={sendStatusToParty}
                 className="rounded-xl bg-green-600 p-3 font-semibold text-white hover:bg-green-700"
               >
-                Send Status WhatsApp to Party
+                {t("send_status_party")}
               </button>
 
               <button
@@ -455,7 +456,7 @@ p {
                 onClick={sendStatusToChacha}
                 className="rounded-xl bg-emerald-700 p-3 font-semibold text-white hover:bg-emerald-800"
               >
-                Send Status WhatsApp to Chacha
+                {t("send_status_chacha")}
               </button>
             </div>
           )}
@@ -463,21 +464,21 @@ p {
 
         <section className="mt-6 rounded-2xl bg-white p-5 shadow-sm">
           <h2 className="mb-4 text-lg font-semibold text-gray-900">
-            Order Items
+            {t("order_items")}
           </h2>
 
           <div className="overflow-x-auto print-overflow-visible">
             <table className="w-full min-w-[850px] border-collapse">
               <thead>
                 <tr className="border-b text-left text-sm text-gray-500">
-                  <th className="p-3">Category</th>
-                  <th className="p-3">Sample ID</th>
-                  <th className="p-3">Die No</th>
-                  <th className="p-3">Qty</th>
-                  <th className="p-3">Gold KT</th>
-                  <th className="p-3">Approx Weight</th>
-                  <th className="p-3">Size</th>
-                  <th className="p-3">Remarks</th>
+                  <th className="p-3">{t("category")}</th>
+<th className="p-3">{t("sample_id")}</th>
+<th className="p-3">{t("die_no")}</th>
+<th className="p-3">{t("quantity")}</th>
+<th className="p-3">{t("gold_kt")}</th>
+<th className="p-3">{t("approx_weight")}</th>
+<th className="p-3">{t("size")}</th>
+<th className="p-3">{t("remarks")}</th>
                 </tr>
               </thead>
 
@@ -525,7 +526,7 @@ p {
         </div>
 
         <div className="rounded-lg bg-slate-100 px-3 py-1 text-sm font-semibold text-gray-900">
-          Qty: {item.quantity || 0}
+          {t("quantity")}: {item.quantity || 0}
         </div>
       </div>
 
@@ -582,7 +583,7 @@ p {
           <div className="mt-4 grid gap-3 md:grid-cols-2">
   <div className="rounded-xl bg-slate-50 p-4">
     <p className="text-xs font-semibold uppercase text-gray-500">
-      Total Pieces
+      {t("total_pieces")}
     </p>
     <p className="mt-1 text-xl font-bold text-gray-900">
       {totalPieces}
@@ -591,7 +592,7 @@ p {
 
   <div className="rounded-xl bg-slate-50 p-4">
     <p className="text-xs font-semibold uppercase text-gray-500">
-      Total Approx Weight
+      {t("total_approx_weight")}
     </p>
     <p className="mt-1 text-xl font-bold text-gray-900">
       {totalWeight.toFixed(3)} g
@@ -602,7 +603,7 @@ p {
 
         <section className="mt-6 rounded-2xl bg-white p-5 shadow-sm">
           <h2 className="mb-4 text-lg font-semibold text-gray-900">
-            Design Images
+            {t("design_images")}
           </h2>
 
           {order.order_images?.length > 0 ? (
@@ -624,7 +625,7 @@ p {
               ))}
             </div>
           ) : (
-            <p className="text-gray-600">No images uploaded.</p>
+            <p className="text-gray-600">{t("no_images_uploaded")}</p>
           )}
         </section>
       </div>

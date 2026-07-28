@@ -6,6 +6,8 @@ import { useSearchParams } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
 import { useRequireAuth } from "../../lib/useRequireAuth";
 import MobileBottomNav from "../../components/MobileBottomNav";
+import { useLanguage } from "../../context/LanguageContext";
+
 const STATUS_OPTIONS = [
   "All",
   "New",
@@ -24,6 +26,8 @@ const PRIORITY_OPTIONS = ["All", "Normal", "Urgent", "Super Urgent"];
 const DATE_OPTIONS = ["All", "Today", "Delayed"];
 
 function OrdersContent() {
+  const { t } = useLanguage();
+
   const searchParams = useSearchParams();
   const { loading: authLoading } = useRequireAuth();
 
@@ -200,9 +204,9 @@ function OrdersContent() {
       <div className="mx-auto max-w-7xl">
         <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Orders</h1>
+            <h1 className="text-3xl font-bold text-gray-900">{t("orders")}</h1>
             <p className="mt-1 text-sm text-gray-600">
-              Search, filter and track all customer orders.
+              {t("orders_subtitle")}
             </p>
           </div>
 
@@ -211,14 +215,14 @@ function OrdersContent() {
               href="/dashboard"
               className="rounded-xl bg-white px-5 py-3 text-sm font-semibold text-gray-900 shadow-sm"
             >
-              Dashboard
+              {t("dashboard")}
             </Link>
 
             <Link
               href="/orders/add"
               className="rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white"
             >
-              + Add Order
+              + {t("add_order")}
             </Link>
           </div>
         </div>
@@ -227,7 +231,7 @@ function OrdersContent() {
           <div className="grid gap-3 md:grid-cols-5">
             <input
               className="rounded-xl border border-gray-300 bg-white p-3 text-gray-900 placeholder:text-gray-400 md:col-span-2"
-              placeholder="Search order no, customer, mobile..."
+              placeholder={t("search_orders")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -265,7 +269,7 @@ function OrdersContent() {
 
           <div className="mt-4 flex items-center justify-between">
             <p className="text-sm text-gray-700">
-              Showing {filteredOrders.length} of {orders.length} orders
+              {t("showing")} {filteredOrders.length} {t("of")} {orders.length} {t("orders")}
             </p>
 
             <button
@@ -273,18 +277,18 @@ function OrdersContent() {
               onClick={resetFilters}
               className="rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold text-gray-700"
             >
-              Reset
+              {t("reset")}
             </button>
           </div>
         </section>
 
         {loading ? (
           <section className="rounded-2xl bg-white p-5 shadow-sm">
-            <p className="text-gray-600">Loading orders...</p>
+            <p className="text-gray-600">{t("loading_orders")}</p>
           </section>
         ) : filteredOrders.length === 0 ? (
           <section className="rounded-2xl bg-white p-5 shadow-sm">
-            <p className="text-gray-600">No orders found.</p>
+            <p className="text-gray-600">{t("no_orders_found")}</p>
           </section>
         ) : (
           <>
@@ -293,15 +297,15 @@ function OrdersContent() {
                 <table className="w-full min-w-[1000px] border-collapse">
                   <thead>
                     <tr className="border-b text-left text-sm text-gray-500">
-                      <th className="p-3">Image</th>
-                      <th className="p-3">Order No</th>
-                      <th className="p-3">Customer</th>
-                      <th className="p-3">Pieces</th>
-                      <th className="p-3">Weight</th>
-                      <th className="p-3">Delivery</th>
-                      <th className="p-3">Priority</th>
-                      <th className="p-3">Status</th>
-                      <th className="p-3">Action</th>
+                      <th className="p-3">{t("image")}</th>
+                      <th className="p-3">{t("order_no")}</th>
+                      <th className="p-3">{t("customer")}</th>
+                      <th className="p-3">{t("pieces")}</th>
+                      <th className="p-3">{t("weight")}</th>
+                      <th className="p-3">{t("delivery")}</th>
+                      <th className="p-3">{t("priority")}</th>
+                      <th className="p-3">{t("status")}</th>
+                      <th className="p-3">{t("action")}</th>
                     </tr>
                   </thead>
 
@@ -324,7 +328,7 @@ function OrdersContent() {
                               />
                             ) : (
                               <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-slate-100 text-xs text-gray-500">
-                                No Image
+                                {t("no_image")}
                               </div>
                             )}
                           </td>
@@ -371,7 +375,7 @@ function OrdersContent() {
                               href={`/orders/${order.id}`}
                               className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white"
                             >
-                              View
+                              {t("view")}
                             </Link>
                           </td>
                         </tr>
@@ -415,7 +419,7 @@ function OrdersContent() {
                     <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
                       <div className="rounded-xl bg-slate-50 p-3">
                         <p className="text-xs font-semibold text-gray-500">
-                          Delivery
+                          {t("delivery")}
                         </p>
                         <p className="mt-1 text-gray-900">
                           {order.delivery_date || "-"}
@@ -424,7 +428,7 @@ function OrdersContent() {
 
                       <div className="rounded-xl bg-slate-50 p-3">
                         <p className="text-xs font-semibold text-gray-500">
-                          Pieces
+                          {t("pieces")}
                         </p>
                         <p className="mt-1 font-semibold text-gray-900">
                           {totals.pieces}
@@ -433,7 +437,7 @@ function OrdersContent() {
 
                       <div className="rounded-xl bg-slate-50 p-3">
                         <p className="text-xs font-semibold text-gray-500">
-                          Weight
+                          {t("weight")}
                         </p>
                         <p className="mt-1 font-semibold text-gray-900">
                           {totals.weight} g
@@ -442,7 +446,7 @@ function OrdersContent() {
 
                       <div className="rounded-xl bg-slate-50 p-3">
                         <p className="text-xs font-semibold text-gray-500">
-                          Priority
+                          {t("priority")}
                         </p>
                         <span className={priorityClass(order.priority)}>
                           {order.priority || "-"}
@@ -451,7 +455,7 @@ function OrdersContent() {
 
                       <div className="rounded-xl bg-slate-50 p-3">
                         <p className="text-xs font-semibold text-gray-500">
-                          Status
+                          {t("status")}
                         </p>
                         <span className={statusClass(order.status)}>
                           {order.status || "-"}
@@ -476,7 +480,6 @@ export default function OrdersPage() {
       fallback={
         <main className="min-h-screen bg-slate-100 p-6">
           <p className="text-gray-700">Loading orders...</p>
-          
         </main>
       }
     >

@@ -6,11 +6,14 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
 import { useRequireAuth } from "../../../lib/useRequireAuth";
 import MobileBottomNav from "../../../components/MobileBottomNav";
+import { useLanguage } from "../../../context/LanguageContext";
 
 const KARATS = ["9KT", "14KT", "18KT", "20KT", "22KT"];
 
 export default function CastingPage() {
   const { user, loading: authLoading } = useRequireAuth();
+  const { t } = useLanguage();
+
   const router = useRouter();
 
   const [orders, setOrders] = useState([]);
@@ -518,9 +521,9 @@ router.push(`/factory/casting/dashboard?batch=${batchId}`);
   return (
     <main className="min-h-screen overscroll-y-contain bg-slate-100 p-3 pb-28 text-gray-900 md:p-5">
       <div className="mx-auto max-w-7xl space-y-4">
-        <Header />
+        <Header t={t} />
 
-        <Card title="1. Select Orders">
+        <Card title={t("select_orders")}>
           <div className="grid gap-2 md:grid-cols-3">
             {orders.map((order) => (
               <label
@@ -548,7 +551,7 @@ router.push(`/factory/casting/dashboard?batch=${batchId}`);
         </Card>
 
         <Card
-  title="2. Select Items"
+  title={t("select_items")}
   action={
     orderItems.length > 0 && (
       <div className="flex gap-2">
@@ -564,7 +567,7 @@ router.push(`/factory/casting/dashboard?batch=${batchId}`);
           }
           className="rounded-xl bg-black px-3 py-2 text-xs font-semibold text-white"
         >
-          Select All
+            {t("select_all")}
         </button>
 
         <button
@@ -572,14 +575,14 @@ router.push(`/factory/casting/dashboard?batch=${batchId}`);
           onClick={() => setSelectedItems([])}
           className="rounded-xl bg-red-50 px-3 py-2 text-xs font-semibold text-red-700"
         >
-          Unselect All
+          {t("unselect_all")}
         </button>
       </div>
     )
   }
 >
   {orderItems.length === 0 ? (
-    <p className="text-sm text-gray-500">Select order first.</p>
+    <p className="text-sm text-gray-500">{t("select_order_first")}</p>
   ) : (
     <div className="space-y-2">
       {orderItems.map((item) => {
@@ -625,9 +628,9 @@ router.push(`/factory/casting/dashboard?batch=${batchId}`);
   )}
 </Card>
 
-        <Card title="3. Batch Details">
+        <Card title={t("batch_details")}>
           <div className="grid gap-3 md:grid-cols-4">
-            <Field label="Target KT">
+           <Field label={t("target_kt")}>
               <select
                 value={selectedKt}
                 onChange={(e) => setSelectedKt(e.target.value)}
@@ -639,7 +642,7 @@ router.push(`/factory/casting/dashboard?batch=${batchId}`);
               </select>
             </Field>
 
-            <Field label="Tree Weight">
+            <Field label={t("tree_weight")}>
               <input
                 type="number"
                 step="0.001"
@@ -650,11 +653,11 @@ router.push(`/factory/casting/dashboard?batch=${batchId}`);
               />
             </Field>
 
-            <Field label="Actual Metal Weight">
+            <Field label={t("actual_metal_weight")}>
               <input
                 type="number"
                 step="0.001"
-                placeholder="optional"
+                placeholder={t("optional")}
                 value={actualMetalWeight}
                 onChange={(e) => setActualMetalWeight(e.target.value)}
                 className="input"
@@ -662,21 +665,21 @@ router.push(`/factory/casting/dashboard?batch=${batchId}`);
             </Field>
 
             <MiniStat
-              label="Suggested Metal"
+              label={t("suggested_metal")}
               value={`${suggestedMetalWeight.toFixed(3)} g`}
             />
           </div>
         </Card>
 
         <Card
-          title="4. Metal Inputs"
+          title={t("metal_inputs")}
           action={
             <button
               type="button"
               onClick={addMetalInput}
               className="rounded-xl bg-black px-4 py-2 text-xs font-semibold text-white"
             >
-              + Add
+              {t("add")}
             </button>
           }
         >
@@ -722,56 +725,56 @@ router.push(`/factory/casting/dashboard?batch=${batchId}`);
                   onClick={() => removeMetalInput(index)}
                   className="rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-700"
                 >
-                  Remove
+                  {t("remove")}
                 </button>
               </div>
             ))}
           </div>
         </Card>
 
-        <Card title="5. Fine Gold Calculation">
+        <Card title={t("fine_gold_calculation")}>
           <div className="grid gap-3 md:grid-cols-4">
             <GreenStat
-              label="Full 995 Fine Required"
+              label={t("full_995_fine_required")}
               value={`${calculations.required995ForFull.toFixed(3)} g`}
             />
             <MiniStat
-              label="995 Fine Entered"
+              label={t("fine_995_entered")}
               value={`${calculations.fine995Used.toFixed(3)} g`}
             />
             <GreenStat
-              label="Fine Generated Metal"
+              label={t("fine_generated_metal")}
               value={`${calculations.fineGeneratedMetal.toFixed(3)} g`}
             />
             <GreenStat
-              label="Alloy For Fine"
+              label={t("alloy_for_fine")}
               value={`${calculations.fineAlloyRequired.toFixed(3)} g`}
             />
           </div>
         </Card>
 
-        <Card title="6. Scrap Conversion Calculation">
+        <Card title={t("scrap_conversion_calculation")}>
           <div className="space-y-2">
             {calculations.scrapBreakup.length === 0 ? (
-              <p className="text-sm text-gray-500">No scrap entered.</p>
+              <p className="text-sm text-gray-500">{t("no_scrap_entered")}  </p>
             ) : (
               calculations.scrapBreakup.map((s, i) => (
                 <div
                   key={i}
                   className="grid gap-2 rounded-xl bg-slate-50 p-3 md:grid-cols-5"
                 >
-                  <MiniStat label="Scrap KT" value={s.source_kt} />
-                  <MiniStat label="Type" value={s.type} />
+                  <MiniStat label={t("scrap_kt")} value={s.source_kt} />
+                  <MiniStat label={t("type")} value={s.type} />
                   <GreenStat
-                    label="Generated Metal"
+                    label={t("generated_metal")}
                     value={`${s.generatedMetal.toFixed(3)} g`}
                   />
                   <GreenStat
-                    label="Alloy Needed"
+                    label={t("alloy_needed")}
                     value={`${s.alloyRequired.toFixed(3)} g`}
                   />
                   <GreenStat
-                    label="995 Fine Needed"
+                    label={t("fine_995_needed")}
                     value={`${s.fine995Required.toFixed(3)} g`}
                   />
                 </div>
@@ -780,24 +783,24 @@ router.push(`/factory/casting/dashboard?batch=${batchId}`);
           </div>
         </Card>
 
-        <Card title="7. Final Total Calculation">
+        <Card title={t("final_total_calculation")}>
           <div className="grid gap-3 md:grid-cols-5">
-            <MiniStat label="Target Metal" value={`${targetMetal.toFixed(3)} g`} />
+            <MiniStat label={t("target_metal")} value={`${targetMetal.toFixed(3)} g`} />
             <GreenStat
               label="Generated Metal"
               value={`${calculations.generatedMetal.toFixed(3)} g`}
             />
             <MiniStat
-              label="Remaining Metal"
+              label={t("remaining_metal")}
               value={`${calculations.remainingMetal.toFixed(3)} g`}
               warn={Math.abs(calculations.remainingMetal) > 0.001}
             />
             <GreenStat
-              label="Total Alloy Required"
+              label={t("total_alloy_required")}
               value={`${calculations.totalAlloyRequired.toFixed(3)} g`}
             />
             <GreenStat
-              label="Total 995 Fine Required"
+              label={t("total_995_fine_required")}
               value={`${calculations.total995Required.toFixed(3)} g`}
             />
           </div>
@@ -809,7 +812,7 @@ router.push(`/factory/casting/dashboard?batch=${batchId}`);
         onClick={createBatch}
         className="fixed bottom-20 left-3 right-3 z-40 rounded-2xl bg-black p-4 text-sm font-semibold text-white shadow-xl disabled:bg-gray-400 md:static md:mx-auto md:mt-5 md:block md:max-w-7xl"
       >
-        {saving ? "Creating..." : "Create Casting Batch"}
+        {saving ? t("creating") : t("create_casting_batch")}
       </button>
 
       <style jsx global>{`
@@ -830,13 +833,13 @@ router.push(`/factory/casting/dashboard?batch=${batchId}`);
   );
 }
 
-function Header() {
+function Header({ t }) {
   return (
     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
       <div>
-        <h1 className="text-2xl font-bold md:text-3xl">Casting Batch</h1>
+        <h1 className="text-2xl font-bold md:text-3xl">{t("casting_batch")}</h1>
         <p className="mt-1 text-sm text-gray-600">
-          Select order items and calculate metal issue.
+          {t("casting_subtitle")}
         </p>
       </div>
 
@@ -845,13 +848,13 @@ function Header() {
           href="/factory/casting/dashboard"
           className="rounded-xl bg-white px-4 py-2 text-sm font-semibold shadow-sm"
         >
-          Casting Dashboard
+          {t("casting_dashboard")}
         </Link>
         <Link
           href="/factory/inventory"
           className="rounded-xl bg-white px-4 py-2 text-sm font-semibold shadow-sm"
         >
-          Inventory
+          {t("inventory")}
         </Link>
       </div>
     </div>

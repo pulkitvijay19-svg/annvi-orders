@@ -6,10 +6,12 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../../../../lib/supabaseClient";
 import { useRequireAuth } from "../../../../lib/useRequireAuth";
 import MobileBottomNav from "../../../../components/MobileBottomNav";
+import { useLanguage } from "../../../../context/LanguageContext";
 
 export default function CastingDashboardPage() {
   useRequireAuth();
   const router = useRouter();
+  const { t } = useLanguage();
 const [targetBatchNo, setTargetBatchNo] = useState("");
 
   const [batches, setBatches] = useState([]);
@@ -121,7 +123,7 @@ async function moveToMagnet(batch) {
   if (loading) {
     return (
       <main className="min-h-screen bg-slate-100 p-6">
-        <p className="text-sm text-gray-700">Loading casting batches...</p>
+        <p className="text-sm text-gray-700">{t("loading_casting_batches")} </p>
       </main>
     );
   }
@@ -132,10 +134,10 @@ async function moveToMagnet(batch) {
         <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-2xl font-bold md:text-3xl">
-              Casting Dashboard
+              {t("casting_dashboard")}
             </h1>
             <p className="mt-1 text-sm text-gray-600">
-              Casting batches ko open karke result entry karo.
+              {t("casting_dashboard_subtitle")}
             </p>
           </div>
 
@@ -144,7 +146,7 @@ async function moveToMagnet(batch) {
               href="/factory/casting"
               className="rounded-xl bg-white px-4 py-2 text-sm font-semibold shadow-sm"
             >
-              New Casting
+              {t("new_casting")}
             </Link>
 
             <Link
@@ -158,7 +160,7 @@ async function moveToMagnet(batch) {
 
         {batches.length === 0 ? (
           <section className="rounded-2xl bg-white p-6 shadow-sm">
-            <p className="text-sm text-gray-500">No active casting batch.</p>
+            <p className="text-sm text-gray-500">{t("no_active_casting_batch")} </p>
           </section>
         ) : (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -166,6 +168,7 @@ async function moveToMagnet(batch) {
               <CastingBatchCard
                 key={batch.id}
                 batch={batch}
+                  t={t}
                 isOpen={openBatchId === batch.id}
                 onToggle={() =>
                   setOpenBatchId(openBatchId === batch.id ? null : batch.id)
@@ -200,6 +203,7 @@ async function moveToMagnet(batch) {
 
 function CastingBatchCard({
   batch,
+  t,
   isOpen,
   onToggle,
   onUpdate,
@@ -328,10 +332,10 @@ const ok = await onUpdate(batch.id, {
           </div>
 
           <p className="mt-2 text-xs font-semibold text-gray-500">
-            Order: {orderNos.join(", ") || "-"}
+           {t("order")}:{orderNos.join(", ") || "-"}
           </p>
           <p className="text-xs text-gray-500">
-            Party: {partyNames.join(", ") || "-"}
+            {t("party")}:{partyNames.join(", ") || "-"}
           </p>
         </div>
 
@@ -339,24 +343,25 @@ const ok = await onUpdate(batch.id, {
           onClick={onToggle}
           className="rounded-xl bg-black px-4 py-2 text-xs font-semibold text-white"
         >
-          {isOpen ? "Close" : "Open"}
+          {isOpen ? t("close") : t("open")}
         </button>
       </div>
 
       <div className="mt-4 grid grid-cols-3 gap-2">
         <MiniStat
-          label="Tree"
+         label={t("tree")}
           value={`${Number(batch.tree_weight || 0).toFixed(3)}g`}
         />
         <MiniStat
-          label="Issued"
+          label={t("issued")}
           value={`${Number(batch.actual_metal_weight || 0).toFixed(3)}g`}
         />
-        <MiniStat label="Pieces" value={totalSelectedPieces} />
-        <MiniStat label="Input" value={`${totalInputWeight.toFixed(3)}g`} />
-        <MiniStat label="Items" value={items.length} />
+        <MiniStat label={t("pieces")} value={totalSelectedPieces} />
+        <MiniStat label={t("input")}
+         value={`${totalInputWeight.toFixed(3)}g`} />
+        <MiniStat label={t("items")} value={items.length} />
         <MiniStat
-          label="Loss"
+          label={t("loss")}
           value={`${Number(batch.casting_loss || 0).toFixed(3)}g`}
         />
       </div>
@@ -365,9 +370,9 @@ const ok = await onUpdate(batch.id, {
         <div className="mt-5 space-y-4">
           <div className="rounded-2xl bg-slate-50 p-3">
             <div className="mb-2 flex items-center justify-between">
-              <h3 className="text-sm font-bold">Items Summary</h3>
+              <h3 className="text-sm font-bold">{t("items_summary")}</h3>
               <span className="text-xs font-semibold text-gray-500">
-                {groupedItems.length} groups
+                {groupedItems.length} {t("groups")}
               </span>
             </div>
 
@@ -382,10 +387,10 @@ const ok = await onUpdate(batch.id, {
                   </p>
                   <p className="mt-1 text-sm font-bold">{item.category}</p>
                   <p className="text-xs text-gray-500">
-                    {item.sample_unique_id} · Die {item.die_no}
+                    {item.sample_unique_id} · {t("die_no")}: {item.die_no}
                   </p>
                   <div className="mt-2 flex justify-between text-xs font-bold">
-                    <span>Qty: {item.quantity}</span>
+                    <span>Qty: {t("quantity")}: {item.quantity} </span>
                     <span>{item.weight.toFixed(3)}g</span>
                   </div>
                 </div>
@@ -394,10 +399,10 @@ const ok = await onUpdate(batch.id, {
           </div>
 
           <div className="rounded-2xl border border-gray-200 p-3">
-            <h3 className="mb-3 text-sm font-bold">Casting Result</h3>
+            <h3 className="mb-3 text-sm font-bold">{t("casting_result")}</h3>
 
             <div className="grid gap-3 md:grid-cols-2">
-              <Field label="Good Pieces">
+              <Field label={t("good_pieces")}>
                 <input
                   type="number"
                   value={goodPieces}
@@ -407,7 +412,7 @@ const ok = await onUpdate(batch.id, {
                 />
               </Field>
 
-              <Field label="Bad Pieces">
+              <Field label={t("bad_pieces")}>
                 <input
                   type="number"
                   value={badPieces}
@@ -417,7 +422,7 @@ const ok = await onUpdate(batch.id, {
                 />
               </Field>
 
-              <Field label="Received Pieces Weight">
+              <Field label={t("received_pieces_weight")}>
                 <input
                   type="number"
                   step="0.001"
@@ -428,7 +433,7 @@ const ok = await onUpdate(batch.id, {
                 />
               </Field>
 
-              <Field label="Scrap Weight">
+              <Field label={t("scrap_weight")}>
                 <input
                   type="number"
                   step="0.001"
@@ -442,18 +447,19 @@ const ok = await onUpdate(batch.id, {
 
             <div className="mt-3 grid grid-cols-3 gap-2">
               <MiniStat
-                label="Casting Loss"
+                label={t("casting_loss")}
                 value={`${currentCastingLoss.toFixed(3)}g`}
               />
               <MiniStat
-                label="Good+Bad"
+                label={t("good_bad")}
                 value={Number(goodPieces || 0) + Number(badPieces || 0)}
               />
-              <MiniStat label="Selected" value={totalSelectedPieces} />
+              <MiniStat label={t("selected")}
+               value={totalSelectedPieces} />
             </div>
 
             <p className="mt-2 text-xs text-gray-500">
-              Loss = Issued Metal - Received Pieces Weight - Scrap Weight
+              {t("casting_loss_formula")}
             </p>
 
             <div className="mt-4 flex flex-wrap gap-2">
@@ -462,7 +468,7 @@ const ok = await onUpdate(batch.id, {
                 onClick={saveCastingResult}
                 className="rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white disabled:bg-gray-400"
               >
-                {saving ? "Saving..." : "Save Result"}
+                {saving ? t("saving") : t("save_result")}
               </button>
 
              {batch.status === "Casting Completed" && (
@@ -470,7 +476,7 @@ const ok = await onUpdate(batch.id, {
     onClick={() => onMove(batch)}
     className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white"
   >
-    Move To Magnet
+   {t("move_to_magnet")}
   </button>
 )}
 
@@ -478,7 +484,7 @@ const ok = await onUpdate(batch.id, {
                 onClick={() => onFail(batch)}
                 className="rounded-xl bg-red-50 px-5 py-3 text-sm font-semibold text-red-700"
               >
-                Casting Fail
+                {t("casting_fail")}
               </button>
             </div>
           </div>
