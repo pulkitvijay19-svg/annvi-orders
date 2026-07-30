@@ -34,8 +34,73 @@ export default function CastingPage() {
   ]);
 
   const [saving, setSaving] = useState(false);
+const [savingDraft, setSavingDraft] = useState(false);
 
-  async function fetchData() {
+function loadCastingDraft() {
+  try {
+    const savedDraft = localStorage.getItem("casting_page_draft");
+
+    if (!savedDraft) return;
+
+    const draft = JSON.parse(savedDraft);
+
+    setSelectedOrderIds(draft.selectedOrderIds || []);
+    setOrderItems(draft.orderItems || []);
+    setSelectedItems(draft.selectedItems || []);
+
+    setSelectedKt(draft.selectedKt || "18KT");
+    setTreeWeight(draft.treeWeight || "");
+    setActualMetalWeight(draft.actualMetalWeight || "");
+
+    setMetalInputs(
+      draft.metalInputs?.length
+        ? draft.metalInputs
+        : [
+            {
+              source_type: "Fine Gold",
+              source_kt: "24KT",
+              weight: "",
+            },
+          ]
+    );
+  } catch (error) {
+    console.error("Casting draft load error:", error);
+  }
+} 
+
+function saveCastingDraft() {
+  try {
+    setSavingDraft(true);
+
+    const draftData = {
+      selectedOrderIds,
+      orderItems,
+      selectedItems,
+      selectedKt,
+      treeWeight,
+      actualMetalWeight,
+      metalInputs,
+    };
+
+    localStorage.setItem(
+      "casting_page_draft",
+      JSON.stringify(draftData)
+    );
+
+    alert(t("draft_saved"));
+  } catch (error) {
+    console.error("Casting draft save error:", error);
+    alert(error.message);
+  } finally {
+    setSavingDraft(false);
+  }
+}
+
+function clearCastingDraft() {
+  localStorage.removeItem("casting_page_draft");
+}
+
+async function fetchData() {
     const { data: formulas } = await supabase
       .from("kt_formulas")
       .select("*")
@@ -62,9 +127,10 @@ export default function CastingPage() {
     setInventoryTransactions(invTx || []);
   }
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+useEffect(() => {
+  fetchData();
+  loadCastingDraft();
+}, []);
 
   async function loadOrderItems(orderIds) {
     if (orderIds.length === 0) {
@@ -501,11 +567,13 @@ function getInventoryItemId(sourceType) {
     setTreeWeight("");
     setActualMetalWeight("");
     setMetalInputs([{ source_type: "Fine Gold", source_kt: "24KT", weight: "" }]);
-    setSelectedOrderIds([]);
-    setOrderItems([]);
-    setSelectedItems([]);
-    fetchData();
-    alert(`Casting batch created: ${batchNo}`);
+setSelectedOrderIds([]);
+setOrderItems([]);
+setSelectedItems([]);
+
+clearCastingDraft();
+
+fetchData();
 
 router.push(`/factory/casting/dashboard?batch=${batchId}`);
   }
@@ -807,13 +875,25 @@ router.push(`/factory/casting/dashboard?batch=${batchId}`);
         </Card>
       </div>
 
-      <button
-        disabled={saving}
-        onClick={createBatch}
-        className="fixed bottom-20 left-3 right-3 z-40 rounded-2xl bg-black p-4 text-sm font-semibold text-white shadow-xl disabled:bg-gray-400 md:static md:mx-auto md:mt-5 md:block md:max-w-7xl"
-      >
-        {saving ? t("creating") : t("create_casting_batch")}
-      </button>
+<div className="fixed bottom-20 left-3 right-3 z-40 grid grid-cols-2 gap-3 md:static md:mx-auto md:mt-5 md:max-w-7xl">
+  <button
+    type="button"
+    disabled={savingDraft || saving}
+    onClick={saveCastingDraft}
+    className="rounded-2xl bg-blue-600 p-4 text-sm font-semibold text-white shadow-xl disabled:bg-gray-400"
+  >
+    {savingDraft ? t("saving") : t("save_draft")}
+  </button>
+
+  <button
+    type="button"
+    disabled={saving || savingDraft}
+    onClick={createBatch}
+    className="rounded-2xl bg-black p-4 text-sm font-semibold text-white shadow-xl disabled:bg-gray-400"
+  >
+    {saving ? t("creating") : t("create_casting_batch")}
+  </button>
+</div>
 
       <style jsx global>{`
         .input {

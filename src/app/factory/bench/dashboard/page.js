@@ -6,13 +6,22 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../../../../lib/supabaseClient";
 import { useRequireAuth } from "../../../../lib/useRequireAuth";
 import MobileBottomNav from "../../../../components/MobileBottomNav";
+import { useLanguage } from "../../../../context/LanguageContext";
 
 
 const KTS = ["9KT", "14KT", "18KT", "20KT", "22KT", "24KT"];
 
 export default function BenchDashboardPage() {
+  const { t } = useLanguage();
+
   return (
-    <Suspense fallback={<main className="min-h-screen bg-slate-100 p-6">Loading...</main>}>
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-slate-100 p-6">
+          {t("loading")}
+        </main>
+      }
+    >
       <BenchDashboardContent />
     </Suspense>
   );
@@ -20,6 +29,7 @@ export default function BenchDashboardPage() {
 
 function BenchDashboardContent() {
   const { loading: authLoading } = useRequireAuth();
+  const { t } = useLanguage();
   const [targetBatchNo, setTargetBatchNo] = useState("");
   const [batches, setBatches] = useState([]);
   const [findings, setFindings] = useState([]);
@@ -76,7 +86,9 @@ useEffect(() => {
   if (authLoading || loading) {
     return (
       <main className="min-h-screen bg-slate-100 p-6">
-        <p className="text-sm text-gray-700">Loading bench dashboard...</p>
+        <p className="text-sm text-gray-700">
+  {t("loading_bench_dashboard")}
+</p>
       </main>
     );
   }
@@ -84,11 +96,11 @@ useEffect(() => {
   return (
     <main className="min-h-screen overscroll-y-contain bg-slate-100 p-3 pb-24 text-gray-900 md:p-5">
       <div className="mx-auto max-w-7xl space-y-5">
-        <Header />
+        <Header t={t} />
 
         {batches.length === 0 ? (
           <div className="rounded-2xl bg-white p-6 text-sm text-gray-500 shadow-sm">
-            No batches in Filing + Assembly + Solder.
+            {t("no_bench_batches")}
           </div>
         ) : (
           <div className="grid gap-4 xl:grid-cols-2">
@@ -96,6 +108,7 @@ useEffect(() => {
               <BenchCard
                 key={batch.id}
                 batch={batch}
+                t={t}
                 findings={findings}
                 transactions={transactions}
                 isOpen={openId === batch.id}
@@ -125,7 +138,16 @@ useEffect(() => {
   );
 }
 
-function BenchCard({ batch, findings, transactions, isOpen, onOpen, onRefresh }) {
+function BenchCard({
+  batch,
+  t,
+  findings,
+  transactions,
+  isOpen,
+  onOpen,
+  onRefresh,
+})
+ {
   const router = useRouter();
   const items = batch.casting_batch_items || [];
   const oldFindings = batch.bench_findings || [];
@@ -288,7 +310,7 @@ async function loadDraft() {
     return;
   }
 
-  alert("Draft Saved");
+  alert(t("draft_saved"));
 }
 
 async function saveFindingsOnly() {
@@ -314,11 +336,11 @@ async function saveFindingsOnly() {
 
       if (available < issueDelta) {
         setSavingFindings(false);
-        alert(
-          `${row.finding_name} ${row.kt} stock कम है.\nRequired ${issueDelta.toFixed(
-            3
-          )}g, Available ${available.toFixed(3)}g`
-        );
+alert(
+  `${row.finding_name} ${row.kt} ${t("stock_is_low")}.\n${t(
+    "required"
+  )}: ${issueDelta.toFixed(3)}g, ${t("available")}: ${available.toFixed(3)}g`
+);
         return false;
       }
     }
@@ -425,7 +447,9 @@ async function saveFindingsOnly() {
 }
 
   async function saveBenchResult() {
-    if (!receivedWeight) return alert("Received pieces weight required");
+    if (!receivedWeight) {
+  return alert(t("received_pieces_weight_required"));
+}
 
     setSaving(true);
 
@@ -589,55 +613,75 @@ router.push(`/factory/pre-polish/dashboard?batch=${batch.id}`);
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-lg font-bold">{batch.batch_no}</h3>
             <Badge>{batch.kt}</Badge>
-            <Badge blue>Filing</Badge>
+            <Badge blue>{t("filing")}</Badge>
           </div>
-          <p className="mt-2 text-xs font-semibold text-gray-500">Party: {parties.join(", ") || "-"}</p>
-          <p className="text-xs text-gray-500">Order: {orders.join(", ") || "-"}</p>
+          <p className="mt-2 text-xs font-semibold text-gray-500">
+  {t("party")}: {parties.join(", ") || "-"}
+</p>
+
+<p className="text-xs text-gray-500">
+  {t("order")}: {orders.join(", ") || "-"}
+</p>
         </div>
 
         <button onClick={onOpen} className="rounded-xl bg-black px-4 py-2 text-xs font-semibold text-white">
-          {isOpen ? "Close" : "Open"}
+          {isOpen ? t("close") : t("open")}
         </button>
       </div>
 
       <div className="mt-4 grid grid-cols-3 gap-2">
-        <MiniStat label="Good Pcs" value={batch.good_pieces || 0} />
-        <MiniStat label="Issue Wt" value={`${Number(batch.received_weight || 0).toFixed(3)}g`} />
-        <MiniStat label="Casting Loss" value={`${Number(batch.casting_loss || 0).toFixed(3)}g`} />
+        <MiniStat label={t("good_pieces")} value={batch.good_pieces || 0} />
+        <MiniStat
+  label={t("issue_weight")}
+  value={`${Number(batch.received_weight || 0).toFixed(3)}g`}
+/>
+        <MiniStat
+  label={t("casting_loss")}
+  value={`${Number(batch.casting_loss || 0).toFixed(3)}g`}
+/>
       </div>
 
       {isOpen && (
         <div className="mt-5 space-y-4">
-          <ItemsSummary items={items} />
+          <ItemsSummary t={t} items={items} />
 
           <div className="rounded-3xl bg-slate-50 p-4">
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h4 className="text-sm font-bold">Findings Issue / Receive</h4>
+              <h4 className="text-sm font-bold">
+  {t("findings_issue_receive")}
+</h4>
               <button onClick={addFindingRow} className="rounded-xl bg-black px-4 py-2 text-xs font-semibold text-white">
-                + Add Finding
+                {t("add_finding")}
               </button>
             </div>
 
             <div className="mb-3">
-              <Field label="Issued By">
-                <input value={issuedBy} onChange={(e) => setIssuedBy(e.target.value)} className="input" placeholder="Name" />
-              </Field>
+              <Field label={t("issued_by")}>
+  <input
+    value={issuedBy}
+    onChange={(e) => setIssuedBy(e.target.value)}
+    className="input"
+    placeholder={t("name")}
+  />
+</Field>
             </div>
 
             <div className="space-y-3">
               {findingRows.length === 0 ? (
-                <p className="text-sm text-gray-500">No findings issued yet.</p>
+                <p className="text-sm text-gray-500">
+  {t("no_findings_issued")}
+</p>
               ) : (
                 findingRows.map((row, index) => (
                   <div key={index} className="rounded-2xl border border-gray-200 bg-white p-3">
                     <div className="grid gap-2 md:grid-cols-4">
-                      <Field label="Finding">
+                      <Field label={t("finding")}>
                         <select
                           value={row.finding_item_id}
                           onChange={(e) => updateFinding(index, "finding_item_id", e.target.value)}
                           className="input"
                         >
-                          <option value="">Select</option>
+                          <option value="">{t("select")}</option>
                           {findings.map((f) => (
                             <option key={f.id} value={f.id}>
                               {f.item_name}
@@ -646,7 +690,7 @@ router.push(`/factory/pre-polish/dashboard?batch=${batch.id}`);
                         </select>
                       </Field>
 
-                      <Field label="KT">
+                      <Field label={t("kt")}>
                         <select value={row.kt} onChange={(e) => updateFinding(index, "kt", e.target.value)} className="input">
                           {KTS.map((k) => (
                             <option key={k}>{k}</option>
@@ -654,29 +698,29 @@ router.push(`/factory/pre-polish/dashboard?batch=${batch.id}`);
                         </select>
                       </Field>
 
-                      <Field label="Issued Wt">
+                     <Field label={t("issued_weight")}>
                         <input type="number" step="0.001" value={row.issued_weight} onChange={(e) => updateFinding(index, "issued_weight", e.target.value)} className="input" />
                       </Field>
 
-                      <Field label="Issued Qty">
+                      <Field label={t("issued_quantity")}>
                         <input type="number" value={row.issued_qty} onChange={(e) => updateFinding(index, "issued_qty", e.target.value)} className="input" />
                       </Field>
 
-                      <Field label="Received Wt">
+                      <Field label={t("received_weight")}>
                         <input type="number" step="0.001" value={row.received_weight} onChange={(e) => updateFinding(index, "received_weight", e.target.value)} className="input" />
                       </Field>
 
-                      <Field label="Received Qty">
+                      <Field label={t("received_quantity")}>
                         <input type="number" value={row.received_qty} onChange={(e) => updateFinding(index, "received_qty", e.target.value)} className="input" />
                       </Field>
 
-                      <Field label="Remarks">
+                      <Field label={t("remarks")}>
                         <input value={row.remarks} onChange={(e) => updateFinding(index, "remarks", e.target.value)} className="input" />
                       </Field>
 
                       <div className="flex items-end">
                         <button onClick={() => removeFinding(index)} className="w-full rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-                          Remove
+                          {t("remove")}
                         </button>
                       </div>
                     </div>
@@ -686,48 +730,56 @@ router.push(`/factory/pre-polish/dashboard?batch=${batch.id}`);
             </div>
 
             <div className="mt-3 grid grid-cols-2 gap-2">
-              <GreenStat label="Findings Issued" value={`${findingsIssuedWeight.toFixed(3)}g`} />
-              <GreenStat label="Findings Received" value={`${findingsReceivedWeight.toFixed(3)}g`} />
+              <GreenStat
+  label={t("findings_issued")}
+  value={`${findingsIssuedWeight.toFixed(3)}g`}
+/>
+              <GreenStat
+  label={t("findings_received")}
+  value={`${findingsReceivedWeight.toFixed(3)}g`}
+/>
             </div>
 
             <button disabled={savingFindings} onClick={saveFindingsOnly} className="mt-3 rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white disabled:bg-gray-400">
-              {savingFindings ? "Saving..." : "Save / Edit Findings"}
+              {savingFindings ? t("saving") : t("save_edit_findings")}
             </button>
           </div>
 
           <div className="rounded-3xl border border-gray-200 p-4">
-            <h4 className="mb-3 text-sm font-bold">Filing + Assembly + Solder Result</h4>
+            <h4 className="mb-3 text-sm font-bold">
+  {t("bench_result")}
+</h4>
 
             <div className="grid gap-3 md:grid-cols-3">
-              <Field label="Karigar Name">
+              <Field label={t("karigar_name")}>
                 <input value={karigar} onChange={(e) => setKarigar(e.target.value)} className="input" />
               </Field>
 
-              <Field label="Issued Pieces">
+              <Field label={t("issued_pieces")}>
                 <input type="number" value={issuedPieces} onChange={(e) => setIssuedPieces(e.target.value)} className="input" />
               </Field>
 
-              <Field label="Issued Pieces Weight">
+              <Field label={t("issued_pieces_weight")}>
                 <input type="number" step="0.001" value={issuedWeight} onChange={(e) => setIssuedWeight(e.target.value)} className="input" />
               </Field>
 
-              <Field label="Received Pieces">
+              <Field label={t("received_pieces")}>
                 <input type="number" value={receivedPieces} onChange={(e) => setReceivedPieces(e.target.value)} className="input" />
               </Field>
 
-              <Field label="Received Pieces Weight">
+              <Field label={t("received_pieces_weight")}>
                 <input type="number" step="0.001" value={receivedWeight} onChange={(e) => setReceivedWeight(e.target.value)} className="input" />
               </Field>
 
-              <Field label="Ghis Weight Received">
+              <Field label={t("ghis_weight_received")}>
                 <input type="number" step="0.001" value={ghisWeight} onChange={(e) => setGhisWeight(e.target.value)} className="input" />
               </Field>
 
-              <Field label="Broken Pieces">
+              <Field label={t("broken_pieces")}>
                 <input type="number" value={brokenPieces} onChange={(e) => setBrokenPieces(e.target.value)} className="input" />
               </Field>
 
-<Field label="Rejected Weight">
+<Field label={t("rejected_weight")}>
   <input
     type="number"
     step="0.001"
@@ -737,11 +789,11 @@ router.push(`/factory/pre-polish/dashboard?batch=${batch.id}`);
   />
 </Field>
 
-              <Field label="Repair Pieces">
+              <Field label={t("repair_pieces")}>
                 <input type="number" value={repairPieces} onChange={(e) => setRepairPieces(e.target.value)} className="input" />
               </Field>
 
-              <Field label="Filing Loss">
+              <Field label={t("filing_loss")}>
                 <div className="rounded-xl bg-orange-50 p-3 text-sm font-bold text-orange-700">
                   {filingLoss.toFixed(3)} g
                 </div>
@@ -755,7 +807,7 @@ router.push(`/factory/pre-polish/dashboard?batch=${batch.id}`);
             </div>
 
             <p className="mt-2 text-xs text-gray-500">
-              Filing Loss = (Pieces Issued Wt + Findings Issued Wt) - (Pieces Received Wt + Findings Received Wt + Ghis Wt)
+              {t("filing_loss_formula")}
             </p>
 
 <button
@@ -763,11 +815,11 @@ router.push(`/factory/pre-polish/dashboard?batch=${batch.id}`);
   disabled={savingDraft}
   className="mr-3 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white"
 >
-  {savingDraft ? "Saving Draft..." : "Save Draft"}
+  {savingDraft ? t("saving_draft") : t("save_draft")}
 </button>
 
             <button disabled={saving} onClick={saveBenchResult} className="mt-4 rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white disabled:bg-gray-400">
-              {saving ? "Saving..." : "Move To Pre Polish"}
+              {saving ? t("saving") : t("move_to_pre_polish")}
             </button>
           </div>
         </div>
@@ -776,21 +828,35 @@ router.push(`/factory/pre-polish/dashboard?batch=${batch.id}`);
   );
 }
 
-function ItemsSummary({ items }) {
+function ItemsSummary({ t, items }) {
   return (
     <div className="rounded-3xl bg-slate-50 p-4">
-      <h4 className="mb-2 text-sm font-bold">Items Summary</h4>
+      <h4 className="mb-2 text-sm font-bold">
+        {t("items_summary")}
+      </h4>
+
       <div className="grid max-h-[230px] gap-2 overflow-y-auto md:grid-cols-2">
         {items.map((item) => (
-          <div key={item.id} className="rounded-xl border border-gray-200 bg-white p-3">
+          <div
+            key={item.id}
+            className="rounded-xl border border-gray-200 bg-white p-3"
+          >
             <p className="text-xs font-semibold text-gray-500">
-              {item.orders?.order_no || "-"} · {item.orders?.customer_name || "-"}
+              {item.orders?.order_no || "-"} ·{" "}
+              {item.orders?.customer_name || "-"}
             </p>
-            <p className="mt-1 text-sm font-bold">{item.category}</p>
+
+            <p className="mt-1 text-sm font-bold">
+              {item.category}
+            </p>
+
             <p className="text-xs text-gray-500">
-              {item.sample_unique_id} · Die {item.die_no}
+              {item.sample_unique_id} · {t("die")} {item.die_no}
             </p>
-            <p className="mt-2 text-xs font-bold">Qty: {item.selected_quantity}</p>
+
+            <p className="mt-2 text-xs font-bold">
+              {t("qty")}: {item.selected_quantity}
+            </p>
           </div>
         ))}
       </div>
@@ -798,20 +864,32 @@ function ItemsSummary({ items }) {
   );
 }
 
-function Header() {
+function Header({ t }) {
   return (
     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
       <div>
-        <h1 className="text-2xl font-bold md:text-3xl">Filing + Assembly + Solder</h1>
-        <p className="text-sm text-gray-600">Findings issue, ghis recovery and bench loss tracking.</p>
+        <h1 className="text-2xl font-bold md:text-3xl">
+          {t("filing_assembly_solder")}
+        </h1>
+
+        <p className="text-sm text-gray-600">
+          {t("bench_dashboard_subtitle")}
+        </p>
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <Link href="/factory/magnet/process" className="rounded-xl bg-white px-4 py-2 text-sm font-semibold shadow-sm">
-          Magnet
+        <Link
+          href="/factory/magnet/process"
+          className="rounded-xl bg-white px-4 py-2 text-sm font-semibold shadow-sm"
+        >
+          {t("magnet")}
         </Link>
-        <Link href="/dashboard" className="rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white">
-          Dashboard
+
+        <Link
+          href="/dashboard"
+          className="rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white"
+        >
+          {t("dashboard")}
         </Link>
       </div>
     </div>

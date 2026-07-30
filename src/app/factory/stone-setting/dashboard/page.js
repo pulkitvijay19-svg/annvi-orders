@@ -6,9 +6,11 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../../../../lib/supabaseClient";
 import { useRequireAuth } from "../../../../lib/useRequireAuth";
 import MobileBottomNav from "../../../../components/MobileBottomNav";
+import { useLanguage } from "../../../../context/LanguageContext";
 
 export default function StoneSettingDashboardPage() {
   const { loading: authLoading } = useRequireAuth();
+  const { t } = useLanguage();
   const [targetBatchNo, setTargetBatchNo] = useState("");
   const [batches, setBatches] = useState([]);
   const [stones, setStones] = useState([]);
@@ -75,7 +77,7 @@ useEffect(() => {
   if (authLoading || loading) {
     return (
       <main className="min-h-screen bg-slate-100 p-6 text-sm text-gray-700">
-        Loading stone setting...
+        {t("loading_stone_setting")}
       </main>
     );
   }
@@ -83,11 +85,11 @@ useEffect(() => {
   return (
     <main className="min-h-screen bg-slate-100 p-3 pb-24 text-gray-900 md:p-5">
       <div className="mx-auto max-w-7xl space-y-5">
-        <Header />
+        <Header t={t} />
 
         {batches.length === 0 ? (
           <div className="rounded-2xl bg-white p-6 text-sm text-gray-500 shadow-sm">
-            No batches in Stone Setting.
+            {t("no_stone_setting_batches")}
           </div>
         ) : (
           <div className="grid gap-4 xl:grid-cols-2">
@@ -95,6 +97,7 @@ useEffect(() => {
               <StoneSettingCard
   key={batch.id}
   batch={batch}
+  t={t}
   stones={stones}
   findings={findings}
   transactions={transactions}
@@ -127,6 +130,7 @@ useEffect(() => {
 
 function StoneSettingCard({
   batch,
+  t,
   stones,
   findings,
   transactions,
@@ -162,8 +166,9 @@ function StoneSettingCard({
 
   const [remarks, setRemarks] = useState("");
   const [stoneRows, setStoneRows] = useState([]);
-  const [saving, setSaving] = useState(false);
-  const [repairFindingRows, setRepairFindingRows] = useState([]);
+const [saving, setSaving] = useState(false);
+const [savingDraft, setSavingDraft] = useState(false);
+const [repairFindingRows, setRepairFindingRows] = useState([]);
   const [repairLossRows, setRepairLossRows] = useState([]);
 
   const parties = [
@@ -316,6 +321,129 @@ const repairLoss =
   repairFindingsIssued -
   (Number(repairReceivedWeight || 0) + repairFindingsReceived);
 
+  async function loadDraft() {
+  const { data, error } = await supabase
+    .from("process_drafts")
+    .select("*")
+    .eq("batch_id", batch.id)
+    .eq("process_name", "STONE_SETTING")
+    .maybeSingle();
+
+  if (error) {
+    console.error("Stone Setting draft load error:", error);
+    return;
+  }
+
+  if (!data?.draft_data) return;
+
+  const draft = data.draft_data;
+
+  setActiveTab(draft.activeTab || "stone");
+
+  setSetterName(draft.setterName || "");
+  setIssuedBy(draft.issuedBy || "");
+
+  setIssuedPieces(
+    draft.issuedPieces ??
+      Number(batch.current_pieces || batch.good_pieces || 0)
+  );
+
+  setIssuedGoldWeight(
+    draft.issuedGoldWeight ??
+      Number(batch.current_weight || batch.received_weight || 0)
+  );
+
+  setReceivedPieces(draft.receivedPieces || "");
+  setReceivedGoldWeight(draft.receivedGoldWeight || "");
+
+  setRepairIssuedPieces(draft.repairIssuedPieces || "");
+  setRepairIssuedWeight(draft.repairIssuedWeight || "");
+  setRepairReceivedPieces(draft.repairReceivedPieces || "");
+  setRepairReceivedWeight(draft.repairReceivedWeight || "");
+
+  setRejectedPieces(draft.rejectedPieces || "");
+  setRejectedWeight(draft.rejectedWeight || "");
+
+  setRemarks(draft.remarks || "");
+  setStoneRows(Array.isArray(draft.stoneRows) ? draft.stoneRows : []);
+
+  setRepairFindingRows(
+    Array.isArray(draft.repairFindingRows)
+      ? draft.repairFindingRows
+      : []
+  );
+
+  setRepairLossRows(
+    Array.isArray(draft.repairLossRows)
+      ? draft.repairLossRows
+      : []
+  );
+}
+
+useEffect(() => {
+  if (isOpen) {
+    loadDraft();
+  }
+}, [isOpen]);
+
+async function saveDraft() {
+  try {
+    setSavingDraft(true);
+
+    const draftData = {
+      activeTab,
+
+      setterName,
+      issuedBy,
+
+      issuedPieces,
+      issuedGoldWeight,
+
+      receivedPieces,
+      receivedGoldWeight,
+
+      repairIssuedPieces,
+      repairIssuedWeight,
+      repairReceivedPieces,
+      repairReceivedWeight,
+
+      rejectedPieces,
+      rejectedWeight,
+
+      remarks,
+      stoneRows,
+      repairFindingRows,
+      repairLossRows,
+    };
+
+    const { error } = await supabase
+      .from("process_drafts")
+      .upsert(
+        {
+          batch_id: batch.id,
+          process_name: "STONE_SETTING",
+          draft_data: draftData,
+          updated_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "batch_id,process_name",
+        }
+      );
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    alert(t("draft_saved"));
+  } catch (error) {
+    console.error("Stone Setting draft save error:", error);
+    alert(error.message || t("draft_save_failed"));
+  } finally {
+    setSavingDraft(false);
+  }
+}
+  
   async function stockInRejectedScrap() {
     if (Number(rejectedWeight || 0) <= 0) return true;
 
@@ -332,7 +460,7 @@ const repairLoss =
     }
 
     if (!scrapItem?.id) {
-      alert("Scrap item not found: Scrap / Casting Scrap");
+      alert(t("casting_scrap_not_found"));
       return false;
     }
 
@@ -360,7 +488,7 @@ const repairLoss =
 
   async function saveStoneSetting() {
     if (!receivedGoldWeight && !repairReceivedWeight && !rejectedWeight) {
-      alert("Received / repair / rejected weight me se kuch enter karo");
+      alert(t("enter_stone_setting_weight"));
       return;
     }
 
@@ -374,11 +502,11 @@ const repairLoss =
 
       if (issuedWeight > 0 && available < issuedWeight) {
         setSaving(false);
-        alert(
-          `${row.stone_name} stock कम hai. Required ${issuedWeight.toFixed(
-            3
-          )}g, Available ${available.toFixed(3)}g`
-        );
+alert(
+`${row.stone_name} ${t("stock_is_low")}.
+${t("required")}: ${issuedWeight.toFixed(3)}g,
+${t("available")}: ${available.toFixed(3)}g`
+);
         return;
       }
     }
@@ -704,10 +832,16 @@ if (row.loss_type === "Scrap") {
       .eq("id", batch.id);
 
     if (updateError) {
-      setSaving(false);
-      alert(updateError.message);
-      return;
-    }
+  setSaving(false);
+  alert(updateError.message);
+  return;
+}
+
+await supabase
+  .from("process_drafts")
+  .delete()
+  .eq("batch_id", batch.id)
+  .eq("process_name", "STONE_SETTING");
 
 setSaving(false);
 router.push(`/factory/buff/dashboard?batch=${batch.id}`);
@@ -720,15 +854,15 @@ router.push(`/factory/buff/dashboard?batch=${batch.id}`);
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-lg font-bold">{batch.batch_no}</h3>
             <Badge>{batch.kt}</Badge>
-            <Badge blue>Stone Setting</Badge>
+            <Badge blue>{t("stone_setting")}</Badge>
           </div>
 
           <p className="mt-2 text-xs font-semibold text-gray-500">
-            Party: {parties.join(", ") || "-"}
+            {t("party")}: {parties.join(", ") || "-"}
           </p>
 
           <p className="text-xs text-gray-500">
-            Order: {orders.join(", ") || "-"}
+           {t("order")}: {orders.join(", ") || "-"}
           </p>
         </div>
 
@@ -736,25 +870,29 @@ router.push(`/factory/buff/dashboard?batch=${batch.id}`);
           onClick={onOpen}
           className="rounded-xl bg-black px-4 py-2 text-xs font-semibold text-white"
         >
-          {isOpen ? "Close" : "Open"}
+          {isOpen ? t("close") : t("open")}
         </button>
       </div>
 
       <div className="mt-4 grid grid-cols-3 gap-2">
-        <MiniStat label="Current Pcs" value={issuedPieces} />
+<MiniStat label={t("current_pieces")} value={issuedPieces} />
+
+<MiniStat
+  label={t("current_weight")}
+  value={`${Number(issuedGoldWeight || 0).toFixed(3)}g`}
+/>
         <MiniStat
-          label="Gold Wt"
-          value={`${Number(issuedGoldWeight || 0).toFixed(3)}g`}
-        />
-        <MiniStat
-          label="Entries"
+          label={t("entries")}
           value={batch.stone_setting_results?.length || 0}
         />
       </div>
 
       {isOpen && (
         <div className="mt-5 space-y-4">
-          <ItemsSummary items={items} />
+          <ItemsSummary
+  t={t}
+  items={items}
+/>
 
           <div className="flex gap-2 rounded-2xl bg-slate-100 p-2">
             <button
@@ -766,27 +904,27 @@ router.push(`/factory/buff/dashboard?batch=${batch.id}`);
                   : "bg-white text-gray-700"
               }`}
             >
-              Stone Setting
+              {t("stone_setting")}
             </button>
 
-            <button
-              type="button"
-              onClick={() => setActiveTab("repair")}
-              className={`flex-1 rounded-xl px-4 py-3 text-sm font-bold ${
-                activeTab === "repair"
-                  ? "bg-black text-white"
-                  : "bg-white text-gray-700"
-              }`}
-            >
-              Repair
-            </button>
+<button
+  type="button"
+  onClick={() => setActiveTab("repair")}
+  className={`flex-1 rounded-xl px-4 py-3 text-sm font-bold ${
+    activeTab === "repair"
+      ? "bg-black text-white"
+      : "bg-white text-gray-700"
+  }`}
+>
+  {t("repair")}
+</button>
           </div>
 
           {activeTab === "stone" && (
             <>
-              <Panel title="Stone Issue / Receive">
+              <Panel title={t("stone_issue_receive")}>
                 <div className="mb-3 grid gap-3 md:grid-cols-2">
-                  <Field label="Issued By">
+                  <Field label={t("issued_by")}>
                     <input
                       value={issuedBy}
                       onChange={(e) => setIssuedBy(e.target.value)}
@@ -799,7 +937,7 @@ router.push(`/factory/buff/dashboard?batch=${batch.id}`);
                       onClick={addStoneRow}
                       className="w-full rounded-xl bg-black px-4 py-3 text-sm font-semibold text-white"
                     >
-                      + Add Stone
+                      {t("add_stone")}
                     </button>
                   </div>
                 </div>
@@ -807,7 +945,7 @@ router.push(`/factory/buff/dashboard?batch=${batch.id}`);
                 <div className="space-y-3">
                   {stoneRows.length === 0 ? (
                     <p className="text-sm text-gray-500">
-                      No stones issued yet.
+                      {t("no_stones_issued")}
                     </p>
                   ) : (
                     stoneRows.map((row, index) => (
@@ -816,7 +954,7 @@ router.push(`/factory/buff/dashboard?batch=${batch.id}`);
                         className="rounded-2xl border border-gray-200 bg-white p-3"
                       >
                         <div className="grid gap-2 md:grid-cols-3">
-                          <Field label="Stone">
+                          <Field label={t("stone")}>
                             <select
                               value={row.stone_item_id}
                               onChange={(e) =>
@@ -828,7 +966,9 @@ router.push(`/factory/buff/dashboard?batch=${batch.id}`);
                               }
                               className="input"
                             >
-                              <option value="">Select stone</option>
+                              <option value="">
+  {t("select_stone")}
+</option>
                               {stones.map((s) => (
                                 <option key={s.id} value={s.id}>
                                   {s.item_name}
@@ -837,7 +977,7 @@ router.push(`/factory/buff/dashboard?batch=${batch.id}`);
                             </select>
                           </Field>
 
-                          <Field label="Stone Type">
+                          <Field label={t("stone_type")}>
                             <input
                               value={row.stone_type}
                               onChange={(e) =>
@@ -851,7 +991,7 @@ router.push(`/factory/buff/dashboard?batch=${batch.id}`);
                             />
                           </Field>
 
-                          <Field label="Stone Size">
+                          <Field label={t("stone_size")}>
                             <input
                               value={row.stone_size}
                               onChange={(e) =>
@@ -865,7 +1005,7 @@ router.push(`/factory/buff/dashboard?batch=${batch.id}`);
                             />
                           </Field>
 
-                          <Field label="Stone Issued Weight">
+                          <Field label={t("stone_issued_weight")}>
                             <input
                               type="number"
                               step="0.001"
@@ -881,7 +1021,7 @@ router.push(`/factory/buff/dashboard?batch=${batch.id}`);
                             />
                           </Field>
 
-                          <Field label="Stone Received Weight">
+                          <Field label={t("stone_received_weight")}>
                             <input
                               type="number"
                               step="0.001"
@@ -897,7 +1037,7 @@ router.push(`/factory/buff/dashboard?batch=${batch.id}`);
                             />
                           </Field>
 
-                          <Field label="Stone Increased">
+                          <Field label={t("stone_increased")}>
                             <div className="rounded-xl bg-green-50 p-3 text-sm font-bold text-green-800">
                               {(
                                 Number(row.issued_weight || 0) -
@@ -907,7 +1047,7 @@ router.push(`/factory/buff/dashboard?batch=${batch.id}`);
                             </div>
                           </Field>
 
-                          <Field label="Remarks">
+                          <Field label={t("remarks")}>
                             <input
                               value={row.remarks}
                               onChange={(e) =>
@@ -918,12 +1058,17 @@ router.push(`/factory/buff/dashboard?batch=${batch.id}`);
                           </Field>
 
                           <div className="flex items-end">
-                            <button
-                              onClick={() => removeStone(index)}
-                              className="w-full rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700"
-                            >
-                              Remove
-                            </button>
+<button
+  type="button"
+  onClick={() =>
+    setRepairFindingRows((p) =>
+      p.filter((_, i) => i !== index)
+    )
+  }
+  className="w-full rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700"
+>
+  {t("remove")}
+</button>
                           </div>
                         </div>
                       </div>
@@ -933,23 +1078,23 @@ router.push(`/factory/buff/dashboard?batch=${batch.id}`);
 
                 <div className="mt-3 grid grid-cols-3 gap-2">
                   <GreenStat
-                    label="Stone Issued"
+                    label={t("stone_issued")}
                     value={`${totalStoneIssued.toFixed(3)}g`}
                   />
                   <GreenStat
-                    label="Stone Received"
+                    label={t("stone_received")}
                     value={`${totalStoneReceived.toFixed(3)}g`}
                   />
                   <GreenStat
-                    label="Stone Increased"
+                    label={t("stone_increased")}
                     value={`${stoneIncreased.toFixed(3)}g`}
                   />
                 </div>
               </Panel>
 
-              <Panel title="Stone Setting Challan">
+              <Panel title={t("stone_setting_challan")}>
                 <div className="grid gap-3 md:grid-cols-3">
-                  <Field label="Setter Name">
+                  <Field label={t("setter_name")}>
                     <input
                       value={setterName}
                       onChange={(e) => setSetterName(e.target.value)}
@@ -957,7 +1102,7 @@ router.push(`/factory/buff/dashboard?batch=${batch.id}`);
                     />
                   </Field>
 
-                  <Field label="Issued Pieces">
+                  <Field label={t("issued_pieces")}>
                     <input
                       type="number"
                       value={issuedPieces}
@@ -966,7 +1111,7 @@ router.push(`/factory/buff/dashboard?batch=${batch.id}`);
                     />
                   </Field>
 
-                  <Field label="Gold Pieces Issued Weight">
+                  <Field label={t("gold_issued_weight")}>
                     <input
                       type="number"
                       step="0.001"
@@ -976,7 +1121,7 @@ router.push(`/factory/buff/dashboard?batch=${batch.id}`);
                     />
                   </Field>
 
-                  <Field label="Received Pieces">
+                  <Field label={t("received_pieces")}>
                     <input
                       type="number"
                       value={receivedPieces}
@@ -985,7 +1130,7 @@ router.push(`/factory/buff/dashboard?batch=${batch.id}`);
                     />
                   </Field>
 
-                  <Field label="Gold Pieces Received Weight">
+                  <Field label={t("gold_received_weight")}>
                     <input
                       type="number"
                       step="0.001"
@@ -995,7 +1140,7 @@ router.push(`/factory/buff/dashboard?batch=${batch.id}`);
                     />
                   </Field>
 
-                  <Field label="Rejected Pieces">
+                  <Field label={t("rejected_pieces")}>
                     <input
                       type="number"
                       value={rejectedPieces}
@@ -1004,7 +1149,7 @@ router.push(`/factory/buff/dashboard?batch=${batch.id}`);
                     />
                   </Field>
 
-                  <Field label="Rejected Weight">
+                  <Field label={t("rejected_weight")}>
                     <input
                       type="number"
                       step="0.001"
@@ -1014,7 +1159,7 @@ router.push(`/factory/buff/dashboard?batch=${batch.id}`);
                     />
                   </Field>
 
-                  <Field label="Stone Setting Challan">
+                  <Field label={t("stone_setting_challan")}>
                     <div className="rounded-xl bg-orange-50 p-3 text-sm font-bold text-orange-700">
                       {stoneChallan.toFixed(3)} g
                     </div>
@@ -1023,15 +1168,15 @@ router.push(`/factory/buff/dashboard?batch=${batch.id}`);
 
                 <div className="mt-3 grid grid-cols-3 gap-2">
                   <GreenStat
-                    label="Good To Buff"
+                    label={t("good_to_buff")}
                     value={`${finalPiecesToBuff} pcs`}
                   />
                   <GreenStat
-                    label="Repair Received"
+                    label={t("repair_received")}
                     value={`${Number(repairReceivedPieces || 0)} pcs`}
                   />
                   <GreenStat
-                    label="Rejected Scrap"
+                    label={t("rejected_scrap")}
                     value={`${Number(rejectedWeight || 0).toFixed(3)}g`}
                   />
                 </div>
@@ -1048,41 +1193,52 @@ router.push(`/factory/buff/dashboard?batch=${batch.id}`);
                 </div>
 
                 <p className="mt-2 text-xs text-gray-500">
-                  Stone Setting Challan = Gold Issued + Stone Issued - Gold
-                  Received - Stone Received - Rejected - Repair Issued
+t("rejected_scrap")
                 </p>
 
-                <button
-                  disabled={saving}
-                  onClick={saveStoneSetting}
-                  className="mt-4 rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white disabled:bg-gray-400"
-                >
-                  {saving ? "Saving..." : "Save & Move To Buff"}
-                </button>
+                <div className="mt-4 flex flex-wrap gap-3">
+  <button
+    type="button"
+    disabled={savingDraft || saving}
+    onClick={saveDraft}
+    className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white disabled:bg-gray-400"
+  >
+    {savingDraft ? t("saving") : t("save_draft")}
+  </button>
+
+  <button
+    type="button"
+    disabled={saving || savingDraft}
+    onClick={saveStoneSetting}
+    className="rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white disabled:bg-gray-400"
+  >
+    {saving ? t("saving") : t("save_move_buff")}
+  </button>
+</div>
               </Panel>
             </>
           )}
 
           {activeTab === "repair" && (
-  <Panel title="Repair Handling">
+  <Panel title={t("repair_handling")}>
     <div className="grid gap-3 md:grid-cols-3">
-      <Field label="Repair Issued Pieces">
+      <Field label={t("repair_issued_pieces")}>
         <input type="number" value={repairIssuedPieces} onChange={(e) => setRepairIssuedPieces(e.target.value)} className="input" />
       </Field>
 
-      <Field label="Repair Issued Weight">
+      <Field label={t("repair_issued_weight")}>
         <input type="number" step="0.001" value={repairIssuedWeight} onChange={(e) => setRepairIssuedWeight(e.target.value)} className="input" />
       </Field>
 
-      <Field label="Repair Received Pieces">
+      <Field label={t("repair_received_pieces")}>
         <input type="number" value={repairReceivedPieces} onChange={(e) => setRepairReceivedPieces(e.target.value)} className="input" />
       </Field>
 
-      <Field label="Repair Received Weight">
+      <Field label={t("repair_received_weight")}>
         <input type="number" step="0.001" value={repairReceivedWeight} onChange={(e) => setRepairReceivedWeight(e.target.value)} className="input" />
       </Field>
 
-      <Field label="Repair Loss">
+      <Field label={t("repair_loss")}>
         <div className="rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">
           {repairLoss.toFixed(3)} g
         </div>
@@ -1091,57 +1247,61 @@ router.push(`/factory/buff/dashboard?batch=${batch.id}`);
 
     <div className="mt-5 rounded-2xl bg-white p-3">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h4 className="text-sm font-bold">Findings Issue / Receive</h4>
+        <h4 className="text-sm font-bold">
+{t("findings_issue_receive")}</h4>
         <button
           type="button"
           onClick={addRepairFindingRow}
           className="rounded-xl bg-black px-4 py-2 text-xs font-bold text-white"
         >
-          + Add Finding
+          {t("add_finding")}
         </button>
       </div>
 
       <div className="space-y-3">
         {repairFindingRows.length === 0 ? (
-          <p className="text-sm text-gray-500">No findings issued yet.</p>
+          <p className="text-sm text-gray-500">
+            {t("no_findings_issued")}</p>
         ) : (
           repairFindingRows.map((row, index) => (
             <div key={index} className="rounded-2xl border border-gray-200 p-3">
               <div className="grid gap-2 md:grid-cols-3">
-                <Field label="Finding">
+                <Field label={t("finding")}>
                   <select
                     value={row.finding_item_id}
                     onChange={(e) => updateRepairFinding(index, "finding_item_id", e.target.value)}
                     className="input"
                   >
-                    <option value="">Select finding</option>
+                    <option value="">
+{t("select_finding")}
+</option>
                     {findings.map((f) => (
                       <option key={f.id} value={f.id}>{f.item_name}</option>
                     ))}
                   </select>
                 </Field>
 
-                <Field label="KT">
+                <Field label={t("kt")}>
                   <input value={row.kt} onChange={(e) => updateRepairFinding(index, "kt", e.target.value)} className="input" />
                 </Field>
 
-                <Field label="Issued Wt">
+                <Field label={t("issued_weight")}>
                   <input type="number" step="0.001" value={row.issued_weight} onChange={(e) => updateRepairFinding(index, "issued_weight", e.target.value)} className="input" />
                 </Field>
 
-                <Field label="Issued Qty">
+                <Field label={t("issued_quantity")}>
                   <input type="number" value={row.issued_qty} onChange={(e) => updateRepairFinding(index, "issued_qty", e.target.value)} className="input" />
                 </Field>
 
-                <Field label="Received Wt">
+                <Field label={t("received_weight")}>
                   <input type="number" step="0.001" value={row.received_weight} onChange={(e) => updateRepairFinding(index, "received_weight", e.target.value)} className="input" />
                 </Field>
 
-                <Field label="Received Qty">
+                <Field label={t("received_quantity")}>
                   <input type="number" value={row.received_qty} onChange={(e) => updateRepairFinding(index, "received_qty", e.target.value)} className="input" />
                 </Field>
 
-                <Field label="Remarks">
+                <Field label={t("remarks")}>
                   <input value={row.remarks} onChange={(e) => updateRepairFinding(index, "remarks", e.target.value)} className="input" />
                 </Field>
 
@@ -1151,7 +1311,7 @@ router.push(`/factory/buff/dashboard?batch=${batch.id}`);
                     onClick={() => setRepairFindingRows((p) => p.filter((_, i) => i !== index))}
                     className="w-full rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700"
                   >
-                    Remove
+                    t("remove")
                   </button>
                 </div>
               </div>
@@ -1161,31 +1321,32 @@ router.push(`/factory/buff/dashboard?batch=${batch.id}`);
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2">
-        <GreenStat label="Findings Issued" value={`${repairFindingsIssued.toFixed(3)}g`} />
-        <GreenStat label="Findings Received" value={`${repairFindingsReceived.toFixed(3)}g`} />
+        <GreenStat label={t("findings_issued")} value={`${repairFindingsIssued.toFixed(3)}g`} />
+        <GreenStat label={t("findings_received")} value={`${repairFindingsReceived.toFixed(3)}g`} />
       </div>
     </div>
 
 <div className="mt-5 rounded-2xl bg-white p-3">
   <div className="mb-3 flex items-center justify-between gap-3">
-    <h4 className="text-sm font-bold">Add Loss Type</h4>
+    <h4 className="text-sm font-bold">
+{t("loss_type_breakup")}</h4>
     <button
       type="button"
       onClick={addRepairLossRow}
       className="rounded-xl bg-black px-4 py-2 text-xs font-bold text-white"
     >
-      + Add Loss
+      {t("add_loss")}
     </button>
   </div>
 
   <div className="space-y-3">
     {repairLossRows.length === 0 ? (
-      <p className="text-sm text-gray-500">No repair loss added.</p>
+      <p className="text-sm text-gray-500">{t("no_repair_loss")}</p>
     ) : (
       repairLossRows.map((row, index) => (
         <div key={index} className="rounded-2xl border border-gray-200 p-3">
           <div className="grid gap-2 md:grid-cols-3">
-            <Field label="Loss Type">
+            <Field label={t("loss_type")}>
               <select
                 value={row.loss_type}
                 onChange={(e) =>
@@ -1193,15 +1354,17 @@ router.push(`/factory/buff/dashboard?batch=${batch.id}`);
                 }
                 className="input"
               >
-                <option value="">Select loss type</option>
-                <option value="Stone Setting Loss">Stone Setting Loss</option>
-                <option value="Ghis">Ghis</option>
-                <option value="Scrap">Scrap</option>
-                <option value="Other">Other</option>
+                <option value="">
+{t("select_loss_type")}
+</option>
+                <option value="Stone Setting Loss">{t("stone_setting_loss")}</option>
+                <option value="Ghis">{t("ghis")}</option>
+                <option value="Scrap">{t("scrap")}</option>
+                <option value="Other">{t("other")}</option>
               </select>
             </Field>
 
-            <Field label="Weight">
+            <Field label={t("weight")}>
               <input
                 type="number"
                 step="0.001"
@@ -1213,7 +1376,7 @@ router.push(`/factory/buff/dashboard?batch=${batch.id}`);
               />
             </Field>
 
-            <Field label="Remarks">
+            <Field label={t("remarks")}>
               <input
                 value={row.remarks}
                 onChange={(e) =>
@@ -1231,7 +1394,7 @@ router.push(`/factory/buff/dashboard?batch=${batch.id}`);
                 }
                 className="w-full rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700"
               >
-                Remove
+                t("remove")
               </button>
             </div>
           </div>
@@ -1242,9 +1405,20 @@ router.push(`/factory/buff/dashboard?batch=${batch.id}`);
 </div>
 
 
-    <p className="mt-3 text-xs text-gray-500">
-      Repair Loss = Repair Issued Weight + Findings Issued - Repair Received Weight - Findings Received
-    </p>
+   <p className="mt-3 text-xs text-gray-500">
+  {t("repair_formula")}
+</p>
+
+<div className="mt-4">
+  <button
+    type="button"
+    disabled={savingDraft || saving}
+    onClick={saveDraft}
+    className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white disabled:bg-gray-400"
+  >
+    {savingDraft ? t("saving") : t("save_draft")}
+  </button>
+</div>
   </Panel>
 )}
         </div>
@@ -1253,13 +1427,16 @@ router.push(`/factory/buff/dashboard?batch=${batch.id}`);
   );
 }
 
-function Header() {
+function Header({ t }) {
   return (
     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
       <div>
-        <h1 className="text-2xl font-bold md:text-3xl">Stone Setting</h1>
+        <h1 className="text-2xl font-bold md:text-3xl">
+          {t("stone_setting")}
+        </h1>
+
         <p className="text-sm text-gray-600">
-          Stone issue, receive, stone increased and challan tracking.
+          {t("stone_setting_subtitle")}
         </p>
       </div>
 
@@ -1268,23 +1445,23 @@ function Header() {
           href="/factory/final-repair/dashboard"
           className="rounded-xl bg-white px-4 py-2 text-sm font-semibold shadow-sm"
         >
-          Final Repair
+          {t("final_repair")}
         </Link>
 
         <Link
           href="/dashboard"
           className="rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white"
         >
-          Dashboard
+          {t("dashboard")}
         </Link>
       </div>
     </div>
   );
 }
 
-function ItemsSummary({ items }) {
+function ItemsSummary({ t, items }) {
   return (
-    <Panel title="Items Summary">
+    <Panel title={t("items_summary")}>
       <div className="grid max-h-[230px] gap-2 overflow-y-auto md:grid-cols-2">
         {items.map((item) => (
           <div
@@ -1296,14 +1473,16 @@ function ItemsSummary({ items }) {
               {item.orders?.customer_name || "-"}
             </p>
 
-            <p className="mt-1 text-sm font-bold">{item.category}</p>
+            <p className="mt-1 text-sm font-bold">
+              {item.category}
+            </p>
 
             <p className="text-xs text-gray-500">
-              {item.sample_unique_id} · Die {item.die_no}
+              {item.sample_unique_id} · {t("die")} {item.die_no}
             </p>
 
             <p className="mt-2 text-xs font-bold">
-              Qty: {item.selected_quantity}
+              {t("qty")}: {item.selected_quantity}
             </p>
           </div>
         ))}

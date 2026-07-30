@@ -6,10 +6,12 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../../../../lib/supabaseClient";
 import { useRequireAuth } from "../../../../lib/useRequireAuth";
 import MobileBottomNav from "../../../../components/MobileBottomNav";
+import { useLanguage } from "../../../../context/LanguageContext";
 
 
 export default function RhodiumDashboardPage() {
   const { loading: authLoading } = useRequireAuth();
+  const { t } = useLanguage();
   const [targetBatchNo, setTargetBatchNo] = useState("");
   const [batches, setBatches] = useState([]);
   const [openId, setOpenId] = useState(null);
@@ -53,7 +55,7 @@ useEffect(() => {
   if (authLoading || loading) {
     return (
       <main className="min-h-screen bg-slate-100 p-6 text-sm text-gray-700">
-        Loading Rhodium / Plating...
+        {t("loading_rhodium")}
       </main>
     );
   }
@@ -61,11 +63,11 @@ useEffect(() => {
   return (
     <main className="min-h-screen bg-slate-100 p-3 pb-24 text-gray-900 md:p-5">
       <div className="mx-auto max-w-7xl space-y-5">
-        <Header />
+        <Header t={t} />
 
         {batches.length === 0 ? (
           <div className="rounded-2xl bg-white p-6 text-sm text-gray-500 shadow-sm">
-            No batches in Rhodium / Plating.
+            {t("no_rhodium_batches")}
           </div>
         ) : (
           <div className="grid gap-4 xl:grid-cols-2">
@@ -73,6 +75,7 @@ useEffect(() => {
               <RhodiumCard
                 key={batch.id}
                 batch={batch}
+                 t={t}
                 isOpen={openId === batch.id}
                 onOpen={() => setOpenId(openId === batch.id ? null : batch.id)}
                 onRefresh={fetchData}
@@ -100,7 +103,7 @@ useEffect(() => {
   );
 }
 
-function RhodiumCard({ batch, isOpen, onOpen, onRefresh }) {
+function RhodiumCard({ batch, t, isOpen, onOpen, onRefresh }) {
   const router = useRouter();
   const items = batch.casting_batch_items || [];
 
@@ -157,7 +160,7 @@ const absDifference = Math.abs(rhodiumDifference);
     }
 
     if (!data?.id) {
-      alert("Scrap item not found: Scrap / Casting Scrap");
+      alert(t("casting_scrap_not_found"));
       return null;
     }
 
@@ -194,7 +197,7 @@ const absDifference = Math.abs(rhodiumDifference);
 
   async function saveRhodiumResult() {
     if (!receivedWeight && !rejectedWeight) {
-  alert("Received / rejected weight me se kuch enter karo");
+  alert(t("enter_rhodium_weight"));
       return;
     }
 
@@ -293,45 +296,45 @@ if (firstOrderId) {
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-lg font-bold">{batch.batch_no}</h3>
             <Badge>{batch.kt}</Badge>
-            <Badge blue>Rhodium / Plating</Badge>
+            <Badge blue>{t("rhodium_plating")}</Badge>
           </div>
 
           <p className="mt-2 text-xs font-semibold text-gray-500">
-            Party: {parties.join(", ") || "-"}
-          </p>
+  {t("party")}: {parties.join(", ") || "-"}
+</p>
 
-          <p className="text-xs text-gray-500">
-            Order: {orders.join(", ") || "-"}
-          </p>
+<p className="text-xs text-gray-500">
+  {t("order")}: {orders.join(", ") || "-"}
+</p>
         </div>
 
         <button
           onClick={onOpen}
           className="rounded-xl bg-black px-4 py-2 text-xs font-semibold text-white"
         >
-          {isOpen ? "Close" : "Open"}
+          {isOpen ? t("close") : t("open")}
         </button>
       </div>
 
       <div className="mt-4 grid grid-cols-3 gap-2">
         <MiniStat label="Issued Pcs" value={issuedPieces} />
         <MiniStat
-          label="Issued Wt"
-          value={`${Number(issuedWeight || 0).toFixed(3)}g`}
-        />
+  label={t("issued_weight")}
+  value={`${Number(issuedWeight || 0).toFixed(3)}g`}
+/>
         <MiniStat
-          label="Entries"
-          value={batch.rhodium_results?.length || 0}
-        />
+  label={t("entries")}
+  value={batch.rhodium_results?.length || 0}
+/>
       </div>
 
       {isOpen && (
         <div className="mt-5 space-y-4">
-          <ItemsSummary items={items} />
+          <ItemsSummary t={t} items={items} />
 
-          <Panel title="Rhodium / Plating Result">
+          <Panel title={t("rhodium_plating_result")}>
             <div className="grid gap-3 md:grid-cols-3">
-              <Field label="Operator Name">
+              <Field label={t("operator_name")}>
                 <input
                   value={operatorName}
                   onChange={(e) => setOperatorName(e.target.value)}
@@ -339,7 +342,7 @@ if (firstOrderId) {
                 />
               </Field>
 
-              <Field label="Issued Pieces">
+              <Field label={t("issued_pieces")}>
                 <input
                   type="number"
                   value={issuedPieces}
@@ -348,7 +351,7 @@ if (firstOrderId) {
                 />
               </Field>
 
-              <Field label="Issued Weight">
+              <Field label={t("issued_weight")}>
                 <input
                   type="number"
                   step="0.001"
@@ -358,7 +361,7 @@ if (firstOrderId) {
                 />
               </Field>
 
-              <Field label="Received Pieces">
+              <Field label={t("received_pieces")}>
                 <input
                   type="number"
                   value={receivedPieces}
@@ -367,7 +370,7 @@ if (firstOrderId) {
                 />
               </Field>
 
-              <Field label="Received Weight">
+              <Field label={t("received_weight")}>
                 <input
                   type="number"
                   step="0.001"
@@ -377,7 +380,7 @@ if (firstOrderId) {
                 />
               </Field>
 
-              <Field label="Rejected Pieces">
+              <Field label={t("rejected_pieces")}>
                 <input
                   type="number"
                   value={rejectedPieces}
@@ -386,7 +389,7 @@ if (firstOrderId) {
                 />
               </Field>
 
-              <Field label="Rejected Weight">
+              <Field label={t("rejected_weight")}>
                 <input
                   type="number"
                   step="0.001"
@@ -396,7 +399,7 @@ if (firstOrderId) {
                 />
               </Field>
 
-              <Field label="Rhodium Difference">
+              <Field label={t("rhodium_difference")}>
                 <div className="rounded-xl bg-orange-50 p-3 text-sm font-bold text-orange-700">
                   {rhodiumDifference.toFixed(3)} g
                 </div>
@@ -405,21 +408,23 @@ if (firstOrderId) {
 
             <div className="mt-3 grid grid-cols-3 gap-2">
               <GreenStat
-                label="Ready Pieces"
-                value={`${Number(receivedPieces || 0)} pcs`}
-              />
-<GreenStat
-  label="Rhodium Difference"
+  label={t("ready_pieces")}
+  value={`${Number(receivedPieces || 0)} ${t("pcs")}`}
+/>
+
+  <GreenStat
+  label={t("rhodium_difference")}
   value={`${rhodiumDifference.toFixed(3)}g`}
 />
-              <GreenStat
-                label="Rejected Scrap"
-                value={`${Number(rejectedWeight || 0).toFixed(3)}g`}
-              />
+        
+                <GreenStat
+  label={t("rejected_scrap")}
+  value={`${Number(rejectedWeight || 0).toFixed(3)}g`}
+/>
             </div>
 
             <div className="mt-3">
-              <Field label="Remarks">
+              <Field label={t("remarks")}>
                 <textarea
                   rows={3}
                   value={remarks}
@@ -430,15 +435,15 @@ if (firstOrderId) {
             </div>
 
             <p className="mt-2 text-xs text-gray-500">
-              Rhodium Difference = Issued Weight - Received Weight - Rejected Weight
-            </p>
+  {t("rhodium_formula")}
+</p>
 
             <button
               disabled={saving}
               onClick={saveRhodiumResult}
               className="mt-4 rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white disabled:bg-gray-400"
             >
-              {saving ? "Saving..." : "Save & Move To Ready"}
+              {saving ? t("saving") : t("save_move_ready")}
             </button>
           </Panel>
         </div>
@@ -447,13 +452,16 @@ if (firstOrderId) {
   );
 }
 
-function Header() {
+function Header({ t }) {
   return (
     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
       <div>
-        <h1 className="text-2xl font-bold md:text-3xl">Rhodium / Plating</h1>
+        <h1 className="text-2xl font-bold md:text-3xl">
+          {t("rhodium_plating")}
+        </h1>
+
         <p className="text-sm text-gray-600">
-          Rhodium receive, repair, rejection and ready tracking.
+          {t("rhodium_subtitle")}
         </p>
       </div>
 
@@ -462,23 +470,23 @@ function Header() {
           href="/factory/final-qc/dashboard"
           className="rounded-xl bg-white px-4 py-2 text-sm font-semibold shadow-sm"
         >
-          Final QC
+          {t("final_qc")}
         </Link>
 
         <Link
           href="/dashboard"
           className="rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white"
         >
-          Dashboard
+          {t("dashboard")}
         </Link>
       </div>
     </div>
   );
 }
 
-function ItemsSummary({ items }) {
+function ItemsSummary({ t, items }) {
   return (
-    <Panel title="Items Summary">
+    <Panel title={t("items_summary")}>
       <div className="grid max-h-[230px] gap-2 overflow-y-auto md:grid-cols-2">
         {items.map((item) => (
           <div
@@ -490,14 +498,16 @@ function ItemsSummary({ items }) {
               {item.orders?.customer_name || "-"}
             </p>
 
-            <p className="mt-1 text-sm font-bold">{item.category}</p>
+            <p className="mt-1 text-sm font-bold">
+              {item.category}
+            </p>
 
             <p className="text-xs text-gray-500">
-              {item.sample_unique_id} · Die {item.die_no}
+              {item.sample_unique_id} · {t("die")} {item.die_no}
             </p>
 
             <p className="mt-2 text-xs font-bold">
-              Qty: {item.selected_quantity}
+              {t("qty")}: {item.selected_quantity}
             </p>
           </div>
         ))}

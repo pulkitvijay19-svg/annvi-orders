@@ -1,15 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { supabase } from "../../../../lib/supabaseClient";
 import { useRequireAuth } from "../../../../lib/useRequireAuth";
 import MobileBottomNav from "../../../../components/MobileBottomNav";
+import { useLanguage } from "../../../../context/LanguageContext";
 
 const SCALE_URL = "http://localhost:5056/weight";
 const PRINT_URL = "http://localhost:5055/print";
 
 export default function TagPrintDashboard() {
   const { loading: authLoading } = useRequireAuth();
+  const { t } = useLanguage();
 
   const [orders, setOrders] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -83,7 +86,7 @@ async function openOrder(order) {
   const batchIds = (batches || []).map((b) => b.id);
 
   if (batchIds.length === 0) {
-    alert("Is order ka linked casting batch nahi mila.");
+    alert(t("linked_casting_batch_not_found"));
     return;
   }
 
@@ -139,7 +142,7 @@ async function openOrder(order) {
   });
 
   if (rows.length === 0) {
-    alert("Is order me Rhodium received pieces nahi mile.");
+    alert(t("no_rhodium_received_pieces"));
   }
 
   setItems(rows);
@@ -164,8 +167,12 @@ async function openOrder(order) {
     updateItem(rowKey, "grossWeight", Number(scaleWeight || 0).toFixed(3));
   }
 async function printTag(item) {
-  if (!item.grossWeight) return alert("Gross weight required");
-  if (!item.karat) return alert("Karat required");
+  if (!item.grossWeight) {
+  return alert(t("gross_weight_required"));
+}
+  if (!item.karat) {
+  return alert(t("karat_required"));
+}
 
   const payload = {
     qr: item.tagId,
@@ -187,7 +194,7 @@ async function printTag(item) {
     const data = await res.json();
 
     if (!data.ok) {
-      alert(data.error || "Print failed");
+      alert(data.error || t("print_failed"));
       return;
     }
 
@@ -270,14 +277,18 @@ die_no: null,
   })
   .eq("id", selectedOrder.id);
 
-    alert("Tag printed and inventory created");
+    alert(t("tag_printed_inventory_created"));
   } catch {
-    alert("Print bridge nahi chal raha. Pehle node print-bridge.js chalao.");
+    alert(t("print_bridge_not_running"));
   }
 }
 
   if (authLoading || loading) {
-    return <main className="p-6">Loading tag print...</main>;
+    return (
+  <main className="p-6">
+    {t("loading_tag_print")}
+  </main>
+);
   }
 
   const totalPieces = items.length;
@@ -292,30 +303,43 @@ die_no: null,
         <header className="flex items-center justify-between">
   <div>
     <h1 className="text-2xl font-bold md:text-3xl">
-      Tag Printing
-    </h1>
+  {t("tag_printing")}
+</h1>
 
     <p className="text-sm text-gray-600">
-      Completed orders, live scale weight and Godex tag printing.
-    </p>
+  {t("tag_printing_subtitle")}
+</p>
   </div>
 
-  <a
+  <div className="flex flex-wrap gap-2">
+  <Link
+    href="/factory/rhodium/dashboard"
+    className="rounded-xl bg-white px-4 py-2 text-sm font-semibold shadow-sm"
+  >
+    {t("rhodium_plating")}
+  </Link>
+
+  <Link
     href="/dashboard"
     className="rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white"
   >
-    Dashboard
-  </a>
+    {t("dashboard")}
+  </Link>
+</div>
 </header>
 
         <div className="rounded-3xl bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold text-gray-500">Live Scale</p>
+          <p className="text-xs font-semibold text-gray-500">
+  {t("live_scale")}
+</p>
           <p className="text-3xl font-bold text-green-700">{scaleWeight} g</p>
         </div>
 
         <section className="grid gap-4 lg:grid-cols-[360px_1fr]">
           <div className="rounded-3xl bg-white p-4 shadow-sm">
-            <h2 className="mb-3 text-lg font-bold">Completed Orders</h2>
+            <h2 className="mb-3 text-lg font-bold">
+  {t("completed_orders")}
+</h2>
 
             <div className="space-y-2">
               {orders.map((order) => (
@@ -330,21 +354,27 @@ die_no: null,
                 >
                   <p className="font-bold">{order.order_no}</p>
                   <p className="text-sm text-gray-600">{order.customer_name}</p>
-                  <p className="text-xs text-gray-500">{order.status}</p>
+                  <p className="text-xs text-gray-500">
+  {order.status === "COMPLETED"
+    ? t("completed")
+    : order.status}
+</p>
                 </button>
               ))}
 
               {orders.length === 0 && (
                 <p className="text-sm text-gray-500">
-                  Ready / Completed order nahi mila.
-                </p>
+  {t("no_completed_orders")}
+</p>
               )}
             </div>
           </div>
 
           <div className="rounded-3xl bg-white p-4 shadow-sm">
             {!selectedOrder ? (
-              <p className="text-sm text-gray-500">Order select karo.</p>
+              <p className="text-sm text-gray-500">
+  {t("select_order")}
+</p>
             ) : (
               <>
                 <div className="mb-4 flex flex-wrap justify-between gap-3">
@@ -358,11 +388,11 @@ die_no: null,
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
-                    <MiniStat label="Total Pieces" value={totalPieces} />
+                    <MiniStat label={t("total_pieces")} value={totalPieces} />
                     <MiniStat
-                      label="Total Weight"
-                      value={`${totalWeight.toFixed(3)}g`}
-                    />
+  label={t("total_weight")}
+  value={`${totalWeight.toFixed(3)}g`}
+/>
                   </div>
                 </div>
 
@@ -375,8 +405,8 @@ die_no: null,
                       <div className="mb-3 flex flex-wrap justify-between gap-2">
                         <div>
                           <p className="font-bold">
-                            Piece {index + 1} · {item.category}
-                          </p>
+  {t("piece")} {index + 1} · {item.category}
+</p>
                          
                         </div>
 
@@ -384,12 +414,12 @@ die_no: null,
                           onClick={() => printTag(item)}
                           className="rounded-xl bg-black px-4 py-2 text-sm font-bold text-white"
                         >
-                          Print Tag
+                          {t("print_tag")}
                         </button>
                       </div>
 
                       <div className="grid gap-3 md:grid-cols-4">
-                        <Field label="QR">
+                        <Field label={t("qr")}>
                           <input
                             className="input"
                             value={item.qrValue}
@@ -399,7 +429,7 @@ die_no: null,
                           />
                         </Field>
 
-                        <Field label="Brand">
+                        <Field label={t("brand")}>
                           <input
                             className="input"
                             value={item.brand}
@@ -409,7 +439,7 @@ die_no: null,
                           />
                         </Field>
 
-                        <Field label="Karat">
+                        <Field label={t("karat")}>
                           <input
                             className="input"
                             value={item.karat}
@@ -419,7 +449,7 @@ die_no: null,
                           />
                         </Field>
 
-                        <Field label="Gross Weight">
+                        <Field label={t("gross_weight")}>
                           <div className="flex gap-2">
                             <input
                               className="input"
@@ -438,12 +468,12 @@ die_no: null,
                               onClick={() => useScale(item.rowKey)}
                               className="rounded-xl bg-green-600 px-3 text-xs font-bold text-white"
                             >
-                              Scale
+                              {t("scale")}
                             </button>
                           </div>
                         </Field>
 
-                        <Field label="Less Weight">
+                        <Field label={t("less_weight")}>
                           <input
                             className="input"
                             type="number"
@@ -459,7 +489,7 @@ die_no: null,
                           />
                         </Field>
 
-                        <Field label="Stone Charges">
+                        <Field label={t("stone_charges")}>
                           <input
                             className="input"
                             type="number"
@@ -474,7 +504,7 @@ die_no: null,
                           />
                         </Field>
 
-                        <Field label="Net Weight">
+                        <Field label={t("stone_charges")}>
                           <input
                             className="input bg-gray-100"
                             value={item.netWeight}
@@ -482,7 +512,7 @@ die_no: null,
                           />
                         </Field>
 
-                        <Field label="Tag ID">
+                        <Field label={t("tag_id")}>
                           <input className="input bg-gray-100" value={item.tagId} readOnly />
                         </Field>
                       </div>

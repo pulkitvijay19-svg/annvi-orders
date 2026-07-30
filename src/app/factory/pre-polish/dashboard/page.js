@@ -6,11 +6,13 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../../../../lib/supabaseClient";
 import { useRequireAuth } from "../../../../lib/useRequireAuth";
 import MobileBottomNav from "../../../../components/MobileBottomNav";
+import { useLanguage } from "../../../../context/LanguageContext";
 
 const PROCESS_TYPES = ["Electro Polish", "2C Polish"];
 
 export default function PrePolishDashboardPage() {
   const { loading: authLoading } = useRequireAuth();
+  const { t } = useLanguage();
   const [targetBatchNo, setTargetBatchNo] = useState("");
   const [batches, setBatches] = useState([]);
   const [openId, setOpenId] = useState(null);
@@ -54,7 +56,9 @@ useEffect(() => {
   if (authLoading || loading) {
     return (
       <main className="min-h-screen bg-slate-100 p-6">
-        <p className="text-sm text-gray-700">Loading Pre Polish...</p>
+        <p className="text-sm text-gray-700">
+  {t("loading_pre_polish")}
+</p>
       </main>
     );
   }
@@ -62,18 +66,19 @@ useEffect(() => {
   return (
     <main className="min-h-screen bg-slate-100 p-3 pb-24 text-gray-900 md:p-5">
       <div className="mx-auto max-w-7xl space-y-5">
-        <Header />
+        <Header t={t} />
 
         {batches.length === 0 ? (
-          <div className="rounded-2xl bg-white p-6 text-sm text-gray-500 shadow-sm">
-            No batches in Pre Polish.
-          </div>
+<div className="rounded-2xl bg-white p-6 text-sm text-gray-500 shadow-sm">
+  {t("no_pre_polish_batches")}
+</div>
         ) : (
           <div className="grid gap-4 xl:grid-cols-2">
             {batches.map((batch) => (
               <PrePolishCard
                 key={batch.id}
                 batch={batch}
+                t={t}
                 isOpen={openId === batch.id}
                 onOpen={() => setOpenId(openId === batch.id ? null : batch.id)}
                 onRefresh={fetchData}
@@ -101,7 +106,13 @@ useEffect(() => {
   );
 }
 
-function PrePolishCard({ batch, isOpen, onOpen, onRefresh }) {
+function PrePolishCard({
+  batch,
+  t,
+  isOpen,
+  onOpen,
+  onRefresh,
+}) {
   const router = useRouter();
   const items = batch.casting_batch_items || [];
 
@@ -132,13 +143,18 @@ function PrePolishCard({ batch, isOpen, onOpen, onRefresh }) {
   const parties = [...new Set(items.map((i) => i.orders?.customer_name).filter(Boolean))];
   const orders = [...new Set(items.map((i) => i.orders?.order_no).filter(Boolean))];
 
+  const processTypeLabel =
+  processType === "Electro Polish"
+    ? t("electro_polish")
+    : t("two_c_polish");
+
   const loss =
     Number(issuedWeight || 0) -
     Number(goodWeight || 0) -
     Number(repairWeight || 0) -
     Number(rejectedWeight || 0);
 
-    async function loadDraft() {
+async function loadDraft() {
   const { data } = await supabase
     .from("process_drafts")
     .select("*")
@@ -146,24 +162,26 @@ function PrePolishCard({ batch, isOpen, onOpen, onRefresh }) {
     .eq("process_name", "PRE_POLISH")
     .maybeSingle();
 
-  if (!data) return;
+  if (!data?.draft_data) return;
 
-  setProcessType(data.process_type || "Electro Polish");
-  setOperator(data.operator || "");
+  const draft = data.draft_data;
 
-  setIssuedPieces(data.issued_pieces || "");
-  setIssuedWeight(data.issued_weight || "");
+  setProcessType(draft.processType || "Electro Polish");
+  setOperator(draft.operator || "");
 
-  setGoodPieces(data.good_pieces || "");
-  setGoodWeight(data.good_weight || "");
+  setIssuedPieces(draft.issuedPieces || "");
+  setIssuedWeight(draft.issuedWeight || "");
 
-  setRepairPieces(data.repair_pieces || "");
-  setRepairWeight(data.repair_weight || "");
+  setGoodPieces(draft.goodPieces || "");
+  setGoodWeight(draft.goodWeight || "");
 
-  setRejectedPieces(data.rejected_pieces || "");
-  setRejectedWeight(data.rejected_weight || "");
+  setRepairPieces(draft.repairPieces || "");
+  setRepairWeight(draft.repairWeight || "");
 
-  setRemarks(data.remarks || "");
+  setRejectedPieces(draft.rejectedPieces || "");
+  setRejectedWeight(draft.rejectedWeight || "");
+
+  setRemarks(draft.remarks || "");
 }
 
 useEffect(() => {
@@ -195,29 +213,28 @@ const expectedFineGold =
 async function saveDraft() {
   setSavingDraft(true);
 
+  const draftData = {
+    processType,
+    operator,
+    issuedPieces,
+    issuedWeight,
+    goodPieces,
+    goodWeight,
+    repairPieces,
+    repairWeight,
+    rejectedPieces,
+    rejectedWeight,
+    remarks,
+  };
+
   const { error } = await supabase
     .from("process_drafts")
     .upsert(
       {
         batch_id: batch.id,
         process_name: "PRE_POLISH",
-
-        process_type: processType,
-        operator,
-
-        issued_pieces: issuedPieces,
-        issued_weight: issuedWeight,
-
-        good_pieces: goodPieces,
-        good_weight: goodWeight,
-
-        repair_pieces: repairPieces,
-        repair_weight: repairWeight,
-
-        rejected_pieces: rejectedPieces,
-        rejected_weight: rejectedWeight,
-
-        remarks,
+        draft_data: draftData,
+        updated_at: new Date().toISOString(),
       },
       {
         onConflict: "batch_id,process_name",
@@ -231,7 +248,7 @@ async function saveDraft() {
     return;
   }
 
-  alert("Draft Saved");
+  alert(t("draft_saved"));
 }
 
 
@@ -251,7 +268,7 @@ async function saveDraft() {
     }
 
     if (!scrapItem?.id) {
-      alert("Scrap item not found in inventory_items: Scrap / Casting Scrap");
+      alert(t("casting_scrap_not_found"));
       return false;
     }
 
@@ -279,7 +296,7 @@ async function saveDraft() {
 
   async function savePrePolishResult() {
     if (!goodWeight && !repairWeight && !rejectedWeight) {
-      alert("Good / Repair / Rejected weight me se kuch enter karo");
+      alert(t("enter_pre_polish_weight"));
       return;
     }
 
@@ -343,13 +360,13 @@ if (processType === "2C Polish") {
 
   if (!bagData?.id) {
     setSaving(false);
-    alert("Active Buff Bag nahi mila. Pehle Buff Bag install karo.");
+    alert(t("active_buff_bag_not_found"));
     return;
   }
 
   if (expectedFineGold <= 0) {
     setSaving(false);
-    alert(`KT formula nahi mila: ${batch.kt}`);
+    alert(`${t("kt_formula_not_found")}: ${batch.kt}`);
     return;
   }
 
@@ -471,51 +488,64 @@ router.push(`/factory/final-repair/dashboard?batch=${batch.id}`);
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-lg font-bold">{batch.batch_no}</h3>
             <Badge>{batch.kt}</Badge>
-            <Badge blue>Pre Polish</Badge>
+            <Badge blue>{t("pre_polish")}</Badge>
           </div>
-          <p className="mt-2 text-xs font-semibold text-gray-500">
-            Party: {parties.join(", ") || "-"}
-          </p>
-          <p className="text-xs text-gray-500">
-            Order: {orders.join(", ") || "-"}
-          </p>
+<p className="mt-2 text-xs font-semibold text-gray-500">
+  {t("party")}: {parties.join(", ") || "-"}
+</p>
+
+<p className="text-xs text-gray-500">
+  {t("order")}: {orders.join(", ") || "-"}
+</p>
         </div>
 
         <button
           onClick={onOpen}
           className="rounded-xl bg-black px-4 py-2 text-xs font-semibold text-white"
         >
-          {isOpen ? "Close" : "Open"}
+          {isOpen ? t("close") : t("open")}
         </button>
       </div>
 
       <div className="mt-4 grid grid-cols-3 gap-2">
-        <MiniStat label="Current Pcs" value={issuedDefaultPieces} />
-        <MiniStat label="Current Wt" value={`${issuedDefaultWeight.toFixed(3)}g`} />
-        <MiniStat label="Entries" value={batch.pre_polish_results?.length || 0} />
+        <MiniStat label={t("current_pcs")} value={issuedDefaultPieces} />
+        <MiniStat
+  label={t("current_wt")}
+  value={`${issuedDefaultWeight.toFixed(3)}g`}
+/>
+        <MiniStat
+  label={t("entries")}
+  value={batch.pre_polish_results?.length || 0}
+/>
       </div>
 
       {isOpen && (
         <div className="mt-5 space-y-4">
-          <ItemsSummary items={items} />
+          <ItemsSummary t={t} items={items} />
 
           <div className="rounded-3xl border border-gray-200 p-4">
-            <h4 className="mb-3 text-sm font-bold">Pre Polish Entry</h4>
+            <h4 className="mb-3 text-sm font-bold">
+  {t("pre_polish_entry")}
+</h4>
 
             <div className="grid gap-3 md:grid-cols-3">
-              <Field label="Process Type">
-                <select
-                  value={processType}
-                  onChange={(e) => setProcessType(e.target.value)}
-                  className="input"
-                >
-                  {PROCESS_TYPES.map((p) => (
-                    <option key={p}>{p}</option>
-                  ))}
-                </select>
-              </Field>
+<Field label={t("process_type")}>
+  <select
+    value={processType}
+    onChange={(e) => setProcessType(e.target.value)}
+    className="input"
+  >
+    {PROCESS_TYPES.map((p) => (
+      <option key={p} value={p}>
+        {p === "Electro Polish"
+          ? t("electro_polish")
+          : t("two_c_polish")}
+      </option>
+    ))}
+  </select>
+</Field>
 
-              <Field label="Operator / Karigar">
+              <Field label={t("operator_karigar")}>
                 <input
                   value={operator}
                   onChange={(e) => setOperator(e.target.value)}
@@ -523,7 +553,7 @@ router.push(`/factory/final-repair/dashboard?batch=${batch.id}`);
                 />
               </Field>
 
-              <Field label="Issued Pieces">
+              <Field label={t("issued_pieces")}>
                 <input
                   type="number"
                   value={issuedPieces}
@@ -532,7 +562,7 @@ router.push(`/factory/final-repair/dashboard?batch=${batch.id}`);
                 />
               </Field>
 
-              <Field label="Issued Weight">
+              <Field label={t("issued_weight")}>
                 <input
                   type="number"
                   step="0.001"
@@ -542,7 +572,7 @@ router.push(`/factory/final-repair/dashboard?batch=${batch.id}`);
                 />
               </Field>
 
-              <Field label="Good Pieces">
+              <Field label={t("good_pieces")}>
                 <input
                   type="number"
                   value={goodPieces}
@@ -551,7 +581,7 @@ router.push(`/factory/final-repair/dashboard?batch=${batch.id}`);
                 />
               </Field>
 
-              <Field label="Good Weight">
+              <Field label={t("good_weight")}>
                 <input
                   type="number"
                   step="0.001"
@@ -561,7 +591,7 @@ router.push(`/factory/final-repair/dashboard?batch=${batch.id}`);
                 />
               </Field>
 
-              <Field label="Repair Pieces">
+              <Field label={t("repair_pieces")}>
                 <input
                   type="number"
                   value={repairPieces}
@@ -570,7 +600,7 @@ router.push(`/factory/final-repair/dashboard?batch=${batch.id}`);
                 />
               </Field>
 
-              <Field label="Repair Weight">
+              <Field label={t("repair_weight")}>
                 <input
                   type="number"
                   step="0.001"
@@ -580,7 +610,7 @@ router.push(`/factory/final-repair/dashboard?batch=${batch.id}`);
                 />
               </Field>
 
-              <Field label="Rejected Pieces">
+              <Field label={t("rejected_pieces")}>
                 <input
                   type="number"
                   value={rejectedPieces}
@@ -589,7 +619,7 @@ router.push(`/factory/final-repair/dashboard?batch=${batch.id}`);
                 />
               </Field>
 
-              <Field label="Rejected Weight">
+              <Field label={t("rejected_weight")}>
                 <input
                   type="number"
                   step="0.001"
@@ -599,7 +629,7 @@ router.push(`/factory/final-repair/dashboard?batch=${batch.id}`);
                 />
               </Field>
 
-              <Field label={`${processType} Loss`}>
+              <Field label={`${processTypeLabel} ${t("loss")}`}>
                 <div className="rounded-xl bg-orange-50 p-3 text-sm font-bold text-orange-700">
                   {loss.toFixed(3)} g
                 </div>
@@ -607,16 +637,22 @@ router.push(`/factory/final-repair/dashboard?batch=${batch.id}`);
             </div>
 
             <div className="mt-3 grid grid-cols-3 gap-2">
-              <GreenStat label="To Final Repair" value={`${Number(repairPieces || 0)} pcs`} />
-              <GreenStat label="Good For Next" value={`${Number(goodPieces || 0)} pcs`} />
               <GreenStat
-                label="Rejected To Scrap"
-                value={`${Number(rejectedWeight || 0).toFixed(3)}g`}
-              />
+  label={t("to_final_repair")}
+  value={`${Number(repairPieces || 0)} ${t("pcs")}`}
+/>
+              <GreenStat
+  label={t("good_for_next")}
+  value={`${Number(goodPieces || 0)} ${t("pcs")}`}
+/>
+<GreenStat
+  label={t("rejected_to_scrap")}
+  value={`${Number(rejectedWeight || 0).toFixed(3)}g`}
+/>
             </div>
 
             <div className="mt-3">
-              <Field label="Remarks">
+              <Field label={t("remarks")}>
                 <textarea
                   rows={3}
                   value={remarks}
@@ -626,9 +662,9 @@ router.push(`/factory/final-repair/dashboard?batch=${batch.id}`);
               </Field>
             </div>
 
-            <p className="mt-2 text-xs text-gray-500">
-              Loss = Issued Weight - Good Weight - Repair Weight - Rejected Weight
-            </p>
+<p className="mt-2 text-xs text-gray-500">
+  {t("pre_polish_loss_formula")}
+</p>
 
             <div className="mt-4 flex gap-3">
   <button
@@ -637,7 +673,7 @@ router.push(`/factory/final-repair/dashboard?batch=${batch.id}`);
     onClick={saveDraft}
     className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white"
   >
-    {savingDraft ? "Saving..." : "Save Draft"}
+    {savingDraft ? t("saving") : t("save_draft")}
   </button>
 
   <button
@@ -645,7 +681,7 @@ router.push(`/factory/final-repair/dashboard?batch=${batch.id}`);
     onClick={savePrePolishResult}
     className="rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white"
   >
-    {saving ? "Saving..." : "Save & Move To Final Repair"}
+    {saving ? t("saving") : t("save_move_final_repair")}
   </button>
 </div>
 
@@ -657,21 +693,35 @@ router.push(`/factory/final-repair/dashboard?batch=${batch.id}`);
   );
 }
 
-function ItemsSummary({ items }) {
+function ItemsSummary({ t, items }) {
   return (
     <div className="rounded-3xl bg-slate-50 p-4">
-      <h4 className="mb-2 text-sm font-bold">Items Summary</h4>
+      <h4 className="mb-2 text-sm font-bold">
+        {t("items_summary")}
+      </h4>
+
       <div className="grid max-h-[230px] gap-2 overflow-y-auto md:grid-cols-2">
         {items.map((item) => (
-          <div key={item.id} className="rounded-xl border border-gray-200 bg-white p-3">
+          <div
+            key={item.id}
+            className="rounded-xl border border-gray-200 bg-white p-3"
+          >
             <p className="text-xs font-semibold text-gray-500">
-              {item.orders?.order_no || "-"} · {item.orders?.customer_name || "-"}
+              {item.orders?.order_no || "-"} ·{" "}
+              {item.orders?.customer_name || "-"}
             </p>
-            <p className="mt-1 text-sm font-bold">{item.category}</p>
+
+            <p className="mt-1 text-sm font-bold">
+              {item.category}
+            </p>
+
             <p className="text-xs text-gray-500">
-              {item.sample_unique_id} · Die {item.die_no}
+              {item.sample_unique_id} · {t("die")} {item.die_no}
             </p>
-            <p className="mt-2 text-xs font-bold">Qty: {item.selected_quantity}</p>
+
+            <p className="mt-2 text-xs font-bold">
+              {t("qty")}: {item.selected_quantity}
+            </p>
           </div>
         ))}
       </div>
@@ -679,13 +729,16 @@ function ItemsSummary({ items }) {
   );
 }
 
-function Header() {
+function Header({ t }) {
   return (
     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
       <div>
-        <h1 className="text-2xl font-bold md:text-3xl">Pre Polish</h1>
+        <h1 className="text-2xl font-bold md:text-3xl">
+          {t("pre_polish")}
+        </h1>
+
         <p className="text-sm text-gray-600">
-          Electro Polish / 2C Polish, rejection, repair queue and loss tracking.
+          {t("pre_polish_subtitle")}
         </p>
       </div>
 
@@ -694,13 +747,14 @@ function Header() {
           href="/factory/bench/dashboard"
           className="rounded-xl bg-white px-4 py-2 text-sm font-semibold shadow-sm"
         >
-          Filing
+          {t("filing")}
         </Link>
+
         <Link
           href="/dashboard"
           className="rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white"
         >
-          Dashboard
+          {t("dashboard")}
         </Link>
       </div>
     </div>

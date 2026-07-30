@@ -6,9 +6,11 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../../../../lib/supabaseClient";
 import { useRequireAuth } from "../../../../lib/useRequireAuth";
 import MobileBottomNav from "../../../../components/MobileBottomNav";
+import { useLanguage } from "../../../../context/LanguageContext";
 
 export default function BuffDashboardPage() {
   const { loading: authLoading } = useRequireAuth();
+  const { t } = useLanguage();
   const [targetBatchNo, setTargetBatchNo] = useState(""); 
   const [batches, setBatches] = useState([]);
   const [findings, setFindings] = useState([]);
@@ -74,7 +76,7 @@ useEffect(() => {
   if (authLoading || loading) {
     return (
       <main className="min-h-screen bg-slate-100 p-6 text-sm text-gray-700">
-        Loading buff process...
+        {t("loading_buff")}
       </main>
     );
   }
@@ -82,11 +84,11 @@ useEffect(() => {
   return (
     <main className="min-h-screen bg-slate-100 p-3 pb-24 text-gray-900 md:p-5">
       <div className="mx-auto max-w-7xl space-y-5">
-        <Header />
+        <Header t={t} />
 
         {batches.length === 0 ? (
           <div className="rounded-2xl bg-white p-6 text-sm text-gray-500 shadow-sm">
-            No batches in Buff.
+            {t("no_buff_batches")}
           </div>
         ) : (
           <div className="grid gap-4 xl:grid-cols-2">
@@ -94,6 +96,7 @@ useEffect(() => {
               <BuffCard
                 key={batch.id}
                 batch={batch}
+                t={t}
                 findings={findings}
                 activeBag={activeBag}
                 isOpen={openId === batch.id}
@@ -123,7 +126,7 @@ useEffect(() => {
   );
 }
 
-function BuffCard({ batch, findings, activeBag, isOpen, onOpen, onRefresh }) {
+function BuffCard({ batch, t, findings, activeBag, isOpen, onOpen, onRefresh }) {
   const router = useRouter();
   const items = batch.casting_batch_items || [];
 
@@ -152,8 +155,9 @@ function BuffCard({ batch, findings, activeBag, isOpen, onOpen, onRefresh }) {
   const [repairFindingRows, setRepairFindingRows] = useState([]);
   const [repairLossRows, setRepairLossRows] = useState([]);
 
-  const [remarks, setRemarks] = useState("");
-  const [saving, setSaving] = useState(false);
+const [remarks, setRemarks] = useState("");
+const [saving, setSaving] = useState(false);
+const [savingDraft, setSavingDraft] = useState(false);
 
   const parties = [
     ...new Set(items.map((i) => i.orders?.customer_name).filter(Boolean)),
@@ -265,6 +269,127 @@ const expectedFineGold =
     );
   }
 
+  async function loadDraft() {
+  const { data, error } = await supabase
+    .from("process_drafts")
+    .select("*")
+    .eq("batch_id", batch.id)
+    .eq("process_name", "BUFF")
+    .maybeSingle();
+
+  if (error) {
+    console.error("Buff draft load error:", error);
+    return;
+  }
+
+  if (!data?.draft_data) return;
+
+  const draft = data.draft_data;
+
+  setActiveTab(draft.activeTab || "buff");
+
+  setPolisherName(draft.polisherName || "");
+
+  setIssuedPieces(
+    draft.issuedPieces ??
+      Number(batch.current_pieces || batch.good_pieces || 0)
+  );
+
+  setIssuedWeight(
+    draft.issuedWeight ??
+      Number(batch.current_weight || batch.received_weight || 0)
+  );
+
+  setReceivedPieces(draft.receivedPieces || "");
+  setReceivedWeight(draft.receivedWeight || "");
+
+  setRepairIssuedPieces(draft.repairIssuedPieces || "");
+  setRepairIssuedWeight(draft.repairIssuedWeight || "");
+  setRepairReceivedPieces(draft.repairReceivedPieces || "");
+  setRepairReceivedWeight(draft.repairReceivedWeight || "");
+
+  setRejectedPieces(draft.rejectedPieces || "");
+  setRejectedWeight(draft.rejectedWeight || "");
+
+  setRepairFindingRows(
+    Array.isArray(draft.repairFindingRows)
+      ? draft.repairFindingRows
+      : []
+  );
+
+  setRepairLossRows(
+    Array.isArray(draft.repairLossRows)
+      ? draft.repairLossRows
+      : []
+  );
+
+  setRemarks(draft.remarks || "");
+}
+
+useEffect(() => {
+  if (isOpen) {
+    loadDraft();
+  }
+}, [isOpen]);
+
+
+async function saveDraft() {
+  try {
+    setSavingDraft(true);
+
+    const draftData = {
+      activeTab,
+
+      polisherName,
+
+      issuedPieces,
+      issuedWeight,
+
+      receivedPieces,
+      receivedWeight,
+
+      repairIssuedPieces,
+      repairIssuedWeight,
+      repairReceivedPieces,
+      repairReceivedWeight,
+
+      rejectedPieces,
+      rejectedWeight,
+
+      repairFindingRows,
+      repairLossRows,
+
+      remarks,
+    };
+
+    const { error } = await supabase
+      .from("process_drafts")
+      .upsert(
+        {
+          batch_id: batch.id,
+          process_name: "BUFF",
+          draft_data: draftData,
+          updated_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "batch_id,process_name",
+        }
+      );
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    alert(t("draft_saved"));
+  } catch (error) {
+    console.error("Buff draft save error:", error);
+    alert(error.message || "Draft could not be saved.");
+  } finally {
+    setSavingDraft(false);
+  }
+}
+
   async function getScrapItemId() {
     const { data, error } = await supabase
       .from("inventory_items")
@@ -279,7 +404,7 @@ const expectedFineGold =
     }
 
     if (!data?.id) {
-      alert("Scrap item not found: Scrap / Casting Scrap");
+      alert(t("casting_scrap_not_found"));
       return null;
     }
 
@@ -316,7 +441,7 @@ const expectedFineGold =
 
   async function saveBuffResult() {
     if (!receivedWeight && !repairReceivedWeight && !rejectedWeight) {
-      alert("Received / repair / rejected weight me se kuch enter karo");
+      alert(t("enter_buff_weight"));
       return;
     }
 
@@ -324,13 +449,13 @@ const expectedFineGold =
 
     if (Number(buffLoss || 0) > 0 && !activeBag?.id) {
   setSaving(false);
-  alert("Active Buff Bag nahi mila. Pehle Buff Bag install karo.");
+  alert(t("active_buff_bag_not_found"));
   return;
 }
 
 if (Number(buffLoss || 0) > 0 && expectedFineGold <= 0) {
   setSaving(false);
-  alert(`KT formula nahi mila: ${batch.kt}`);
+  alert(`${t("kt_formula_not_found")}: ${batch.kt}`);
   return;
 }
 
@@ -645,10 +770,16 @@ if (row.loss_type === "Scrap") {
       .eq("id", batch.id);
 
     if (updateError) {
-      setSaving(false);
-      alert(updateError.message);
-      return;
-    }
+  setSaving(false);
+  alert(updateError.message);
+  return;
+}
+
+await supabase
+  .from("process_drafts")
+  .delete()
+  .eq("batch_id", batch.id)
+  .eq("process_name", "BUFF");
 
 setSaving(false);
 router.push(`/factory/final-qc/dashboard?batch=${batch.id}`);
@@ -662,15 +793,15 @@ router.push(`/factory/final-qc/dashboard?batch=${batch.id}`);
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-lg font-bold">{batch.batch_no}</h3>
             <Badge>{batch.kt}</Badge>
-            <Badge blue>Buff</Badge>
+            <Badge blue>{t("buff")}</Badge>
           </div>
 
           <p className="mt-2 text-xs font-semibold text-gray-500">
-            Party: {parties.join(", ") || "-"}
+            {t("party")}: {parties.join(", ") || "-"}
           </p>
 
           <p className="text-xs text-gray-500">
-            Order: {orders.join(", ") || "-"}
+            {t("order")}: {orders.join(", ") || "-"}
           </p>
         </div>
 
@@ -678,22 +809,22 @@ router.push(`/factory/final-qc/dashboard?batch=${batch.id}`);
           onClick={onOpen}
           className="rounded-xl bg-black px-4 py-2 text-xs font-semibold text-white"
         >
-          {isOpen ? "Close" : "Open"}
+          {isOpen ? t("close") : t("open")}
         </button>
       </div>
 
       <div className="mt-4 grid grid-cols-3 gap-2">
-        <MiniStat label="Current Pcs" value={issuedPieces} />
+        <MiniStat label={t("current_pieces")} value={issuedPieces} />
         <MiniStat
-          label="Current Wt"
+          label={t("current_weight")}
           value={`${Number(issuedWeight || 0).toFixed(3)}g`}
         />
-        <MiniStat label="Entries" value={batch.buff_results?.length || 0} />
+        <MiniStat label={t("entries")} value={batch.buff_results?.length || 0} />
       </div>
 
       {isOpen && (
         <div className="mt-5 space-y-4">
-          <ItemsSummary items={items} />
+          <ItemsSummary t={t} items={items} />
 
           <div className="flex gap-2 rounded-2xl bg-slate-100 p-2">
             <button
@@ -705,7 +836,7 @@ router.push(`/factory/final-qc/dashboard?batch=${batch.id}`);
                   : "bg-white text-gray-700"
               }`}
             >
-              Buff
+             {t("buff")}
             </button>
 
             <button
@@ -717,14 +848,14 @@ router.push(`/factory/final-qc/dashboard?batch=${batch.id}`);
                   : "bg-white text-gray-700"
               }`}
             >
-              Repair
+              {t("repair")}
             </button>
           </div>
 
           {activeTab === "buff" && (
-            <Panel title="Buff / Final Polish Result">
+            <Panel title={t("buff_final_polish_result")}>
               <div className="grid gap-3 md:grid-cols-3">
-                <Field label="Polisher Name">
+                <Field label={t("polisher_name")}>
                   <input
                     value={polisherName}
                     onChange={(e) => setPolisherName(e.target.value)}
@@ -732,7 +863,7 @@ router.push(`/factory/final-qc/dashboard?batch=${batch.id}`);
                   />
                 </Field>
 
-                <Field label="Issued Pieces">
+                <Field label={t("issued_pieces")}>
                   <input
                     type="number"
                     value={issuedPieces}
@@ -741,7 +872,7 @@ router.push(`/factory/final-qc/dashboard?batch=${batch.id}`);
                   />
                 </Field>
 
-                <Field label="Issued Weight">
+                <Field label={t("issued_weight")}>
                   <input
                     type="number"
                     step="0.001"
@@ -751,7 +882,7 @@ router.push(`/factory/final-qc/dashboard?batch=${batch.id}`);
                   />
                 </Field>
 
-                <Field label="Received Pieces">
+                <Field label={t("received_pieces")}>
                   <input
                     type="number"
                     value={receivedPieces}
@@ -760,7 +891,7 @@ router.push(`/factory/final-qc/dashboard?batch=${batch.id}`);
                   />
                 </Field>
 
-                <Field label="Received Weight">
+                <Field label={t("received_weight")}>
                   <input
                     type="number"
                     step="0.001"
@@ -770,7 +901,7 @@ router.push(`/factory/final-qc/dashboard?batch=${batch.id}`);
                   />
                 </Field>
 
-                <Field label="Rejected Pieces">
+                <Field label={t("rejected_pieces")}>
                   <input
                     type="number"
                     value={rejectedPieces}
@@ -779,7 +910,7 @@ router.push(`/factory/final-qc/dashboard?batch=${batch.id}`);
                   />
                 </Field>
 
-                <Field label="Rejected Weight">
+                <Field label={t("rejected_weight")}>
                   <input
                     type="number"
                     step="0.001"
@@ -789,38 +920,38 @@ router.push(`/factory/final-qc/dashboard?batch=${batch.id}`);
                   />
                 </Field>
 
-                <Field label="Buff Loss">
+                <Field label={t("buff_loss")}>
                   <div className="rounded-xl bg-orange-50 p-3 text-sm font-bold text-orange-700">
                     {buffLoss.toFixed(3)} g
                   </div>
                 </Field>
 
-                <Field label="Buff Loss %">
+                <Field label={t("buff_loss_percent")}>
                   <div className="rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">
                     {buffLossPercent.toFixed(2)} %
                   </div>
                 </Field>
-                <Field label="Expected Fine Gold">
+                <Field label={t("expected_fine_gold")}>
   <div className="rounded-xl bg-yellow-50 p-3 text-sm font-bold text-yellow-700">
     {expectedFineGold.toFixed(3)} g
   </div>
 </Field>
 
-<Field label="Active Buff Bag">
+<Field label={t("active_buff_bag")}>
   <div className="rounded-xl bg-blue-50 p-3 text-sm font-bold text-blue-700">
-    {activeBag?.bag_no || "No Active Bag"}
+    {activeBag?.bag_no || t("no_active_bag")}
   </div>
 </Field>
               </div>
 
               <div className="mt-3 grid grid-cols-3 gap-2">
-                <GreenStat label="Good To QC" value={`${finalPiecesToQC} pcs`} />
+                <GreenStat label={t("good_to_qc")} value={`${finalPiecesToQC} pcs`} />
                 <GreenStat
-                  label="Repair Received"
+                  label={t("repair_received")}
                   value={`${Number(repairReceivedPieces || 0)} pcs`}
                 />
                 <GreenStat
-                  label="Rejected Scrap"
+                  label={t("rejected_scrap")}
                   value={`${Number(rejectedWeight || 0).toFixed(3)}g`}
                 />
               </div>
@@ -837,24 +968,35 @@ router.push(`/factory/final-qc/dashboard?batch=${batch.id}`);
               </div>
 
               <p className="mt-2 text-xs text-gray-500">
-                Buff Loss = Issued Weight - Received Weight - Rejected Weight -
-                Repair Issued Weight
+{t("buff_formula")}
               </p>
 
-              <button
-                disabled={saving}
-                onClick={saveBuffResult}
-                className="mt-4 rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white disabled:bg-gray-400"
-              >
-                {saving ? "Saving..." : "Save & Move To Final QC"}
-              </button>
+             <div className="mt-4 flex flex-wrap gap-3">
+  <button
+    type="button"
+    disabled={savingDraft || saving}
+    onClick={saveDraft}
+    className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white disabled:bg-gray-400"
+  >
+    {savingDraft ? t("saving") : t("save_draft")}
+  </button>
+
+  <button
+    type="button"
+    disabled={saving || savingDraft}
+    onClick={saveBuffResult}
+    className="rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white disabled:bg-gray-400"
+  >
+    {saving ? t("saving") : t("save_move_final_qc")}
+  </button>
+</div>
             </Panel>
           )}
 
           {activeTab === "repair" && (
-            <Panel title="Repair Handling">
+            <Panel title={t("repair_handling")}>
               <div className="grid gap-3 md:grid-cols-3">
-                <Field label="Repair Issued Pieces">
+                <Field label={t("repair_issued_pieces")}>
                   <input
                     type="number"
                     value={repairIssuedPieces}
@@ -863,7 +1005,7 @@ router.push(`/factory/final-qc/dashboard?batch=${batch.id}`);
                   />
                 </Field>
 
-                <Field label="Repair Issued Weight">
+                <Field label={t("repair_issued_weight")}>
                   <input
                     type="number"
                     step="0.001"
@@ -873,7 +1015,7 @@ router.push(`/factory/final-qc/dashboard?batch=${batch.id}`);
                   />
                 </Field>
 
-                <Field label="Repair Received Pieces">
+                <Field label={t("repair_received_pieces")}>
                   <input
                     type="number"
                     value={repairReceivedPieces}
@@ -882,7 +1024,7 @@ router.push(`/factory/final-qc/dashboard?batch=${batch.id}`);
                   />
                 </Field>
 
-                <Field label="Repair Received Weight">
+                <Field label={t("repair_received_weight")}>
                   <input
                     type="number"
                     step="0.001"
@@ -892,7 +1034,7 @@ router.push(`/factory/final-qc/dashboard?batch=${batch.id}`);
                   />
                 </Field>
 
-                <Field label="Repair Loss">
+                <Field label={t("repair_loss")}>
                   <div className="rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">
                     {repairLoss.toFixed(3)} g
                   </div>
@@ -902,21 +1044,21 @@ router.push(`/factory/final-qc/dashboard?batch=${batch.id}`);
               <div className="mt-5 rounded-2xl bg-white p-3">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <h4 className="text-sm font-bold">
-                    Findings Issue / Receive
+                    {t("findings_issue_receive")}
                   </h4>
                   <button
                     type="button"
                     onClick={addRepairFindingRow}
                     className="rounded-xl bg-black px-4 py-2 text-xs font-bold text-white"
                   >
-                    + Add Finding
+                   {t("add_finding")}
                   </button>
                 </div>
 
                 <div className="space-y-3">
                   {repairFindingRows.length === 0 ? (
                     <p className="text-sm text-gray-500">
-                      No findings issued yet.
+                      {t("no_findings_issued")}
                     </p>
                   ) : (
                     repairFindingRows.map((row, index) => (
@@ -925,7 +1067,7 @@ router.push(`/factory/final-qc/dashboard?batch=${batch.id}`);
                         className="rounded-2xl border border-gray-200 p-3"
                       >
                         <div className="grid gap-2 md:grid-cols-3">
-                          <Field label="Finding">
+                          <Field label={t("finding")}>
                             <select
                               value={row.finding_item_id}
                               onChange={(e) =>
@@ -946,7 +1088,7 @@ router.push(`/factory/final-qc/dashboard?batch=${batch.id}`);
                             </select>
                           </Field>
 
-                          <Field label="KT">
+                          <Field label={t("kt")}>
                             <input
                               value={row.kt}
                               onChange={(e) =>
@@ -960,7 +1102,7 @@ router.push(`/factory/final-qc/dashboard?batch=${batch.id}`);
                             />
                           </Field>
 
-                          <Field label="Issued Wt">
+                          <Field label={t("issued_weight")}>
                             <input
                               type="number"
                               step="0.001"
@@ -976,7 +1118,7 @@ router.push(`/factory/final-qc/dashboard?batch=${batch.id}`);
                             />
                           </Field>
 
-                          <Field label="Issued Qty">
+                          <Field label={t("issued_quantity")}>
                             <input
                               type="number"
                               value={row.issued_qty}
@@ -991,7 +1133,7 @@ router.push(`/factory/final-qc/dashboard?batch=${batch.id}`);
                             />
                           </Field>
 
-                          <Field label="Received Wt">
+                          <Field label={t("received_weight")}>
                             <input
                               type="number"
                               step="0.001"
@@ -1007,7 +1149,7 @@ router.push(`/factory/final-qc/dashboard?batch=${batch.id}`);
                             />
                           </Field>
 
-                          <Field label="Received Qty">
+                          <Field label={t("received_quantity")}>
                             <input
                               type="number"
                               value={row.received_qty}
@@ -1022,7 +1164,7 @@ router.push(`/factory/final-qc/dashboard?batch=${batch.id}`);
                             />
                           </Field>
 
-                          <Field label="Remarks">
+                          <Field label={t("remarks")}>
                             <input
                               value={row.remarks}
                               onChange={(e) =>
@@ -1046,7 +1188,7 @@ router.push(`/factory/final-qc/dashboard?batch=${batch.id}`);
                               }
                               className="w-full rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700"
                             >
-                              Remove
+                              {t("remove")}
                             </button>
                           </div>
                         </div>
@@ -1057,11 +1199,11 @@ router.push(`/factory/final-qc/dashboard?batch=${batch.id}`);
 
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <GreenStat
-                    label="Findings Issued"
+                    label={t("findings_issued")}
                     value={`${repairFindingsIssued.toFixed(3)}g`}
                   />
                   <GreenStat
-                    label="Findings Received"
+                    label={t("findings_received")}
                     value={`${repairFindingsReceived.toFixed(3)}g`}
                   />
                 </div>
@@ -1069,20 +1211,20 @@ router.push(`/factory/final-qc/dashboard?batch=${batch.id}`);
 
               <div className="mt-5 rounded-2xl bg-white p-3">
                 <div className="mb-3 flex items-center justify-between gap-3">
-                  <h4 className="text-sm font-bold">Add Loss Type</h4>
+                  <h4 className="text-sm font-bold">{t("loss_type_breakup")}</h4>
                   <button
                     type="button"
                     onClick={addRepairLossRow}
                     className="rounded-xl bg-black px-4 py-2 text-xs font-bold text-white"
                   >
-                    + Add Loss
+                    {t("add_loss")}
                   </button>
                 </div>
 
                 <div className="space-y-3">
                   {repairLossRows.length === 0 ? (
                     <p className="text-sm text-gray-500">
-                      No repair loss added.
+                      {t("no_repair_loss")}
                     </p>
                   ) : (
                     repairLossRows.map((row, index) => (
@@ -1091,7 +1233,7 @@ router.push(`/factory/final-qc/dashboard?batch=${batch.id}`);
                         className="rounded-2xl border border-gray-200 p-3"
                       >
                         <div className="grid gap-2 md:grid-cols-3">
-                          <Field label="Loss Type">
+                          <Field label={t("loss_type")}>
                             <select
                               value={row.loss_type}
                               onChange={(e) =>
@@ -1103,15 +1245,15 @@ router.push(`/factory/final-qc/dashboard?batch=${batch.id}`);
                               }
                               className="input"
                             >
-                              <option value="">Select loss type</option>
-                              <option value="Buff Loss">Buff Loss</option>
-                              <option value="Ghis">Ghis</option>
-                              <option value="Scrap">Scrap</option>
-                              <option value="Other">Other</option>
+                              <option value="">{t("select_loss_type")}</option>
+                              <option value="Buff Loss">{t("buff_loss")}</option>
+                              <option value="Ghis">{t("ghis")}</option>
+                              <option value="Scrap">{t("scrap")}</option>
+                              <option value="Other">{t("other")}</option>
                             </select>
                           </Field>
 
-                          <Field label="Weight">
+                          <Field label={t("weight")}>
                             <input
                               type="number"
                               step="0.001"
@@ -1127,7 +1269,7 @@ router.push(`/factory/final-qc/dashboard?batch=${batch.id}`);
                             />
                           </Field>
 
-                          <Field label="Remarks">
+                          <Field label={t("remarks")}>
                             <input
                               value={row.remarks}
                               onChange={(e) =>
@@ -1151,7 +1293,7 @@ router.push(`/factory/final-qc/dashboard?batch=${batch.id}`);
                               }
                               className="w-full rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700"
                             >
-                              Remove
+                              {t("remove")}
                             </button>
                           </div>
                         </div>
@@ -1162,9 +1304,19 @@ router.push(`/factory/final-qc/dashboard?batch=${batch.id}`);
               </div>
 
               <p className="mt-3 text-xs text-gray-500">
-                Repair Loss = Repair Issued Weight + Findings Issued - Repair
-                Received Weight - Findings Received
-              </p>
+  {t("repair_formula")}
+</p>
+
+<div className="mt-4">
+  <button
+    type="button"
+    disabled={savingDraft || saving}
+    onClick={saveDraft}
+    className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white disabled:bg-gray-400"
+  >
+    {savingDraft ? t("saving") : t("save_draft")}
+  </button>
+</div>
             </Panel>
           )}
         </div>
@@ -1173,13 +1325,13 @@ router.push(`/factory/final-qc/dashboard?batch=${batch.id}`);
   );
 }
 
-function Header() {
+function Header({ t }) {
   return (
     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
       <div>
-        <h1 className="text-2xl font-bold md:text-3xl">Buff / Final Polish</h1>
+        <h1 className="text-2xl font-bold md:text-3xl">{t("buff")}</h1>
         <p className="text-sm text-gray-600">
-          Buff result, repair handling, findings and loss tracking.
+          {t("buff_subtitle")}
         </p>
       </div>
 
@@ -1188,23 +1340,23 @@ function Header() {
           href="/factory/stone-setting/dashboard"
           className="rounded-xl bg-white px-4 py-2 text-sm font-semibold shadow-sm"
         >
-          Stone Setting
+          {t("stone_setting")}
         </Link>
 
         <Link
           href="/dashboard"
           className="rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white"
         >
-          Dashboard
+          {t("dashboard")}
         </Link>
       </div>
     </div>
   );
 }
 
-function ItemsSummary({ items }) {
+function ItemsSummary({ t, items }) {
   return (
-    <Panel title="Items Summary">
+    <Panel title={t("items_summary")}>
       <div className="grid max-h-[230px] gap-2 overflow-y-auto md:grid-cols-2">
         {items.map((item) => (
           <div
@@ -1219,11 +1371,11 @@ function ItemsSummary({ items }) {
             <p className="mt-1 text-sm font-bold">{item.category}</p>
 
             <p className="text-xs text-gray-500">
-              {item.sample_unique_id} · Die {item.die_no}
+              {item.sample_unique_id} ·{t("die")}{item.die_no}
             </p>
 
             <p className="mt-2 text-xs font-bold">
-              Qty: {item.selected_quantity}
+              {t("qty")}: {item.selected_quantity}
             </p>
           </div>
         ))}

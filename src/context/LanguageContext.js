@@ -798,6 +798,961 @@ magnet_completed: {
   en: "Magnet Completed",
   bn: "ম্যাগনেট সম্পন্ন"
 },
+
+loading_bench_dashboard: {
+  en: "Loading bench dashboard...",
+  bn: "বেঞ্চ ড্যাশবোর্ড লোড হচ্ছে..."
+},
+
+no_bench_batches: {
+  en: "No batches in Filing + Assembly + Solder.",
+  bn: "ফাইলিং, অ্যাসেম্বলি ও সোল্ডারে কোনো ব্যাচ নেই।"
+},
+
+draft_saved: {
+  en: "Draft saved",
+  bn: "ড্রাফট সেভ হয়েছে"
+},
+
+stock_is_low: {
+  en: "stock is low",
+  bn: "স্টক কম আছে"
+},
+
+required: {
+  en: "Required",
+  bn: "প্রয়োজন"
+},
+
+available: {
+  en: "Available",
+  bn: "উপলব্ধ"
+},
+
+received_pieces_weight_required: {
+  en: "Received pieces weight is required.",
+  bn: "রিসিভ করা পিসের ওজন প্রয়োজন।"
+},
+
+filing: {
+  en: "Filing",
+  bn: "ফাইলিং"
+},
+
+issue_weight: {
+  en: "Issue Wt",
+  bn: "ইস্যু ওজন"
+},
+
+findings_issue_receive: {
+  en: "Findings Issue / Receive",
+  bn: "ফাইন্ডিংস ইস্যু / রিসিভ"
+},
+
+add_finding: {
+  en: "+ Add Finding",
+  bn: "+ ফাইন্ডিং যোগ করুন"
+},
+
+issued_by: {
+  en: "Issued By",
+  bn: "ইস্যু করেছেন"
+},
+
+name: {
+  en: "Name",
+  bn: "নাম"
+},
+
+no_findings_issued: {
+  en: "No findings issued yet.",
+  bn: "এখনও কোনো ফাইন্ডিং ইস্যু করা হয়নি।"
+},
+
+finding: {
+  en: "Finding",
+  bn: "ফাইন্ডিং"
+},
+
+select: {
+  en: "Select",
+  bn: "নির্বাচন করুন"
+},
+
+kt: {
+  en: "KT",
+  bn: "ক্যারেট"
+},
+
+issued_quantity: {
+  en: "Issued Qty",
+  bn: "ইস্যু পরিমাণ"
+},
+
+received_quantity: {
+  en: "Received Qty",
+  bn: "রিসিভ পরিমাণ"
+},
+
+findings_issued: {
+  en: "Findings Issued",
+  bn: "ইস্যু করা ফাইন্ডিংস"
+},
+
+findings_received: {
+  en: "Findings Received",
+  bn: "রিসিভ করা ফাইন্ডিংস"
+},
+
+save_edit_findings: {
+  en: "Save / Edit Findings",
+  bn: "ফাইন্ডিংস সেভ / এডিট করুন"
+},
+
+bench_result: {
+  en: "Filing + Assembly + Solder Result",
+  bn: "ফাইলিং + অ্যাসেম্বলি + সোল্ডার রেজাল্ট"
+},
+
+karigar_name: {
+  en: "Karigar Name",
+  bn: "কারিগরের নাম"
+},
+
+issued_pieces_weight: {
+  en: "Issued Pieces Weight",
+  bn: "ইস্যু করা পিসের ওজন"
+},
+
+received_pieces: {
+  en: "Received Pieces",
+  bn: "রিসিভ করা পিস"
+},
+
+received_pieces_weight: {
+  en: "Received Pieces Weight",
+  bn: "রিসিভ করা পিসের ওজন"
+},
+
+ghis_weight_received: {
+  en: "Ghis Weight Received",
+  bn: "রিসিভ করা ঘিসের ওজন"
+},
+
+broken_pieces: {
+  en: "Broken Pieces",
+  bn: "ভাঙা পিস"
+},
+
+rejected_weight: {
+  en: "Rejected Weight",
+  bn: "রিজেক্টেড ওজন"
+},
+
+filing_loss: {
+  en: "Filing Loss",
+  bn: "ফাইলিং লস"
+},
+
+filing_loss_formula: {
+  en: "Filing Loss = (Pieces Issued Wt + Findings Issued Wt) - (Pieces Received Wt + Findings Received Wt + Ghis Wt + Rejected Wt)",
+  bn: "ফাইলিং লস = (ইস্যু পিসের ওজন + ইস্যু ফাইন্ডিংসের ওজন) - (রিসিভ পিসের ওজন + রিসিভ ফাইন্ডিংসের ওজন + ঘিসের ওজন + রিজেক্টেড ওজন)"
+},
+
+saving_draft: {
+  en: "Saving Draft...",
+  bn: "ড্রাফট সেভ হচ্ছে..."
+},
+
+move_to_pre_polish: {
+  en: "Move To Pre Polish",
+  bn: "প্রি-পলিশে পাঠান"
+},
+
+filing_assembly_solder: {
+  en: "Filing + Assembly + Solder",
+  bn: "ফাইলিং + অ্যাসেম্বলি + সোল্ডার"
+},
+
+bench_dashboard_subtitle: {
+  en: "Findings issue, ghis recovery and bench loss tracking.",
+  bn: "ফাইন্ডিংস ইস্যু, ঘিস রিকভারি এবং বেঞ্চ লস ট্র্যাকিং।"
+},
+
+magnet: {
+  en: "Magnet",
+  bn: "ম্যাগনেট"
+},
+
+loading_pre_polish: {
+  en: "Loading Pre Polish...",
+  bn: "প্রি-পলিশ লোড হচ্ছে..."
+},
+
+no_pre_polish_batches: {
+  en: "No batches in Pre Polish.",
+  bn: "প্রি-পলিশে কোনো ব্যাচ নেই।"
+},
+
+casting_scrap_not_found: {
+  en: "Casting Scrap item was not found in inventory.",
+  bn: "ইনভেন্টরিতে কাস্টিং স্ক্র্যাপ আইটেম পাওয়া যায়নি।"
+},
+
+enter_pre_polish_weight: {
+  en: "Enter at least one Good, Repair or Rejected weight.",
+  bn: "গুড, রিপেয়ার অথবা রিজেক্টেড ওজনের মধ্যে অন্তত একটি লিখুন।"
+},
+
+active_buff_bag_not_found: {
+  en: "Active Buff Bag not found. Install a Buff Bag first.",
+  bn: "অ্যাক্টিভ বাফ ব্যাগ পাওয়া যায়নি। আগে একটি বাফ ব্যাগ ইনস্টল করুন।"
+},
+
+kt_formula_not_found: {
+  en: "KT formula not found",
+  bn: "ক্যারেট ফর্মুলা পাওয়া যায়নি"
+},
+
+pre_polish: {
+  en: "Pre Polish",
+  bn: "প্রি-পলিশ"
+},
+
+pre_polish_entry: {
+  en: "Pre Polish Entry",
+  bn: "প্রি-পলিশ এন্ট্রি"
+},
+
+electro_polish: {
+  en: "Electro Polish",
+  bn: "ইলেক্ট্রো পলিশ"
+},
+
+two_c_polish: {
+  en: "2C Polish",
+  bn: "২সি পলিশ"
+},
+
+to_final_repair: {
+  en: "To Final Repair",
+  bn: "ফাইনাল রিপেয়ারে"
+},
+
+good_for_next: {
+  en: "Good For Next",
+  bn: "পরবর্তী ধাপের জন্য ভালো"
+},
+
+rejected_to_scrap: {
+  en: "Rejected To Scrap",
+  bn: "রিজেক্টেড স্ক্র্যাপে"
+},
+
+pcs: {
+  en: "pcs",
+  bn: "পিস"
+},
+
+pre_polish_loss_formula: {
+  en: "Loss = Issued Weight - Good Weight - Repair Weight - Rejected Weight",
+  bn: "লস = ইস্যু ওজন - গুড ওজন - রিপেয়ার ওজন - রিজেক্টেড ওজন"
+},
+
+save_move_final_repair: {
+  en: "Save & Move To Final Repair",
+  bn: "সেভ করে ফাইনাল রিপেয়ারে পাঠান"
+},
+
+pre_polish_subtitle: {
+  en: "Electro Polish / 2C Polish, rejection, repair queue and loss tracking.",
+  bn: "ইলেক্ট্রো পলিশ / ২সি পলিশ, রিজেকশন, রিপেয়ার কিউ এবং লস ট্র্যাকিং।"
+},
+
+loading_final_repair: {
+  en: "Loading final repair...",
+  bn: "ফাইনাল রিপেয়ার লোড হচ্ছে..."
+},
+
+no_pending_final_repair: {
+  en: "No pending final repair.",
+  bn: "কোনো ফাইনাল রিপেয়ার পেন্ডিং নেই।"
+},
+
+received_weight_required: {
+  en: "Received weight is required.",
+  bn: "রিসিভ করা ওজন প্রয়োজন।"
+},
+
+final_repair: {
+  en: "Final Repair",
+  bn: "ফাইনাল রিপেয়ার"
+},
+
+pending_pieces: {
+  en: "Pending Pcs",
+  bn: "পেন্ডিং পিস"
+},
+
+pending_weight: {
+  en: "Pending Wt",
+  bn: "পেন্ডিং ওজন"
+},
+
+sources: {
+  en: "Sources",
+  bn: "সোর্স"
+},
+
+no_repair_required: {
+  en: "No Repair Required",
+  bn: "রিপেয়ার প্রয়োজন নেই"
+},
+
+bench: {
+  en: "Bench",
+  bn: "বেঞ্চ"
+},
+
+stone_setting: {
+  en: "Stone Setting",
+  bn: "স্টোন সেটিং"
+},
+
+repair_result: {
+  en: "Repair Result",
+  bn: "রিপেয়ার রেজাল্ট"
+},
+
+calculated_loss: {
+  en: "Calculated Loss",
+  bn: "হিসাব করা লস"
+},
+
+loss_breakup_total: {
+  en: "Loss Breakup Total",
+  bn: "মোট লস ব্রেকআপ"
+},
+
+loss_type_breakup: {
+  en: "Loss Type Breakup",
+  bn: "লস টাইপ ব্রেকআপ"
+},
+
+add_loss_type: {
+  en: "+ Add Loss Type",
+  bn: "+ লস টাইপ যোগ করুন"
+},
+
+ghis: {
+  en: "Ghis",
+  bn: "ঘিস"
+},
+
+buff_loss: {
+  en: "Buff Loss",
+  bn: "বাফ লস"
+},
+
+electropolishing_loss: {
+  en: "Electropolishing Loss",
+  bn: "ইলেক্ট্রোপলিশিং লস"
+},
+
+repair_loss_formula: {
+  en: "Repair Loss = (Issued Weight + Findings Issued) - (Received Weight + Findings Received + Rejected Weight)",
+  bn: "রিপেয়ার লস = (ইস্যু ওজন + ইস্যু ফাইন্ডিংস) - (রিসিভ ওজন + রিসিভ ফাইন্ডিংস + রিজেক্টেড ওজন)"
+},
+
+save_move_stone_setting: {
+  en: "Save & Move To Stone Setting",
+  bn: "সেভ করে স্টোন সেটিংয়ে পাঠান"
+},
+
+final_repair_subtitle: {
+  en: "Combined repair queue, findings issue/receive and loss breakup.",
+  bn: "কম্বাইন্ড রিপেয়ার কিউ, ফাইন্ডিংস ইস্যু/রিসিভ এবং লস ব্রেকআপ।"
+},
+
+loading_stone_setting: {
+  en: "Loading stone setting...",
+  bn: "স্টোন সেটিং লোড হচ্ছে..."
+},
+
+no_stone_setting_batches: {
+  en: "No batches in Stone Setting.",
+  bn: "স্টোন সেটিং-এ কোনো ব্যাচ নেই।"
+},
+
+enter_stone_setting_weight: {
+  en: "Enter received, repair or rejected weight.",
+  bn: "রিসিভ, রিপেয়ার অথবা রিজেক্টেড ওজন লিখুন।"
+},
+
+stone_issue_receive: {
+  en: "Stone Issue / Receive",
+  bn: "স্টোন ইস্যু / রিসিভ"
+},
+
+add_stone: {
+  en: "+ Add Stone",
+  bn: "+ স্টোন যোগ করুন"
+},
+
+no_stones_issued: {
+  en: "No stones issued yet.",
+  bn: "এখনও কোনো স্টোন ইস্যু করা হয়নি।"
+},
+
+stone: {
+  en: "Stone",
+  bn: "স্টোন"
+},
+
+stone_type: {
+  en: "Stone Type",
+  bn: "স্টোন টাইপ"
+},
+
+stone_size: {
+  en: "Stone Size",
+  bn: "স্টোন সাইজ"
+},
+
+stone_issued_weight: {
+  en: "Stone Issued Weight",
+  bn: "স্টোন ইস্যু ওজন"
+},
+
+stone_received_weight: {
+  en: "Stone Received Weight",
+  bn: "স্টোন রিসিভ ওজন"
+},
+
+stone_increased: {
+  en: "Stone Increased",
+  bn: "স্টোন বৃদ্ধি"
+},
+
+select_stone: {
+  en: "Select Stone",
+  bn: "স্টোন নির্বাচন করুন"
+},
+
+stone_issued: {
+  en: "Stone Issued",
+  bn: "স্টোন ইস্যু"
+},
+
+stone_received: {
+  en: "Stone Received",
+  bn: "স্টোন রিসিভ"
+},
+
+stone_setting_challan: {
+  en: "Stone Setting Challan",
+  bn: "স্টোন সেটিং চালান"
+},
+
+setter_name: {
+  en: "Setter Name",
+  bn: "সেটারের নাম"
+},
+
+gold_issued_weight: {
+  en: "Gold Issued Weight",
+  bn: "সোনার ইস্যু ওজন"
+},
+
+gold_received_weight: {
+  en: "Gold Received Weight",
+  bn: "সোনার রিসিভ ওজন"
+},
+
+good_to_buff: {
+  en: "Good To Buff",
+  bn: "বাফে যাবে"
+},
+
+repair_received: {
+  en: "Repair Received",
+  bn: "রিপেয়ার রিসিভ"
+},
+
+rejected_scrap: {
+  en: "Rejected Scrap",
+  bn: "রিজেক্টেড স্ক্র্যাপ"
+},
+
+stone_setting_formula: {
+  en: "Stone Setting Challan = Gold Issued + Stone Issued - Gold Received - Stone Received - Rejected - Repair Issued",
+  bn: "স্টোন সেটিং চালান = ইস্যু সোনা + ইস্যু স্টোন - রিসিভ সোনা - রিসিভ স্টোন - রিজেক্টেড - রিপেয়ার ইস্যু"
+},
+
+save_move_buff: {
+  en: "Save & Move To Buff",
+  bn: "সেভ করে বাফে পাঠান"
+},
+
+repair_handling: {
+  en: "Repair Handling",
+  bn: "রিপেয়ার হ্যান্ডলিং"
+},
+
+repair_issued_pieces: {
+  en: "Repair Issued Pieces",
+  bn: "রিপেয়ার ইস্যু পিস"
+},
+
+repair_issued_weight: {
+  en: "Repair Issued Weight",
+  bn: "রিপেয়ার ইস্যু ওজন"
+},
+
+repair_received_pieces: {
+  en: "Repair Received Pieces",
+  bn: "রিপেয়ার রিসিভ পিস"
+},
+
+repair_received_weight: {
+  en: "Repair Received Weight",
+  bn: "রিপেয়ার রিসিভ ওজন"
+},
+
+repair_loss: {
+  en: "Repair Loss",
+  bn: "রিপেয়ার লস"
+},
+
+select_finding: {
+  en: "Select Finding",
+  bn: "ফাইন্ডিং নির্বাচন করুন"
+},
+
+add_loss: {
+  en: "+ Add Loss",
+  bn: "+ লস যোগ করুন"
+},
+
+no_repair_loss: {
+  en: "No repair loss added.",
+  bn: "এখনও কোনো রিপেয়ার লস যোগ করা হয়নি।"
+},
+
+loss_type: {
+  en: "Loss Type",
+  bn: "লস টাইপ"
+},
+
+select_loss_type: {
+  en: "Select Loss Type",
+  bn: "লস টাইপ নির্বাচন করুন"
+},
+
+stone_setting_loss: {
+  en: "Stone Setting Loss",
+  bn: "স্টোন সেটিং লস"
+},
+
+other: {
+  en: "Other",
+  bn: "অন্যান্য"
+},
+
+repair_formula: {
+  en: "Repair Loss = Repair Issued Weight + Findings Issued - Repair Received Weight - Findings Received",
+  bn: "রিপেয়ার লস = রিপেয়ার ইস্যু ওজন + ইস্যু ফাইন্ডিংস - রিপেয়ার রিসিভ ওজন - রিসিভ ফাইন্ডিংস"
+},
+
+stone_setting_subtitle: {
+  en: "Stone issue, receive, repair handling and challan tracking.",
+  bn: "স্টোন ইস্যু, রিসিভ, রিপেয়ার হ্যান্ডলিং এবং চালান ট্র্যাকিং।"
+},
+
+repair: {
+  en: "Repair",
+  bn: "রিপেয়ার"
+},
+
+loading_buff: {
+  en: "Loading Buff Process...",
+  bn: "বাফ প্রসেস লোড হচ্ছে..."
+},
+
+no_buff_batches: {
+  en: "No batches in Buff.",
+  bn: "বাফে কোনো ব্যাচ নেই।"
+},
+
+enter_buff_weight: {
+  en: "Enter received, repair or rejected weight.",
+  bn: "রিসিভ, রিপেয়ার অথবা রিজেক্টেড ওজন লিখুন।"
+},
+
+buff: {
+  en: "Buff",
+  bn: "বাফ"
+},
+
+buff_final_polish_result: {
+  en: "Buff / Final Polish Result",
+  bn: "বাফ / ফাইনাল পলিশ রেজাল্ট"
+},
+
+polisher_name: {
+  en: "Polisher Name",
+  bn: "পলিশারের নাম"
+},
+
+buff_loss: {
+  en: "Buff Loss",
+  bn: "বাফ লস"
+},
+
+buff_loss_percent: {
+  en: "Buff Loss %",
+  bn: "বাফ লস %"
+},
+
+expected_fine_gold: {
+  en: "Expected Fine Gold",
+  bn: "প্রত্যাশিত বিশুদ্ধ সোনা"
+},
+
+active_buff_bag: {
+  en: "Active Buff Bag",
+  bn: "অ্যাক্টিভ বাফ ব্যাগ"
+},
+
+no_active_bag: {
+  en: "No Active Bag",
+  bn: "কোনো অ্যাক্টিভ ব্যাগ নেই"
+},
+
+good_to_qc: {
+  en: "Good To QC",
+  bn: "QC-তে যাবে"
+},
+
+buff_formula: {
+  en: "Buff Loss = Issued Weight - Received Weight - Rejected Weight - Repair Issued Weight",
+  bn: "বাফ লস = ইস্যু ওজন - রিসিভ ওজন - রিজেক্টেড ওজন - রিপেয়ার ইস্যু ওজন"
+},
+
+save_move_final_qc: {
+  en: "Save & Move To Final QC",
+  bn: "সেভ করে ফাইনাল QC-তে পাঠান"
+},
+
+buff_subtitle: {
+  en: "Buff result, repair handling, findings and loss tracking.",
+  bn: "বাফ রেজাল্ট, রিপেয়ার হ্যান্ডলিং, ফাইন্ডিংস এবং লস ট্র্যাকিং।"
+},
+
+current_pieces: {
+  en: "Current Pieces",
+  bn: "বর্তমান পিস"
+},
+
+current_weight: {
+  en: "Current Weight",
+  bn: "বর্তমান ওজন"
+},
+
+received_weight: {
+  en: "Received Weight",
+  bn: "রিসিভ ওজন"
+},
+
+loading_final_qc: {
+  en: "Loading Final QC...",
+  bn: "ফাইনাল QC লোড হচ্ছে..."
+},
+
+no_final_qc_batches: {
+  en: "No batches in Final QC.",
+  bn: "ফাইনাল QC-তে কোনো ব্যাচ নেই।"
+},
+
+enter_final_qc_weight: {
+  en: "Enter passed, repair or rejected weight.",
+  bn: "পাস, রিপেয়ার অথবা রিজেক্টেড ওজন লিখুন।"
+},
+
+final_qc: {
+  en: "Final QC",
+  bn: "ফাইনাল QC"
+},
+
+final_qc_result: {
+  en: "Final QC / Inspection Result",
+  bn: "ফাইনাল QC / ইন্সপেকশন রেজাল্ট"
+},
+
+inspector_name: {
+  en: "Inspector Name",
+  bn: "ইন্সপেক্টরের নাম"
+},
+
+passed: {
+  en: "Passed",
+  bn: "পাস"
+},
+
+rejected: {
+  en: "Rejected",
+  bn: "রিজেক্টেড"
+},
+
+passed_pieces: {
+  en: "Passed Pieces",
+  bn: "পাস পিস"
+},
+
+passed_weight: {
+  en: "Passed Weight",
+  bn: "পাস ওজন"
+},
+
+qc_difference: {
+  en: "QC Difference",
+  bn: "QC পার্থক্য"
+},
+
+passed_to_rhodium: {
+  en: "Passed To Rhodium",
+  bn: "রোডিয়ামে যাবে"
+},
+
+repair_queue: {
+  en: "Repair Queue",
+  bn: "রিপেয়ার কিউ"
+},
+
+qc_formula: {
+  en: "QC Difference = Issued Weight - Passed Weight - Repair Weight - Rejected Weight",
+  bn: "QC পার্থক্য = ইস্যু ওজন - পাস ওজন - রিপেয়ার ওজন - রিজেক্টেড ওজন"
+},
+
+continue_save: {
+  en: "Do you still want to save?",
+  bn: "তবুও কি সেভ করতে চান?"
+},
+
+redirecting_rhodium: {
+  en: "Redirecting to Rhodium...",
+  bn: "রোডিয়ামে নিয়ে যাওয়া হচ্ছে..."
+},
+
+save_move_rhodium: {
+  en: "Save & Move To Rhodium",
+  bn: "সেভ করে রোডিয়ামে পাঠান"
+},
+
+final_qc_subtitle: {
+  en: "Inspection pass, repair, rejection and QC difference tracking.",
+  bn: "ইন্সপেকশন, রিপেয়ার, রিজেকশন এবং QC পার্থক্য ট্র্যাকিং।"
+},
+
+loading_rhodium: {
+  en: "Loading Rhodium / Plating...",
+  bn: "রোডিয়াম / প্লেটিং লোড হচ্ছে..."
+},
+
+no_rhodium_batches: {
+  en: "No batches in Rhodium / Plating.",
+  bn: "রোডিয়াম / প্লেটিং-এ কোনো ব্যাচ নেই।"
+},
+
+enter_rhodium_weight: {
+  en: "Enter received or rejected weight.",
+  bn: "রিসিভ অথবা রিজেক্টেড ওজন লিখুন।"
+},
+
+rhodium_plating: {
+  en: "Rhodium / Plating",
+  bn: "রোডিয়াম / প্লেটিং"
+},
+
+rhodium_plating_result: {
+  en: "Rhodium / Plating Result",
+  bn: "রোডিয়াম / প্লেটিং রেজাল্ট"
+},
+
+operator_name: {
+  en: "Operator Name",
+  bn: "অপারেটরের নাম"
+},
+
+rhodium_difference: {
+  en: "Rhodium Difference",
+  bn: "রোডিয়াম পার্থক্য"
+},
+
+ready_pieces: {
+  en: "Ready Pieces",
+  bn: "রেডি পিস"
+},
+
+rhodium_formula: {
+  en: "Rhodium Difference = Issued Weight - Received Weight - Rejected Weight",
+  bn: "রোডিয়াম পার্থক্য = ইস্যু ওজন - রিসিভ ওজন - রিজেক্টেড ওজন"
+},
+
+save_move_ready: {
+  en: "Save & Move To Ready",
+  bn: "সেভ করে রেডিতে পাঠান"
+},
+
+rhodium_subtitle: {
+  en: "Rhodium receive, rejection and ready tracking.",
+  bn: "রোডিয়াম রিসিভ, রিজেকশন এবং রেডি ট্র্যাকিং।"
+},
+
+linked_casting_batch_not_found: {
+  en: "Linked casting batch was not found for this order.",
+  bn: "এই অর্ডারের সঙ্গে যুক্ত কাস্টিং ব্যাচ পাওয়া যায়নি।"
+},
+
+no_rhodium_received_pieces: {
+  en: "No Rhodium received pieces were found in this order.",
+  bn: "এই অর্ডারে রোডিয়াম রিসিভ করা কোনো পিস পাওয়া যায়নি।"
+},
+
+gross_weight_required: {
+  en: "Gross weight is required.",
+  bn: "গ্রস ওজন প্রয়োজন।"
+},
+
+karat_required: {
+  en: "Karat is required.",
+  bn: "ক্যারেট প্রয়োজন।"
+},
+
+print_failed: {
+  en: "Print failed.",
+  bn: "প্রিন্ট ব্যর্থ হয়েছে।"
+},
+
+tag_printed_inventory_created: {
+  en: "Tag printed and inventory created.",
+  bn: "ট্যাগ প্রিন্ট হয়েছে এবং ইনভেন্টরি তৈরি হয়েছে।"
+},
+
+print_bridge_not_running: {
+  en: "Print bridge is not running. Start node print-bridge.js first.",
+  bn: "প্রিন্ট ব্রিজ চলছে না। আগে node print-bridge.js চালু করুন।"
+},
+
+loading_tag_print: {
+  en: "Loading tag print...",
+  bn: "ট্যাগ প্রিন্ট লোড হচ্ছে..."
+},
+
+tag_printing: {
+  en: "Tag Printing",
+  bn: "ট্যাগ প্রিন্টিং"
+},
+
+tag_printing_subtitle: {
+  en: "Completed orders, live scale weight and Godex tag printing.",
+  bn: "কমপ্লিটেড অর্ডার, লাইভ স্কেল ওজন এবং Godex ট্যাগ প্রিন্টিং।"
+},
+
+live_scale: {
+  en: "Live Scale",
+  bn: "লাইভ স্কেল"
+},
+
+completed_orders: {
+  en: "Completed Orders",
+  bn: "কমপ্লিটেড অর্ডার"
+},
+
+completed: {
+  en: "Completed",
+  bn: "সম্পন্ন"
+},
+
+no_completed_orders: {
+  en: "No ready or completed orders were found.",
+  bn: "কোনো রেডি অথবা কমপ্লিটেড অর্ডার পাওয়া যায়নি।"
+},
+
+select_order: {
+  en: "Select an order.",
+  bn: "একটি অর্ডার নির্বাচন করুন।"
+},
+
+total_pieces: {
+  en: "Total Pieces",
+  bn: "মোট পিস"
+},
+
+total_weight: {
+  en: "Total Weight",
+  bn: "মোট ওজন"
+},
+
+piece: {
+  en: "Piece",
+  bn: "পিস"
+},
+
+print_tag: {
+  en: "Print Tag",
+  bn: "ট্যাগ প্রিন্ট করুন"
+},
+
+qr: {
+  en: "QR",
+  bn: "QR"
+},
+
+brand: {
+  en: "Brand",
+  bn: "ব্র্যান্ড"
+},
+
+karat: {
+  en: "Karat",
+  bn: "ক্যারেট"
+},
+
+gross_weight: {
+  en: "Gross Weight",
+  bn: "গ্রস ওজন"
+},
+
+scale: {
+  en: "Scale",
+  bn: "স্কেল"
+},
+
+less_weight: {
+  en: "Less Weight",
+  bn: "লেস ওজন"
+},
+
+stone_charges: {
+  en: "Stone Charges",
+  bn: "স্টোন চার্জ"
+},
+
+net_weight: {
+  en: "Net Weight",
+  bn: "নেট ওজন"
+},
+
+tag_id: {
+  en: "Tag ID",
+  bn: "ট্যাগ আইডি"
+},
+
+draft_save_failed: {
+  en: "Draft could not be saved.",
+  bn: "ড্রাফট সংরক্ষণ করা যায়নি।"
+},
 }
 
 export function LanguageProvider({ children }) {

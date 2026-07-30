@@ -6,9 +6,11 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../../../../lib/supabaseClient";
 import { useRequireAuth } from "../../../../lib/useRequireAuth";
 import MobileBottomNav from "../../../../components/MobileBottomNav";
+import { useLanguage } from "../../../../context/LanguageContext";
 
 export default function FinalQCDashboardPage() {
   const { loading: authLoading } = useRequireAuth();
+  const { t } = useLanguage();
   const [targetBatchNo, setTargetBatchNo] = useState("");
   const [batches, setBatches] = useState([]);
   const [openId, setOpenId] = useState(null);
@@ -51,7 +53,7 @@ useEffect(() => {
   if (authLoading || loading) {
     return (
       <main className="min-h-screen bg-slate-100 p-6 text-sm text-gray-700">
-        Loading Final QC...
+        {t("loading_final_qc")}
       </main>
     );
   }
@@ -59,11 +61,11 @@ useEffect(() => {
   return (
     <main className="min-h-screen bg-slate-100 p-3 pb-24 text-gray-900 md:p-5">
       <div className="mx-auto max-w-7xl space-y-5">
-        <Header />
+        <Header t={t} />
 
         {batches.length === 0 ? (
           <div className="rounded-2xl bg-white p-6 text-sm text-gray-500 shadow-sm">
-            No batches in Final QC.
+            {t("no_final_qc_batches")}
           </div>
         ) : (
           <div className="grid gap-4 xl:grid-cols-2">
@@ -71,6 +73,7 @@ useEffect(() => {
               <QCCard
                 key={batch.id}
                 batch={batch}
+                t={t}
                 isOpen={openId === batch.id}
                 onOpen={() => setOpenId(openId === batch.id ? null : batch.id)}
                 onRefresh={fetchData}
@@ -98,7 +101,7 @@ useEffect(() => {
   );
 }
 
-function QCCard({ batch, isOpen, onOpen, onRefresh }) {
+function QCCard({ batch, t, isOpen, onOpen, onRefresh }) {
   const router = useRouter();
   const items = batch.casting_batch_items || [];
 
@@ -155,7 +158,7 @@ function QCCard({ batch, isOpen, onOpen, onRefresh }) {
     }
 
     if (!data?.id) {
-      alert("Scrap item not found: Scrap / Casting Scrap");
+      alert(t("casting_scrap_not_found"));
       return null;
     }
 
@@ -192,7 +195,7 @@ function QCCard({ batch, isOpen, onOpen, onRefresh }) {
 
   async function saveQCResult() {
     if (!passedWeight && !repairWeight && !rejectedWeight) {
-      alert("Passed / repair / rejected weight me se kuch enter karo");
+      alert(t("enter_final_qc_weight"));
       return;
     }
 
@@ -201,7 +204,11 @@ function QCCard({ batch, isOpen, onOpen, onRefresh }) {
       totalResultPieces !== Number(issuedPieces || 0)
     ) {
       const confirmSave = confirm(
-        `Issued pieces ${issuedPieces} hain, lekin Passed + Repair + Rejected = ${totalResultPieces}. Phir bhi save karna hai?`
+       `${t("issued_pieces")}: ${issuedPieces}
+
+${t("passed")} + ${t("repair")} + ${t("rejected")} = ${totalResultPieces}
+
+${t("continue_save")}`
       );
 
       if (!confirmSave) return;
@@ -260,7 +267,7 @@ function QCCard({ batch, isOpen, onOpen, onRefresh }) {
     }
 
 setSaving(false);
-alert("Redirecting to Rhodium now");
+alert(t("redirecting_rhodium"));
 router.push(`/factory/rhodium/dashboard?batch=${batch.id}`);
   }
 
@@ -271,15 +278,15 @@ router.push(`/factory/rhodium/dashboard?batch=${batch.id}`);
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-lg font-bold">{batch.batch_no}</h3>
             <Badge>{batch.kt}</Badge>
-            <Badge blue>Final QC</Badge>
+            <Badge blue>{t("final_qc")}</Badge>
           </div>
 
           <p className="mt-2 text-xs font-semibold text-gray-500">
-            Party: {parties.join(", ") || "-"}
+            {t("party")}: {parties.join(", ") || "-"}
           </p>
 
           <p className="text-xs text-gray-500">
-            Order: {orders.join(", ") || "-"}
+            {t("order")}: {orders.join(", ") || "-"}
           </p>
         </div>
 
@@ -287,26 +294,26 @@ router.push(`/factory/rhodium/dashboard?batch=${batch.id}`);
           onClick={onOpen}
           className="rounded-xl bg-black px-4 py-2 text-xs font-semibold text-white"
         >
-          {isOpen ? "Close" : "Open"}
+          {isOpen ? t("close") : t("open")}
         </button>
       </div>
 
       <div className="mt-4 grid grid-cols-3 gap-2">
-        <MiniStat label="Issued Pcs" value={issuedPieces} />
+        <MiniStat label={t("issued_pieces")} value={issuedPieces} />
         <MiniStat
-          label="Issued Wt"
+          label={t("issued_weight")}
           value={`${Number(issuedWeight || 0).toFixed(3)}g`}
         />
-        <MiniStat label="Entries" value={batch.qc_results?.length || 0} />
+        <MiniStat label={t("entries")} value={batch.qc_results?.length || 0} />
       </div>
 
       {isOpen && (
         <div className="mt-5 space-y-4">
-          <ItemsSummary items={items} />
+          <ItemsSummary t={t} items={items} />
 
-          <Panel title="Final QC / Inspection Result">
+          <Panel title={t("final_qc_result")}>
             <div className="grid gap-3 md:grid-cols-3">
-              <Field label="Inspector Name">
+              <Field label={t("inspector_name")}>
                 <input
                   value={inspectorName}
                   onChange={(e) => setInspectorName(e.target.value)}
@@ -314,7 +321,7 @@ router.push(`/factory/rhodium/dashboard?batch=${batch.id}`);
                 />
               </Field>
 
-              <Field label="Issued Pieces">
+              <Field label={t("issued_pieces")}>
                 <input
                   type="number"
                   value={issuedPieces}
@@ -323,7 +330,7 @@ router.push(`/factory/rhodium/dashboard?batch=${batch.id}`);
                 />
               </Field>
 
-              <Field label="Issued Weight">
+              <Field label={t("issued_weight")}>
                 <input
                   type="number"
                   step="0.001"
@@ -333,7 +340,7 @@ router.push(`/factory/rhodium/dashboard?batch=${batch.id}`);
                 />
               </Field>
 
-              <Field label="Passed Pieces">
+              <Field label={t("passed_pieces")}>
                 <input
                   type="number"
                   value={passedPieces}
@@ -342,7 +349,7 @@ router.push(`/factory/rhodium/dashboard?batch=${batch.id}`);
                 />
               </Field>
 
-              <Field label="Passed Weight">
+              <Field label={t("passed_weight")}>
                 <input
                   type="number"
                   step="0.001"
@@ -354,7 +361,7 @@ router.push(`/factory/rhodium/dashboard?batch=${batch.id}`);
 
 
 
-              <Field label="Rejected Pieces">
+              <Field label={t("rejected_pieces")}>
                 <input
                   type="number"
                   value={rejectedPieces}
@@ -363,7 +370,7 @@ router.push(`/factory/rhodium/dashboard?batch=${batch.id}`);
                 />
               </Field>
 
-              <Field label="Rejected Weight">
+              <Field label={t("rejected_weight")}>
                 <input
                   type="number"
                   step="0.001"
@@ -373,7 +380,7 @@ router.push(`/factory/rhodium/dashboard?batch=${batch.id}`);
                 />
               </Field>
 
-              <Field label="QC Difference">
+              <Field label={t("qc_difference")}>
                 <div className="rounded-xl bg-orange-50 p-3 text-sm font-bold text-orange-700">
                   {qcLoss.toFixed(3)} g
                 </div>
@@ -382,15 +389,15 @@ router.push(`/factory/rhodium/dashboard?batch=${batch.id}`);
 
             <div className="mt-3 grid grid-cols-3 gap-2">
               <GreenStat
-                label="Passed To Rhodium"
+                label={t("passed_to_rhodium")}
                 value={`${Number(passedPieces || 0)} pcs`}
               />
               <GreenStat
-                label="Repair Queue"
+                label={t("repair_queue")}
                 value={`${Number(repairPieces || 0)} pcs`}
               />
               <GreenStat
-                label="Rejected Scrap"
+                label={t("rejected_scrap")}
                 value={`${Number(rejectedWeight || 0).toFixed(3)}g`}
               />
             </div>
@@ -407,8 +414,7 @@ router.push(`/factory/rhodium/dashboard?batch=${batch.id}`);
             </div>
 
             <p className="mt-2 text-xs text-gray-500">
-              QC Difference = Issued Weight - Passed Weight - Repair Weight -
-              Rejected Weight
+              {t("qc_formula")}
             </p>
 
             <button
@@ -416,7 +422,7 @@ router.push(`/factory/rhodium/dashboard?batch=${batch.id}`);
               onClick={saveQCResult}
               className="mt-4 rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white disabled:bg-gray-400"
             >
-              {saving ? "Saving..." : "Save & Move To Rhodium"}
+              {saving ? t("saving") : t("save_move_rhodium")}
             </button>
           </Panel>
         </div>
@@ -425,15 +431,15 @@ router.push(`/factory/rhodium/dashboard?batch=${batch.id}`);
   );
 }
 
-function Header() {
+function Header({ t }) {
   return (
     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
       <div>
         <h1 className="text-2xl font-bold md:text-3xl">
-          Final QC / Inspection
+          {t("final_qc")}
         </h1>
         <p className="text-sm text-gray-600">
-          Inspection pass, repair, rejection and QC difference tracking.
+          {t("final_qc_subtitle")}
         </p>
       </div>
 
@@ -442,23 +448,23 @@ function Header() {
           href="/factory/buff/dashboard"
           className="rounded-xl bg-white px-4 py-2 text-sm font-semibold shadow-sm"
         >
-          Buff
+          {t("buff")}
         </Link>
 
         <Link
           href="/dashboard"
           className="rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white"
         >
-          Dashboard
+          {t("dashboard")}
         </Link>
       </div>
     </div>
   );
 }
 
-function ItemsSummary({ items }) {
+function ItemsSummary({ t, items }) {
   return (
-    <Panel title="Items Summary">
+    <Panel title={t("items_summary")}>
       <div className="grid max-h-[230px] gap-2 overflow-y-auto md:grid-cols-2">
         {items.map((item) => (
           <div
@@ -473,11 +479,11 @@ function ItemsSummary({ items }) {
             <p className="mt-1 text-sm font-bold">{item.category}</p>
 
             <p className="text-xs text-gray-500">
-              {item.sample_unique_id} · Die {item.die_no}
+              {item.sample_unique_id} · {t("die")}{item.die_no}
             </p>
 
             <p className="mt-2 text-xs font-bold">
-              Qty: {item.selected_quantity}
+              {t("qty")}: {item.selected_quantity}
             </p>
           </div>
         ))}

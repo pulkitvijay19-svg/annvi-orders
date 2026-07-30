@@ -6,12 +6,14 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../../../../lib/supabaseClient";
 import { useRequireAuth } from "../../../../lib/useRequireAuth";
 import MobileBottomNav from "../../../../components/MobileBottomNav";
+import { useLanguage } from "../../../../context/LanguageContext";
 
 const KTS = ["9KT", "14KT", "18KT", "20KT", "22KT", "24KT"];
 const LOSS_TYPES = ["Ghis", "Buff Loss", "Electropolishing Loss", "Scrap"];
 
 export default function FinalRepairDashboardPage() {
   const { loading: authLoading } = useRequireAuth();
+  const { t } = useLanguage();
   const [targetBatchNo, setTargetBatchNo] = useState("");
   const [queues, setQueues] = useState([]);
   const [findings, setFindings] = useState([]);
@@ -118,24 +120,29 @@ useEffect(() => {
   }, [queues]);
 
   if (authLoading || loading) {
-    return <main className="min-h-screen bg-slate-100 p-6 text-sm text-gray-700">Loading final repair...</main>;
+    return (
+  <main className="min-h-screen bg-slate-100 p-6 text-sm text-gray-700">
+    {t("loading_final_repair")}
+  </main>
+);
   }
 
   return (
     <main className="min-h-screen bg-slate-100 p-3 pb-24 text-gray-900 md:p-5">
       <div className="mx-auto max-w-7xl space-y-5">
-        <Header />
+        <Header t={t} />
 
         {groupedBatches.length === 0 ? (
-          <div className="rounded-2xl bg-white p-6 text-sm text-gray-500 shadow-sm">
-            No pending final repair.
-          </div>
+<div className="rounded-2xl bg-white p-6 text-sm text-gray-500 shadow-sm">
+  {t("no_pending_final_repair")}
+</div>
         ) : (
           <div className="grid gap-4 xl:grid-cols-2">
             {groupedBatches.map((group) => (
               <RepairCard
                 key={group.batch.id}
                 group={group}
+                t={t}
                 findings={findings}
                 transactions={transactions}
                 isOpen={openId === group.batch.id}
@@ -165,7 +172,15 @@ useEffect(() => {
   );
 }
 
-function RepairCard({ group, findings, transactions, isOpen, onOpen, onRefresh }) {
+function RepairCard({
+  group,
+  t,
+  findings,
+  transactions,
+  isOpen,
+  onOpen,
+  onRefresh,
+}) {
   const router = useRouter();
   const batch = group.batch;
   const items = batch.casting_batch_items || [];
@@ -188,9 +203,31 @@ function RepairCard({ group, findings, transactions, isOpen, onOpen, onRefresh }
   ]);
 
   const [saving, setSaving] = useState(false);
+const [savingDraft, setSavingDraft] = useState(false);
 
   const parties = [...new Set(items.map((i) => i.orders?.customer_name).filter(Boolean))];
   const orders = [...new Set(items.map((i) => i.orders?.order_no).filter(Boolean))];
+
+  function getSourceLabel(source) {
+  if (source === "No Repair Required") return t("no_repair_required");
+  if (source === "Electro Polish") return t("electro_polish");
+  if (source === "2C Polish") return t("two_c_polish");
+  if (source === "Bench") return t("bench");
+  if (source === "Stone Setting") return t("stone_setting");
+
+  return source;
+}
+
+function getLossTypeLabel(lossType) {
+  if (lossType === "Ghis") return t("ghis");
+  if (lossType === "Buff Loss") return t("buff_loss");
+  if (lossType === "Electropolishing Loss") {
+    return t("electropolishing_loss");
+  }
+  if (lossType === "Scrap") return t("scrap");
+
+  return lossType;
+}
 
   const findingsIssuedWeight = findingRows.reduce((s, r) => s + Number(r.issued_weight || 0), 0);
   const findingsReceivedWeight = findingRows.reduce((s, r) => s + Number(r.received_weight || 0), 0);
@@ -249,6 +286,112 @@ function RepairCard({ group, findings, transactions, isOpen, onOpen, onRefresh }
     setLossRows((prev) => prev.map((r, i) => (i === index ? { ...r, [field]: value } : r)));
   }
 
+  async function loadDraft() {
+  const { data, error } = await supabase
+    .from("process_drafts")
+    .select("*")
+    .eq("batch_id", batch.id)
+    .eq("process_name", "FINAL_REPAIR")
+    .maybeSingle();
+
+  if (error) {
+    console.error("Final Repair draft load error:", error);
+    return;
+  }
+
+  if (!data?.draft_data) return;
+
+  const draft = data.draft_data;
+
+  setKarigar(draft.karigar || "");
+  setIssuedBy(draft.issuedBy || "");
+
+  setIssuedPieces(
+    draft.issuedPieces ?? group.pendingPieces
+  );
+
+  setIssuedWeight(
+    draft.issuedWeight ?? group.pendingWeight
+  );
+
+  setReceivedPieces(draft.receivedPieces || "");
+  setReceivedWeight(draft.receivedWeight || "");
+
+  setRejectedPieces(draft.rejectedPieces || "");
+  setRejectedWeight(draft.rejectedWeight || "");
+
+  setRemarks(draft.remarks || "");
+
+  setFindingRows(
+    Array.isArray(draft.findingRows)
+      ? draft.findingRows
+      : []
+  );
+
+  setLossRows(
+    Array.isArray(draft.lossRows) && draft.lossRows.length > 0
+      ? draft.lossRows
+      : [{ loss_type: "Ghis", weight: "", remarks: "" }]
+  );
+}
+
+
+useEffect(() => {
+  if (isOpen) {
+    loadDraft();
+  }
+}, [isOpen]);
+
+async function saveDraft() {
+  try {
+    setSavingDraft(true);
+
+    const draftData = {
+      karigar,
+      issuedBy,
+
+      issuedPieces,
+      issuedWeight,
+
+      receivedPieces,
+      receivedWeight,
+
+      rejectedPieces,
+      rejectedWeight,
+
+      remarks,
+      findingRows,
+      lossRows,
+    };
+
+    const { error } = await supabase
+      .from("process_drafts")
+      .upsert(
+        {
+          batch_id: batch.id,
+          process_name: "FINAL_REPAIR",
+          draft_data: draftData,
+          updated_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "batch_id,process_name",
+        }
+      );
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    alert(t("draft_saved"));
+  } catch (error) {
+    console.error("Final Repair draft save error:", error);
+    alert(error.message || "Draft could not be saved.");
+  } finally {
+    setSavingDraft(false);
+  }
+}
+
   async function stockInScrap(weight, qty, purpose, note) {
     if (Number(weight || 0) <= 0) return true;
 
@@ -260,7 +403,7 @@ function RepairCard({ group, findings, transactions, isOpen, onOpen, onRefresh }
       .maybeSingle();
 
     if (!scrapItem?.id) {
-      alert("Scrap item not found: Scrap / Casting Scrap");
+      alert(t("casting_scrap_not_found"));
       return false;
     }
 
@@ -287,7 +430,9 @@ function RepairCard({ group, findings, transactions, isOpen, onOpen, onRefresh }
   }
 
   async function saveFinalRepair() {
-    if (!receivedWeight) return alert("Received weight required");
+    if (!receivedWeight) {
+  return alert(t("received_weight_required"));
+}
 
     setSaving(true);
 
@@ -298,7 +443,11 @@ function RepairCard({ group, findings, transactions, isOpen, onOpen, onRefresh }
         const available = stockBalance(row.finding_item_id, row.kt);
         if (available < issueWt) {
           setSaving(false);
-          alert(`${row.finding_name} ${row.kt} stock कम है. Required ${issueWt.toFixed(3)}g, Available ${available.toFixed(3)}g`);
+         alert(
+  `${row.finding_name} ${row.kt} ${t("stock_is_low")}. ${t(
+    "required"
+  )}: ${issueWt.toFixed(3)}g, ${t("available")}: ${available.toFixed(3)}g`
+);
           return;
         }
       }
@@ -502,10 +651,16 @@ const { error: updateError } = await supabase
   .eq("id", batch.id);
 
     if (updateError) {
-      setSaving(false);
-      alert(updateError.message);
-      return;
-    }
+  setSaving(false);
+  alert(updateError.message);
+  return;
+}
+
+await supabase
+  .from("process_drafts")
+  .delete()
+  .eq("batch_id", batch.id)
+  .eq("process_name", "FINAL_REPAIR");
 
 setSaving(false);
 router.push(`/factory/stone-setting/dashboard?batch=${batch.id}`);
@@ -518,34 +673,49 @@ router.push(`/factory/stone-setting/dashboard?batch=${batch.id}`);
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-lg font-bold">{batch.batch_no}</h3>
             <Badge>{batch.kt}</Badge>
-            <Badge blue>Final Repair</Badge>
+            <Badge blue>{t("final_repair")}</Badge>
           </div>
-          <p className="mt-2 text-xs font-semibold text-gray-500">Party: {parties.join(", ") || "-"}</p>
-          <p className="text-xs text-gray-500">Order: {orders.join(", ") || "-"}</p>
+<p className="mt-2 text-xs font-semibold text-gray-500">
+  {t("party")}: {parties.join(", ") || "-"}
+</p>
+
+<p className="text-xs text-gray-500">
+  {t("order")}: {orders.join(", ") || "-"}
+</p>
         </div>
         <button onClick={onOpen} className="rounded-xl bg-black px-4 py-2 text-xs font-semibold text-white">
-          {isOpen ? "Close" : "Open"}
+          {isOpen ? t("close") : t("open")}
         </button>
       </div>
 
       <div className="mt-4 grid grid-cols-3 gap-2">
-        <MiniStat label="Pending Pcs" value={group.pendingPieces} />
-        <MiniStat label="Pending Wt" value={`${group.pendingWeight.toFixed(3)}g`} />
-        <MiniStat label="Sources" value={[...new Set(group.sources)].join(", ") || "-"} />
+        <MiniStat label={t("pending_pieces")} value={group.pendingPieces} />
+        <MiniStat
+  label={t("pending_weight")}
+  value={`${group.pendingWeight.toFixed(3)}g`}
+/>
+        <MiniStat
+  label={t("sources")}
+  value={
+    [...new Set(group.sources)]
+      .map((source) => getSourceLabel(source))
+      .join(", ") || "-"
+  }
+/>
       </div>
 
       {isOpen && (
         <div className="mt-5 space-y-4">
-          <ItemsSummary items={items} />
+          <ItemsSummary t={t} items={items} />
 
-          <Panel title="Findings Issue / Receive">
+          <Panel title={t("findings_issue_receive")}>
             <div className="grid gap-3 md:grid-cols-2">
-              <Field label="Issued By">
+              <Field label={t("issued_by")}>
                 <input value={issuedBy} onChange={(e) => setIssuedBy(e.target.value)} className="input" />
               </Field>
               <div className="flex items-end">
                 <button onClick={addFindingRow} className="w-full rounded-xl bg-black px-4 py-3 text-sm font-semibold text-white">
-                  + Add Finding
+                  {t("add_finding")}
                 </button>
               </div>
             </div>
@@ -554,35 +724,35 @@ router.push(`/factory/stone-setting/dashboard?batch=${batch.id}`);
               {findingRows.map((row, index) => (
                 <div key={index} className="rounded-2xl border border-gray-200 bg-white p-3">
                   <div className="grid gap-2 md:grid-cols-4">
-                    <Field label="Finding">
+                    <Field label={t("finding")}>
                       <select value={row.finding_item_id} onChange={(e) => updateFinding(index, "finding_item_id", e.target.value)} className="input">
-                        <option value="">Select</option>
+                        <option value="">{t("select")}</option>
                         {findings.map((f) => <option key={f.id} value={f.id}>{f.item_name}</option>)}
                       </select>
                     </Field>
-                    <Field label="KT">
+                    <Field label={t("kt")}>
                       <select value={row.kt} onChange={(e) => updateFinding(index, "kt", e.target.value)} className="input">
                         {KTS.map((k) => <option key={k}>{k}</option>)}
                       </select>
                     </Field>
-                    <Field label="Issued Wt">
+                    <Field label={t("issued_weight")}>
                       <input type="number" step="0.001" value={row.issued_weight} onChange={(e) => updateFinding(index, "issued_weight", e.target.value)} className="input" />
                     </Field>
-                    <Field label="Issued Qty">
+                    <Field label={t("issued_quantity")}>
                       <input type="number" value={row.issued_qty} onChange={(e) => updateFinding(index, "issued_qty", e.target.value)} className="input" />
                     </Field>
-                    <Field label="Received Wt">
+                    <Field label={t("received_weight")}>
                       <input type="number" step="0.001" value={row.received_weight} onChange={(e) => updateFinding(index, "received_weight", e.target.value)} className="input" />
                     </Field>
-                    <Field label="Received Qty">
+                    <Field label={t("received_quantity")}>
                       <input type="number" value={row.received_qty} onChange={(e) => updateFinding(index, "received_qty", e.target.value)} className="input" />
                     </Field>
-                    <Field label="Remarks">
+                    <Field label={t("remarks")}>
                       <input value={row.remarks} onChange={(e) => updateFinding(index, "remarks", e.target.value)} className="input" />
                     </Field>
                     <div className="flex items-end">
                       <button onClick={() => setFindingRows((p) => p.filter((_, i) => i !== index))} className="w-full rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-                        Remove
+                        {t("remove")}
                       </button>
                     </div>
                   </div>
@@ -591,36 +761,50 @@ router.push(`/factory/stone-setting/dashboard?batch=${batch.id}`);
             </div>
 
             <div className="mt-3 grid grid-cols-2 gap-2">
-              <GreenStat label="Findings Issued" value={`${findingsIssuedWeight.toFixed(3)}g`} />
-              <GreenStat label="Findings Received" value={`${findingsReceivedWeight.toFixed(3)}g`} />
+              <GreenStat
+  label={t("findings_issued")}
+  value={`${findingsIssuedWeight.toFixed(3)}g`}
+/>
+<GreenStat
+  label={t("findings_received")}
+  value={`${findingsReceivedWeight.toFixed(3)}g`}
+/>
             </div>
           </Panel>
 
-          <Panel title="Repair Result">
+          <Panel title={t("repair_result")}>
             <div className="grid gap-3 md:grid-cols-3">
-              <Field label="Karigar Name"><input value={karigar} onChange={(e) => setKarigar(e.target.value)} className="input" /></Field>
-              <Field label="Issued Pieces"><input type="number" value={issuedPieces} onChange={(e) => setIssuedPieces(e.target.value)} className="input" /></Field>
-              <Field label="Issued Weight"><input type="number" step="0.001" value={issuedWeight} onChange={(e) => setIssuedWeight(e.target.value)} className="input" /></Field>
-              <Field label="Received Pieces"><input type="number" value={receivedPieces} onChange={(e) => setReceivedPieces(e.target.value)} className="input" /></Field>
-              <Field label="Received Weight"><input type="number" step="0.001" value={receivedWeight} onChange={(e) => setReceivedWeight(e.target.value)} className="input" /></Field>
-              <Field label="Rejected Pieces"><input type="number" value={rejectedPieces} onChange={(e) => setRejectedPieces(e.target.value)} className="input" /></Field>
-              <Field label="Rejected Weight"><input type="number" step="0.001" value={rejectedWeight} onChange={(e) => setRejectedWeight(e.target.value)} className="input" /></Field>
-              <Field label="Calculated Loss"><div className="rounded-xl bg-orange-50 p-3 text-sm font-bold text-orange-700">{calculatedRepairLoss.toFixed(3)} g</div></Field>
-              <Field label="Loss Breakup Total"><div className="rounded-xl bg-green-50 p-3 text-sm font-bold text-green-800">{lossBreakupWeight.toFixed(3)} g</div></Field>
+              <Field label={t("karigar_name")}><input value={karigar} onChange={(e) => setKarigar(e.target.value)} className="input" /></Field>
+              <Field label={t("issued_pieces")}><input type="number" value={issuedPieces} onChange={(e) => setIssuedPieces(e.target.value)} className="input" /></Field>
+              <Field label={t("issued_weight")}><input type="number" step="0.001" value={issuedWeight} onChange={(e) => setIssuedWeight(e.target.value)} className="input" /></Field>
+              <Field label={t("received_pieces")}><input type="number" value={receivedPieces} onChange={(e) => setReceivedPieces(e.target.value)} className="input" /></Field>
+              <Field label={t("received_weight")}><input type="number" step="0.001" value={receivedWeight} onChange={(e) => setReceivedWeight(e.target.value)} className="input" /></Field>
+              <Field label={t("rejected_pieces")}><input type="number" value={rejectedPieces} onChange={(e) => setRejectedPieces(e.target.value)} className="input" /></Field>
+              <Field label={t("rejected_weight")}><input type="number" step="0.001" value={rejectedWeight} onChange={(e) => setRejectedWeight(e.target.value)} className="input" /></Field>
+              <Field label={t("calculated_loss")}><div className="rounded-xl bg-orange-50 p-3 text-sm font-bold text-orange-700">{calculatedRepairLoss.toFixed(3)} g</div></Field>
+              <Field label={t("loss_breakup_total")}><div className="rounded-xl bg-green-50 p-3 text-sm font-bold text-green-800">{lossBreakupWeight.toFixed(3)} g</div></Field>
             </div>
           </Panel>
 
-          <Panel title="Loss Type Breakup">
-            <button onClick={addLossRow} className="mb-3 rounded-xl bg-black px-4 py-2 text-xs font-semibold text-white">+ Add Loss Type</button>
+          <Panel title={t("loss_type_breakup")}>
+            <button onClick={addLossRow} className="mb-3 rounded-xl bg-black px-4 py-2 text-xs font-semibold text-white">
+              {t("add_loss_type")}
+              </button>
             <div className="space-y-2">
               {lossRows.map((row, index) => (
                 <div key={index} className="grid gap-2 rounded-2xl bg-slate-50 p-3 md:grid-cols-4">
                   <select value={row.loss_type} onChange={(e) => updateLoss(index, "loss_type", e.target.value)} className="input">
-                    {LOSS_TYPES.map((t) => <option key={t}>{t}</option>)}
+                    {LOSS_TYPES.map((lossType) => (
+  <option key={lossType} value={lossType}>
+    {getLossTypeLabel(lossType)}
+  </option>
+))}
                   </select>
-                  <input type="number" step="0.001" placeholder="Weight" value={row.weight} onChange={(e) => updateLoss(index, "weight", e.target.value)} className="input" />
-                  <input placeholder="Remarks" value={row.remarks} onChange={(e) => updateLoss(index, "remarks", e.target.value)} className="input" />
-                  <button onClick={() => setLossRows((p) => p.filter((_, i) => i !== index))} className="rounded-xl bg-red-50 px-4 py-2 text-sm font-semibold text-red-700">Remove</button>
+                  <input type="number" step="0.001" placeholder={t("weight")} value={row.weight} onChange={(e) => updateLoss(index, "weight", e.target.value)} className="input" />
+                  <input placeholder={t("remarks")} value={row.remarks} onChange={(e) => updateLoss(index, "remarks", e.target.value)} className="input" />
+                  <button onClick={() => setLossRows((p) => p.filter((_, i) => i !== index))} className="rounded-xl bg-red-50 px-4 py-2 text-sm font-semibold text-red-700">
+                    {t("remove")}
+                    </button>
                 </div>
               ))}
             </div>
@@ -630,44 +814,92 @@ router.push(`/factory/stone-setting/dashboard?batch=${batch.id}`);
             <textarea rows={3} value={remarks} onChange={(e) => setRemarks(e.target.value)} className="input" />
           </Field>
 
-          <p className="text-xs text-gray-500">
-            Repair Loss = (Issued Weight + Findings Issued) - (Received Weight + Findings Received + Rejected Weight)
-          </p>
+         <p className="text-xs text-gray-500">
+  {t("repair_loss_formula")}
+</p>
 
-          <button disabled={saving} onClick={saveFinalRepair} className="rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white disabled:bg-gray-400">
-            {saving ? "Saving..." : "Save & Move To Stone Setting"}
-          </button>
+          <div className="flex flex-wrap gap-3">
+  <button
+    type="button"
+    disabled={savingDraft || saving}
+    onClick={saveDraft}
+    className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white disabled:bg-gray-400"
+  >
+    {savingDraft ? t("saving") : t("save_draft")}
+  </button>
+
+  <button
+    type="button"
+    disabled={saving || savingDraft}
+    onClick={saveFinalRepair}
+    className="rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white disabled:bg-gray-400"
+  >
+    {saving ? t("saving") : t("save_move_stone_setting")}
+  </button>
+</div>
         </div>
       )}
     </section>
   );
 }
 
-function Header() {
+function Header({ t }) {
   return (
     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
       <div>
-        <h1 className="text-2xl font-bold md:text-3xl">Final Repair</h1>
-        <p className="text-sm text-gray-600">Combined repair queue, findings issue/receive and loss breakup.</p>
+        <h1 className="text-2xl font-bold md:text-3xl">
+          {t("final_repair")}
+        </h1>
+
+        <p className="text-sm text-gray-600">
+          {t("final_repair_subtitle")}
+        </p>
       </div>
+
       <div className="flex flex-wrap gap-2">
-        <Link href="/factory/pre-polish/dashboard" className="rounded-xl bg-white px-4 py-2 text-sm font-semibold shadow-sm">Pre Polish</Link>
-        <Link href="/dashboard" className="rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white">Dashboard</Link>
+        <Link
+          href="/factory/pre-polish/dashboard"
+          className="rounded-xl bg-white px-4 py-2 text-sm font-semibold shadow-sm"
+        >
+          {t("pre_polish")}
+        </Link>
+
+        <Link
+          href="/dashboard"
+          className="rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white"
+        >
+          {t("dashboard")}
+        </Link>
       </div>
     </div>
   );
 }
 
-function ItemsSummary({ items }) {
+function ItemsSummary({ t, items }) {
   return (
-    <Panel title="Items Summary">
+    <Panel title={t("items_summary")}>
       <div className="grid max-h-[230px] gap-2 overflow-y-auto md:grid-cols-2">
         {items.map((item) => (
-          <div key={item.id} className="rounded-xl border border-gray-200 bg-white p-3">
-            <p className="text-xs font-semibold text-gray-500">{item.orders?.order_no || "-"} · {item.orders?.customer_name || "-"}</p>
-            <p className="mt-1 text-sm font-bold">{item.category}</p>
-            <p className="text-xs text-gray-500">{item.sample_unique_id} · Die {item.die_no}</p>
-            <p className="mt-2 text-xs font-bold">Qty: {item.selected_quantity}</p>
+          <div
+            key={item.id}
+            className="rounded-xl border border-gray-200 bg-white p-3"
+          >
+            <p className="text-xs font-semibold text-gray-500">
+              {item.orders?.order_no || "-"} ·{" "}
+              {item.orders?.customer_name || "-"}
+            </p>
+
+            <p className="mt-1 text-sm font-bold">
+              {item.category}
+            </p>
+
+            <p className="text-xs text-gray-500">
+              {item.sample_unique_id} · {t("die")} {item.die_no}
+            </p>
+
+            <p className="mt-2 text-xs font-bold">
+              {t("qty")}: {item.selected_quantity}
+            </p>
           </div>
         ))}
       </div>
