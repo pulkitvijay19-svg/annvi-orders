@@ -1753,6 +1753,425 @@ draft_save_failed: {
   en: "Draft could not be saved.",
   bn: "ড্রাফট সংরক্ষণ করা যায়নি।"
 },
+
+  // =========================================================
+  // TREE PLANNING
+  // =========================================================
+
+  tree_planning: {
+    en: "Tree Planning",
+    bn: "ট্রি প্ল্যানিং",
+  },
+
+  tree_planning_subtitle: {
+    en: "Combine multiple orders, split item quantities and prepare wax trees before burnout.",
+    bn: "একাধিক অর্ডার একসাথে নিয়ে আইটেম ভাগ করে বার্নআউটের আগে ট্রি প্রস্তুত করুন।",
+  },
+
+  select_combine_orders: {
+    en: "Select & Combine Orders",
+    bn: "অর্ডার নির্বাচন ও একত্রিত করুন",
+  },
+
+  select_combine_orders_subtitle: {
+    en: "Select one or multiple orders. Items from all selected orders will appear in one combined pool.",
+    bn: "এক বা একাধিক অর্ডার নির্বাচন করুন। নির্বাচিত সব অর্ডারের আইটেম একটি তালিকায় দেখা যাবে।",
+  },
+
+  selected: {
+    en: "Selected",
+    bn: "নির্বাচিত",
+  },
+
+  search_order_placeholder: {
+    en: "Search order no, party, mobile or status...",
+    bn: "অর্ডার নম্বর, পার্টি, মোবাইল বা স্ট্যাটাস খুঁজুন...",
+  },
+
+  combined_orders: {
+    en: "Combined Orders",
+    bn: "একত্রিত অর্ডার",
+  },
+
+  combined_orders_subtitle: {
+    en: "These orders can be placed together in the same tree.",
+    bn: "এই অর্ডারগুলো একই ট্রিতে রাখা যাবে।",
+  },
+
+  no_available_orders: {
+    en: "No available orders found.",
+    bn: "কোনো উপলব্ধ অর্ডার পাওয়া যায়নি।",
+  },
+
+  available_orders_hint: {
+    en: "Orders with available quantities will appear here.",
+    bn: "যেসব অর্ডারে বাকি পরিমাণ আছে সেগুলো এখানে দেখা যাবে।",
+  },
+
+  items: {
+    en: "Items",
+    bn: "আইটেম",
+  },
+
+  ordered: {
+    en: "Ordered",
+    bn: "অর্ডার করা",
+  },
+
+  allocated: {
+    en: "Allocated",
+    bn: "বরাদ্দ",
+  },
+
+  remaining: {
+    en: "Remaining",
+    bn: "বাকি",
+  },
+
+  order_items: {
+    en: "Order Items",
+    bn: "অর্ডার আইটেম",
+  },
+
+  select_all_remaining: {
+    en: "Select All Remaining",
+    bn: "সব বাকি নির্বাচন করুন",
+  },
+
+  remove_all: {
+    en: "Remove All",
+    bn: "সব সরান",
+  },
+
+  no_items_in_order: {
+    en: "No items found in this order.",
+    bn: "এই অর্ডারে কোনো আইটেম পাওয়া যায়নি।",
+  },
+
+  used: {
+    en: "Used",
+    bn: "ব্যবহৃত",
+  },
+
+  tree_qty: {
+    en: "Tree Qty",
+    bn: "ট্রি পরিমাণ",
+  },
+
+  maximum: {
+    en: "Maximum",
+    bn: "সর্বোচ্চ",
+  },
+
+  combined_item_pool: {
+    en: "Combined Item Pool",
+    bn: "সম্মিলিত আইটেম তালিকা",
+  },
+
+  combined_item_pool_subtitle: {
+    en: "Items from every selected order appear together. Select full or partial quantity for this tree.",
+    bn: "নির্বাচিত সব অর্ডারের আইটেম একসাথে দেখা যাবে। এই ট্রির জন্য সম্পূর্ণ বা আংশিক পরিমাণ নির্বাচন করুন।",
+  },
+
+  select_orders_first_tree: {
+    en: "Select one or more orders first.",
+    bn: "আগে এক বা একাধিক অর্ডার নির্বাচন করুন।",
+  },
+
+  combine_orders_hint: {
+    en: "You can combine items from multiple orders in one tree.",
+    bn: "একটি ট্রিতে একাধিক অর্ডারের আইটেম একত্রিত করতে পারবেন।",
+  },
+
+  search_item_placeholder: {
+    en: "Search category, sample ID, die no, party...",
+    bn: "ক্যাটাগরি, স্যাম্পল আইডি, ডাই নম্বর বা পার্টি খুঁজুন...",
+  },
+
+  available_qty: {
+    en: "Available Qty",
+    bn: "উপলব্ধ পরিমাণ",
+  },
+
+  party: {
+    en: "Party",
+    bn: "পার্টি",
+  },
+
+  item: {
+    en: "Item",
+    bn: "আইটেম",
+  },
+
+  approx_wt: {
+    en: "Approx Wt.",
+    bn: "আনুমানিক ওজন",
+  },
+
+  add_item: {
+    en: "+ Add",
+    bn: "+ যোগ করুন",
+  },
+
+  tree_details: {
+    en: "Tree Details",
+    bn: "ট্রি ডিটেইলস",
+  },
+
+  tree_details_subtitle: {
+    en: "Enter tree, flask, burnout and allocation details.",
+    bn: "ট্রি, ফ্লাস্ক, বার্নআউট এবং বরাদ্দের তথ্য লিখুন।",
+  },
+
+  update_tree_subtitle: {
+    en: "Update the selected tree and its item allocation.",
+    bn: "নির্বাচিত ট্রি এবং আইটেম বরাদ্দ আপডেট করুন।",
+  },
+
+  editing: {
+    en: "Editing",
+    bn: "এডিট হচ্ছে",
+  },
+
+  new_tree: {
+    en: "New Tree",
+    bn: "নতুন ট্রি",
+  },
+
+  orders_in_tree: {
+    en: "Orders in this Tree",
+    bn: "এই ট্রিতে অর্ডার",
+  },
+
+  orders_in_tree_subtitle: {
+    en: "Multiple orders can be combined in one wax tree.",
+    bn: "একটি ওয়াক্স ট্রিতে একাধিক অর্ডার একত্রিত করা যাবে।",
+  },
+
+  tree_no: {
+    en: "Tree No",
+    bn: "ট্রি নম্বর",
+  },
+
+  flask_no: {
+    en: "Flask No",
+    bn: "ফ্লাস্ক নম্বর",
+  },
+
+  tree_kt: {
+    en: "Tree KT",
+    bn: "ট্রি ক্যারেট",
+  },
+
+  tree_weight: {
+    en: "Tree Weight",
+    bn: "ট্রি ওজন",
+  },
+
+  use_approx: {
+    en: "Use Approx",
+    bn: "আনুমানিক ওজন নিন",
+  },
+
+  tree_date: {
+    en: "Tree Date",
+    bn: "ট্রি তারিখ",
+  },
+
+  burnout_date: {
+    en: "Burnout Date",
+    bn: "বার্নআউট তারিখ",
+  },
+
+  optional: {
+    en: "Optional",
+    bn: "ঐচ্ছিক",
+  },
+
+  tree_remarks_placeholder: {
+    en: "Tree preparation, wax, flask or burnout notes...",
+    bn: "ট্রি প্রস্তুতি, ওয়াক্স, ফ্লাস্ক বা বার্নআউটের মন্তব্য...",
+  },
+
+  selected_tree_items: {
+    en: "Selected Tree Items",
+    bn: "নির্বাচিত ট্রি আইটেম",
+  },
+
+  selected_tree_items_subtitle: {
+    en: "Verify selected item quantities before saving the tree.",
+    bn: "ট্রি সেভ করার আগে নির্বাচিত আইটেমের পরিমাণ যাচাই করুন।",
+  },
+
+  no_items_selected: {
+    en: "No items selected.",
+    bn: "কোনো আইটেম নির্বাচন করা হয়নি।",
+  },
+
+  select_items_left: {
+    en: "Select items from one or multiple orders on the left.",
+    bn: "বাম পাশ থেকে এক বা একাধিক অর্ডারের আইটেম নির্বাচন করুন।",
+  },
+
+  sample: {
+    en: "Sample",
+    bn: "স্যাম্পল",
+  },
+
+  die: {
+    en: "Die",
+    bn: "ডাই",
+  },
+
+  selected_qty: {
+    en: "Selected Qty",
+    bn: "নির্বাচিত পরিমাণ",
+  },
+
+  approx_weight_each: {
+    en: "Approx Weight Each",
+    bn: "প্রতি পিস আনুমানিক ওজন",
+  },
+
+  approx_total_weight: {
+    en: "Approx Total Weight",
+    bn: "মোট আনুমানিক ওজন",
+  },
+
+  from_order_item: {
+    en: "From order item",
+    bn: "অর্ডার আইটেম থেকে",
+  },
+
+  qty_approx_formula: {
+    en: "Qty × Approx weight",
+    bn: "পরিমাণ × আনুমানিক ওজন",
+  },
+
+  tree_summary: {
+    en: "Tree Summary",
+    bn: "ট্রি সামারি",
+  },
+
+  tree_summary_subtitle: {
+    en: "Final allocation summary before saving the tree.",
+    bn: "ট্রি সেভ করার আগে চূড়ান্ত বরাদ্দের সারাংশ।",
+  },
+
+  item_lines: {
+    en: "Item Lines",
+    bn: "আইটেম লাইন",
+  },
+
+  total_quantity: {
+    en: "Total Quantity",
+    bn: "মোট পরিমাণ",
+  },
+
+  save_as_planned: {
+    en: "Save as Planned",
+    bn: "প্ল্যানড হিসেবে সেভ",
+  },
+
+  update_tree: {
+    en: "Update Tree",
+    bn: "ট্রি আপডেট",
+  },
+
+  cancel_edit: {
+    en: "Cancel Edit",
+    bn: "এডিট বাতিল",
+  },
+
+  existing_trees: {
+    en: "Existing Trees",
+    bn: "বর্তমান ট্রি তালিকা",
+  },
+
+  existing_trees_subtitle: {
+    en: "Search, review, edit or move planned trees to burnout and casting.",
+    bn: "ট্রি খুঁজুন, দেখুন, এডিট করুন অথবা বার্নআউট ও কাস্টিংয়ে পাঠান।",
+  },
+
+  trees: {
+    en: "Trees",
+    bn: "ট্রি",
+  },
+
+  burnout: {
+    en: "Burnout",
+    bn: "বার্নআউট",
+  },
+
+  search_tree_placeholder: {
+    en: "Search Tree No, Flask No, Order No or Party...",
+    bn: "ট্রি নম্বর, ফ্লাস্ক নম্বর, অর্ডার নম্বর বা পার্টি খুঁজুন...",
+  },
+
+  all_statuses: {
+    en: "All Statuses",
+    bn: "সব স্ট্যাটাস",
+  },
+
+  total_trees: {
+    en: "Total Trees",
+    bn: "মোট ট্রি",
+  },
+
+  total_tree_weight: {
+    en: "Total Tree Weight",
+    bn: "মোট ট্রি ওজন",
+  },
+
+  no_trees_found: {
+    en: "No trees found.",
+    bn: "কোনো ট্রি পাওয়া যায়নি।",
+  },
+
+  no_trees_hint: {
+    en: "Create a tree or change the search and status filter.",
+    bn: "নতুন ট্রি তৈরি করুন অথবা সার্চ ও স্ট্যাটাস ফিল্টার পরিবর্তন করুন।",
+  },
+
+  flask: {
+    en: "Flask",
+    bn: "ফ্লাস্ক",
+  },
+
+  actions: {
+    en: "Actions",
+    bn: "অ্যাকশন",
+  },
+
+  currently_editing: {
+    en: "Currently Editing",
+    bn: "বর্তমানে এডিট হচ্ছে",
+  },
+
+  deleting: {
+    en: "Deleting...",
+    bn: "ডিলিট হচ্ছে...",
+  },
+
+  view_items: {
+    en: "View Items",
+    bn: "আইটেম দেখুন",
+  },
+
+  hide_items: {
+    en: "Hide Items",
+    bn: "আইটেম লুকান",
+  },
+
+  total_qty: {
+    en: "Total Qty",
+    bn: "মোট পরিমাণ",
+  },
+
+  approx_total: {
+    en: "Approx Total",
+    bn: "মোট আনুমানিক",
+  },
 }
 
 export function LanguageProvider({ children }) {
