@@ -17,9 +17,10 @@ export default function CastingPage() {
   const router = useRouter();
 
   const [orders, setOrders] = useState([]);
-  const [selectedOrderIds, setSelectedOrderIds] = useState([]);
-  const [orderItems, setOrderItems] = useState([]);
-  const [selectedItems, setSelectedItems] = useState([]);
+const [trees, setTrees] = useState([]);
+const [treeItems, setTreeItems] = useState([]);
+const [selectedTreeId, setSelectedTreeId] = useState("");
+const [selectedItems, setSelectedItems] = useState([]);
 
   const [ktFormulas, setKtFormulas] = useState([]);
   const [inventoryItems, setInventoryItems] = useState([]);
@@ -44,9 +45,8 @@ function loadCastingDraft() {
 
     const draft = JSON.parse(savedDraft);
 
-    setSelectedOrderIds(draft.selectedOrderIds || []);
-    setOrderItems(draft.orderItems || []);
-    setSelectedItems(draft.selectedItems || []);
+    setSelectedTreeId(draft.selectedTreeId || "");
+setSelectedItems(draft.selectedItems || []);
 
     setSelectedKt(draft.selectedKt || "18KT");
     setTreeWeight(draft.treeWeight || "");
@@ -73,9 +73,8 @@ function saveCastingDraft() {
     setSavingDraft(true);
 
     const draftData = {
-      selectedOrderIds,
-      orderItems,
-      selectedItems,
+      selectedTreeId,
+selectedItems,
       selectedKt,
       treeWeight,
       actualMetalWeight,
@@ -101,83 +100,164 @@ function clearCastingDraft() {
 }
 
 async function fetchData() {
-    const { data: formulas } = await supabase
+  const [
+    formulasResult,
+    treesResult,
+    usedTreesResult,
+    invItemsResult,
+    invTxResult,
+  ] = await Promise.all([
+    supabase
       .from("kt_formulas")
       .select("*")
-      .eq("is_active", true);
+      .eq("is_active", true),
 
-    const { data: orderData } = await supabase
-      .from("orders")
-      .select("*")
-      .in("status", ["New", "Approved"])
-      .order("created_at", { ascending: false });
+    supabase
+      .from("casting_trees")
+      .select(`
+        id,
+        tree_no,
+        flask_no,
+        kt,
+        tree_weight,
+        tree_date,
+        burnout_date,
+        status,
+        remarks,
+        created_at
+      `)
+      .in("status", ["Planned", "Burnout", "Ready For Casting"])
+      .order("created_at", { ascending: false }),
 
-    const { data: invItems } = await supabase
+    supabase
+      .from("casting_batches")
+      .select("casting_tree_id")
+      .not("casting_tree_id", "is", null),
+
+    supabase
       .from("inventory_items")
       .select("*")
-      .eq("is_active", true);
+      .eq("is_active", true),
 
-    const { data: invTx } = await supabase
+    supabase
       .from("inventory_transactions")
-      .select("*, inventory_items(*)");
+      .select("*, inventory_items(*)"),
+  ]);
 
-    setKtFormulas(formulas || []);
-    setOrders(orderData || []);
-    setInventoryItems(invItems || []);
-    setInventoryTransactions(invTx || []);
+  if (treesResult.error) {
+    console.error("Casting trees load error:", treesResult.error);
   }
+
+  const usedTreeIds = new Set(
+    (usedTreesResult.data || [])
+      .map((row) => row.casting_tree_id)
+      .filter(Boolean)
+  );
+
+  const availableTrees = (treesResult.data || []).filter(
+    (tree) => !usedTreeIds.has(tree.id)
+  );
+
+  const availableTreeIds = availableTrees.map((tree) => tree.id);
+
+  let loadedTreeItems = [];
+
+  if (availableTreeIds.length > 0) {
+    const { data, error } = await supabase
+      .from("casting_tree_items")
+      .select(`
+        id,
+        casting_tree_id,
+        order_id,
+        order_item_id,
+        selected_quantity,
+        category,
+        sample_unique_id,
+        die_no,
+        approx_weight
+      `)
+      .in("casting_tree_id", availableTreeIds)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      console.error("Casting tree items load error:", error);
+    } else {
+      loadedTreeItems = data || [];
+    }
+  }
+
+  const orderIds = [
+    ...new Set(
+      loadedTreeItems
+        .map((item) => item.order_id)
+        .filter(Boolean)
+    ),
+  ];
+
+  let loadedOrders = [];
+
+  if (orderIds.length > 0) {
+    const { data, error } = await supabase
+      .from("orders")
+      .select(`
+        id,
+        order_no,
+        customer_name,
+        customer_mobile,
+        status
+      `)
+      .in("id", orderIds);
+
+    if (error) {
+      console.error("Tree orders load error:", error);
+    } else {
+      loadedOrders = data || [];
+    }
+  }
+
+  setKtFormulas(formulasResult.data || []);
+  setTrees(availableTrees);
+  setTreeItems(loadedTreeItems);
+  setOrders(loadedOrders);
+  setInventoryItems(invItemsResult.data || []);
+  setInventoryTransactions(invTxResult.data || []);
+}
 
 useEffect(() => {
   fetchData();
   loadCastingDraft();
 }, []);
 
-  async function loadOrderItems(orderIds) {
-    if (orderIds.length === 0) {
-      setOrderItems([]);
-      setSelectedItems([]);
-      return;
-    }
+const ordersById = useMemo(() => {
+  const map = {};
 
-    const { data } = await supabase
-      .from("order_items")
-      .select("*")
-      .in("order_id", orderIds);
+  orders.forEach((order) => {
+    map[order.id] = order;
+  });
 
-    setOrderItems(data || []);
-    setSelectedItems((prev) =>
-      prev.filter((x) => orderIds.includes(x.order_id))
-    );
-  }
+  return map;
+}, [orders]);
 
-  function getPurity(kt) {
-    if (kt === "24KT") return 99.5;
-    const formula = ktFormulas.find((k) => k.kt === kt);
-    return Number(formula?.gold_percent || 0);
-  }
+const selectedTree = useMemo(
+  () => trees.find((tree) => tree.id === selectedTreeId) || null,
+  [trees, selectedTreeId]
+);
 
-function getInventoryItemId(sourceType) {
-  if (sourceType === "Fine Gold") {
-    return inventoryItems.find(
-      (i) => i.item_type === "Gold" && i.item_name === "Gold Fine"
-    )?.id;
-  }
-
-  if (sourceType === "Scrap") {
-    return inventoryItems.find(
-      (i) => i.item_type === "Scrap" && i.item_name === "Casting Scrap"
-    )?.id;
-  }
-
-  if (sourceType === "Alloy") {
-    return inventoryItems.find(
-      (i) => i.item_type === "Metal" && i.item_name === "Alloy"
-    )?.id;
-  }
-
-  return null;
+function getTreeItems(treeId) {
+  return treeItems.filter(
+    (item) => item.casting_tree_id === treeId
+  );
 }
 
+function getTreeOrderIds(treeId) {
+  return [
+    ...new Set(
+      getTreeItems(treeId)
+        .map((item) => item.order_id)
+        .filter(Boolean)
+    ),
+  ];
+}
   function getStockBalance(inventoryItemId, kt) {
     let balance = 0;
 
@@ -332,35 +412,40 @@ function getInventoryItemId(sourceType) {
     };
   }, [metalInputs, targetMetal, targetPurity, ktFormulas]);
 
-  function toggleOrder(orderId) {
-    const updated = selectedOrderIds.includes(orderId)
-      ? selectedOrderIds.filter((id) => id !== orderId)
-      : [...selectedOrderIds, orderId];
+ function handleSelectTree(treeId) {
+  const tree = trees.find((row) => row.id === treeId);
 
-    setSelectedOrderIds(updated);
-    loadOrderItems(updated);
-  }
+  if (!tree) return;
 
-  function toggleItem(item) {
-    const exists = selectedItems.find((i) => i.id === item.id);
+  const allocatedItems = getTreeItems(treeId);
 
-    if (exists) {
-      setSelectedItems((prev) => prev.filter((i) => i.id !== item.id));
-    } else {
-      setSelectedItems((prev) => [
-        ...prev,
-        { ...item, selected_quantity: item.quantity || 1 },
-      ]);
-    }
-  }
+  setSelectedTreeId(treeId);
+  setSelectedKt(tree.kt || "18KT");
+  setTreeWeight(
+    tree.tree_weight === null ||
+      tree.tree_weight === undefined
+      ? ""
+      : String(tree.tree_weight)
+  );
+  setActualMetalWeight("");
 
-  function updateSelectedQty(itemId, qty) {
-    setSelectedItems((prev) =>
-      prev.map((item) =>
-        item.id === itemId ? { ...item, selected_quantity: qty } : item
-      )
-    );
-  }
+  setSelectedItems(
+    allocatedItems.map((item) => ({
+      ...item,
+      selected_quantity: Number(item.selected_quantity || 0),
+    }))
+  );
+
+  setMetalInputs((previous) =>
+    previous.map((input) => ({
+      ...input,
+      source_kt:
+        input.source_type === "Fine Gold"
+          ? "24KT"
+          : tree.kt || "18KT",
+    }))
+  );
+} 
 
   function addMetalInput() {
     setMetalInputs((prev) => [
@@ -429,8 +514,17 @@ function getInventoryItemId(sourceType) {
   }
 
   async function createBatch() {
-    if (!treeWeight) return alert("Enter tree weight");
-    if (selectedItems.length === 0) return alert("Select order items");
+   if (!selectedTreeId) {
+  return alert(t("select_tree_first"));
+}
+
+if (!treeWeight || Number(treeWeight) <= 0) {
+  return alert(t("enter_tree_weight"));
+}
+
+if (selectedItems.length === 0) {
+  return alert(t("tree_has_no_items"));
+}
 
     const stockErrors = validateStock();
 
@@ -458,8 +552,9 @@ function getInventoryItemId(sourceType) {
       .insert([
         {
   batch_no: batchNo,
-  order_id: selectedOrderIds[0],
-  kt: selectedKt,
+casting_tree_id: selectedTreeId,
+order_id: selectedItems[0]?.order_id || null,
+kt: selectedKt,
   tree_weight: Number(treeWeight || 0),
   suggested_metal_weight: suggestedMetalWeight,
   actual_metal_weight: targetMetal,
@@ -487,7 +582,7 @@ function getInventoryItemId(sourceType) {
       selectedItems.map((item) => ({
         casting_batch_id: batchId,
         order_id: item.order_id,
-        order_item_id: item.id,
+        order_item_id: item.order_item_id,
         category: item.category,
         sample_unique_id: item.sample_unique_id,
         die_no: item.die_no,
@@ -557,9 +652,12 @@ function getInventoryItemId(sourceType) {
     await supabase.from("inventory_transactions").insert(inventoryRows);
 
     await supabase
-      .from("orders")
-      .update({ status: "In Production" })
-      .in("id", [...new Set(selectedItems.map((i) => i.order_id))]);
+  .from("casting_trees")
+  .update({
+    status: "Casting",
+    updated_at: new Date().toISOString(),
+  })
+  .eq("id", selectedTreeId);
 
     alert(`Casting batch created: ${batchNo}`);
 
@@ -567,8 +665,7 @@ function getInventoryItemId(sourceType) {
     setTreeWeight("");
     setActualMetalWeight("");
     setMetalInputs([{ source_type: "Fine Gold", source_kt: "24KT", weight: "" }]);
-setSelectedOrderIds([]);
-setOrderItems([]);
+setSelectedTreeId("");
 setSelectedItems([]);
 
 clearCastingDraft();
@@ -591,119 +688,123 @@ router.push(`/factory/casting/dashboard?batch=${batchId}`);
       <div className="mx-auto max-w-7xl space-y-4">
         <Header t={t} />
 
-        <Card title={t("select_orders")}>
-          <div className="grid gap-2 md:grid-cols-3">
-            {orders.map((order) => (
-              <label
-                key={order.id}
-                className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 text-sm ${
-                  selectedOrderIds.includes(order.id)
-                    ? "border-black bg-slate-50"
-                    : "border-gray-200 bg-white"
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedOrderIds.includes(order.id)}
-                  onChange={() => toggleOrder(order.id)}
-                />
-                <div>
-                  <p className="font-semibold">{order.order_no}</p>
-                  <p className="text-xs text-gray-500">
-                    {order.customer_name || "-"} · {order.status}
-                  </p>
-                </div>
-              </label>
-            ))}
-          </div>
-        </Card>
+       <Card title={t("select_tree")}>
+  {trees.length === 0 ? (
+    <div className="rounded-xl border border-dashed border-gray-300 bg-slate-50 p-8 text-center">
+      <p className="text-sm font-bold text-gray-700">
+        {t("no_casting_trees")}
+      </p>
 
-        <Card
-  title={t("select_items")}
-  action={
-    orderItems.length > 0 && (
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={() =>
-            setSelectedItems(
-              orderItems.map((item) => ({
-                ...item,
-                selected_quantity: item.quantity || 1,
-              }))
-            )
-          }
-          className="rounded-xl bg-black px-3 py-2 text-xs font-semibold text-white"
-        >
-            {t("select_all")}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setSelectedItems([])}
-          className="rounded-xl bg-red-50 px-3 py-2 text-xs font-semibold text-red-700"
-        >
-          {t("unselect_all")}
-        </button>
-      </div>
-    )
-  }
->
-  {orderItems.length === 0 ? (
-    <p className="text-sm text-gray-500">{t("select_order_first")}</p>
+      <p className="mt-1 text-xs text-gray-500">
+        {t("no_casting_trees_hint")}
+      </p>
+    </div>
   ) : (
-    <div className="space-y-2">
-      {orderItems.map((item) => {
-        const selected = selectedItems.find((i) => i.id === item.id);
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      {trees.map((tree) => {
+        const items = getTreeItems(tree.id);
+        const orderIds = getTreeOrderIds(tree.id);
+        const selected = selectedTreeId === tree.id;
+
+        const totalQuantity = items.reduce(
+          (sum, item) =>
+            sum + Number(item.selected_quantity || 0),
+          0
+        );
 
         return (
-          <div
-            key={item.id}
-            className={`rounded-xl border p-3 ${
-              selected ? "border-black bg-slate-50" : "border-gray-200"
+          <button
+            key={tree.id}
+            type="button"
+            onClick={() => handleSelectTree(tree.id)}
+            className={`rounded-2xl border p-4 text-left transition ${
+              selected
+                ? "border-black bg-slate-100 ring-2 ring-slate-200"
+                : "border-gray-200 bg-white hover:border-gray-400"
             }`}
           >
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <label className="flex cursor-pointer items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={!!selected}
-                  onChange={() => toggleItem(item)}
-                />
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-base font-bold text-gray-950">
+                  {tree.tree_no}
+                </p>
 
-                <div>
-                  <p className="text-sm font-semibold">{item.category}</p>
-                  <p className="text-xs text-gray-500">
-                    {item.sample_unique_id || "-"} · Die {item.die_no || "-"} ·
-                    Wt {Number(item.approx_weight || 0).toFixed(3)}g
-                  </p>
-                </div>
-              </label>
+                <p className="mt-1 text-xs text-gray-500">
+                  {t("flask_no")}: {tree.flask_no || "-"} ·{" "}
+                  {tree.kt}
+                </p>
+              </div>
 
-              <input
-                type="number"
-                min="1"
-                max={item.quantity || 1}
-                value={selected?.selected_quantity || item.quantity || 1}
-                onChange={(e) => updateSelectedQty(item.id, e.target.value)}
-                className="w-20 rounded-lg border border-gray-300 bg-white p-2 text-sm"
+              <span
+                className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${
+                  selected
+                    ? "bg-black text-white"
+                    : "bg-slate-100 text-slate-700"
+                }`}
+              >
+                {selected ? t("tree_selected") : tree.status}
+              </span>
+            </div>
+
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              <MiniTreeStat
+                label={t("tree_weight")}
+                value={`${Number(tree.tree_weight || 0).toFixed(3)} g`}
+              />
+
+              <MiniTreeStat
+                label={t("items")}
+                value={items.length}
+              />
+
+              <MiniTreeStat
+                label={t("quantity")}
+                value={totalQuantity}
               />
             </div>
-          </div>
+
+            <div className="mt-3 border-t border-gray-100 pt-3">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">
+                {t("tree_orders")}
+              </p>
+
+              <div className="mt-2 space-y-1">
+                {orderIds.map((orderId) => {
+                  const order = ordersById[orderId];
+
+                  return (
+                    <p
+                      key={orderId}
+                      className="text-xs text-gray-700"
+                    >
+                      <span className="font-semibold">
+                        {order?.order_no || "-"}
+                      </span>
+
+                      {" · "}
+
+                      {order?.customer_name || "-"}
+                    </p>
+                  );
+                })}
+              </div>
+            </div>
+          </button>
         );
       })}
     </div>
   )}
-</Card>
+</Card> 
 
+        
         <Card title={t("batch_details")}>
           <div className="grid gap-3 md:grid-cols-4">
            <Field label={t("target_kt")}>
               <select
-                value={selectedKt}
-                onChange={(e) => setSelectedKt(e.target.value)}
-                className="input"
-              >
+  value={selectedKt}
+  className="input disabled:bg-slate-100 disabled:text-gray-700"
+  disabled
+>
                 {KARATS.map((k) => (
                   <option key={k}>{k}</option>
                 ))}
@@ -711,14 +812,20 @@ router.push(`/factory/casting/dashboard?batch=${batchId}`);
             </Field>
 
             <Field label={t("tree_weight")}>
-              <input
-                type="number"
-                step="0.001"
-                placeholder="0.000"
-                value={treeWeight}
-                onChange={(e) => setTreeWeight(e.target.value)}
-                className="input"
-              />
+              <div>
+  <input
+    type="number"
+    step="0.001"
+    placeholder="0.000"
+    value={treeWeight}
+    readOnly
+    className="input bg-slate-100 font-semibold text-gray-800"
+  />
+
+  <p className="mt-1 text-[10px] text-gray-500">
+    {t("tree_weight_auto")}
+  </p>
+</div>
             </Field>
 
             <Field label={t("actual_metal_weight")}>
@@ -950,6 +1057,20 @@ function Card({ title, children, action }) {
       </div>
       {children}
     </section>
+  );
+}
+
+function MiniTreeStat({ label, value }) {
+  return (
+    <div className="rounded-lg bg-slate-50 p-2">
+      <p className="text-[9px] font-semibold text-gray-500">
+        {label}
+      </p>
+
+      <p className="mt-1 text-xs font-bold text-gray-900">
+        {value}
+      </p>
+    </div>
   );
 }
 

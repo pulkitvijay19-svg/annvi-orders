@@ -389,16 +389,37 @@ casting_batch: {
       bn: "কাস্টিং ব্যাচ"
      },
 
-casting_subtitle: { en: "Select order items and calculate metal issue.", bn: "অর্ডার আইটেম নির্বাচন করুন এবং মেটাল ইস্যু হিসাব করুন।" },
+casting_subtitle: {
+  en: "Select a planned tree and calculate metal issue.",
+  bn: "একটি পরিকল্পিত ট্রি নির্বাচন করুন এবং মেটাল ইস্যু হিসাব করুন।"
+},
 casting_dashboard: { en: "Casting Dashboard", bn: "কাস্টিং ড্যাশবোর্ড" },
 inventory: { en: "Inventory", bn: "ইনভেন্টরি" },
-select_orders: { en: "1. Select Orders", bn: "১. অর্ডার নির্বাচন" },
+select_tree: {
+  en: "1. Select Tree",
+  bn: "১. ট্রি নির্বাচন"
+},
 select_items: { en: "2. Select Items", bn: "২. আইটেম নির্বাচন" },
-batch_details: { en: "3. Batch Details", bn: "৩. ব্যাচ ডিটেইলস" },
-metal_inputs: { en: "4. Metal Inputs", bn: "৪. মেটাল ইনপুট" },
-fine_gold_calculation: { en: "5. Fine Gold Calculation", bn: "৫. ফাইন গোল্ড হিসাব" },
-scrap_conversion_calculation: { en: "6. Scrap Conversion Calculation", bn: "৬. স্ক্র্যাপ কনভার্সন হিসাব" },
-final_total_calculation: { en: "7. Final Total Calculation", bn: "৭. ফাইনাল টোটাল হিসাব" },
+batch_details: {
+  en: "2. Batch Details",
+  bn: "২. ব্যাচ ডিটেইলস"
+},
+metal_inputs: {
+  en: "3. Metal Inputs",
+  bn: "৩. মেটাল ইনপুট"
+},
+fine_gold_calculation: {
+  en: "4. Fine Gold Calculation",
+  bn: "৪. ফাইন গোল্ড হিসাব"
+},
+scrap_conversion_calculation: {
+  en: "5. Scrap Conversion Calculation",
+  bn: "৫. স্ক্র্যাপ কনভার্সন হিসাব"
+},
+final_total_calculation: {
+  en: "6. Final Total Calculation",
+  bn: "৬. ফাইনাল টোটাল হিসাব"
+},
 target_kt: { en: "Target KT", bn: "টার্গেট ক্যারেট" },
 tree_weight: { en: "Tree Weight", bn: "ট্রি ওজন" },
 actual_metal_weight: { en: "Actual Metal Weight", bn: "আসল মেটাল ওজন" },
@@ -2172,6 +2193,66 @@ draft_save_failed: {
     en: "Approx Total",
     bn: "মোট আনুমানিক",
   },
+
+  select_tree_first: {
+  en: "Select a tree first.",
+  bn: "আগে একটি ট্রি নির্বাচন করুন।"
+},
+
+no_casting_trees: {
+  en: "No planned tree is available for casting.",
+  bn: "কাস্টিংয়ের জন্য কোনো পরিকল্পিত ট্রি উপলব্ধ নেই।"
+},
+
+no_casting_trees_hint: {
+  en: "Prepare a tree in Tree Planning or change its status to Burnout or Ready For Casting.",
+  bn: "ট্রি প্ল্যানিংয়ে একটি ট্রি তৈরি করুন অথবা তার স্ট্যাটাস বার্নআউট বা রেডি ফর কাস্টিং করুন।"
+},
+
+tree_items: {
+  en: "Tree Items",
+  bn: "ট্রি আইটেম"
+},
+
+tree_orders: {
+  en: "Orders in Tree",
+  bn: "ট্রিতে অর্ডার"
+},
+
+flask_no: {
+  en: "Flask No",
+  bn: "ফ্লাস্ক নম্বর"
+},
+
+tree_selected: {
+  en: "Tree Selected",
+  bn: "ট্রি নির্বাচিত"
+},
+
+tree_weight_auto: {
+  en: "Loaded automatically from Tree Planning.",
+  bn: "ট্রি প্ল্যানিং থেকে স্বয়ংক্রিয়ভাবে লোড হয়েছে।"
+},
+
+tree_already_used: {
+  en: "This tree has already been used for casting.",
+  bn: "এই ট্রিটি ইতিমধ্যে কাস্টিংয়ের জন্য ব্যবহার করা হয়েছে।"
+},
+
+tree_has_no_items: {
+  en: "The selected tree has no allocated items.",
+  bn: "নির্বাচিত ট্রিতে কোনো বরাদ্দ করা আইটেম নেই।"
+},
+
+select_tree: {
+  en: "Select Tree",
+  bn:  "ট্রি নির্বাচন"
+},
+
+tree_weight_auto: {
+  en:"Auto loaded from selected tree",
+  bn: "নির্বাচিত ট্রি থেকে স্বয়ংক্রিয়ভাবে লোড হয়েছে"
+},
 }
 
 export function LanguageProvider({ children }) {
