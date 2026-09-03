@@ -70,24 +70,206 @@ useEffect(() => {
     return true;
   }
 
-  async function markCastingFail(batch) {
-    const recoveredWeight = prompt("Recovered metal weight daalo");
-    if (recoveredWeight === null) return;
+ async function markCastingFail(batch) {
+  const recoveredWeight = prompt(
+    "Casting fail ke baad recovered metal weight daalo"
+  );
 
-    const issueWeight = Number(batch.actual_metal_weight || 0);
-    const recovered = Number(recoveredWeight || 0);
+  if (recoveredWeight === null) return;
+
+  const issueWeight = Number(
+    batch.actual_metal_weight || 0
+  );
+
+  const recovered = Number(recoveredWeight || 0);
+
+  if (
+    !Number.isFinite(recovered) ||
+    recovered < 0 ||
+    recovered > issueWeight
+  ) {
+    alert(
+      `Recovered weight 0 se ${issueWeight.toFixed(
+        3
+      )} g ke beech hona chahiye.`
+    );
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `Casting Fail confirm karein?\n\n` +
+      `Issued Metal: ${issueWeight.toFixed(3)} g\n` +
+      `Recovered Scrap: ${recovered.toFixed(3)} g\n` +
+      `Casting Loss: ${(issueWeight - recovered).toFixed(
+        3
+      )} g\n\n` +
+      `Recovered metal Casting Scrap inventory me add hoga aur order Tree Planning me wapas available ho jayega.`
+  );
+
+  if (!confirmed) return;
+
+  try {
     const loss = issueWeight - recovered;
 
-    const ok = await updateBatch(batch.id, {
-      casting_failed: true,
-      received_weight: recovered,
-      scrap_weight: 0,
-      casting_loss: loss,
-      status: "Casting Failed",
-    });
+    // -----------------------------------------
+    // 1. Find Casting Scrap inventory item
+    // -----------------------------------------
+    const { data: scrapItem, error: scrapItemError } =
+      await supabase
+        .from("inventory_items")
+        .select("id, item_name, item_type")
+        .eq("item_type", "Scrap")
+        .eq("item_name", "Casting Scrap")
+        .maybeSingle();
 
-    if (ok) alert("Casting failed marked");
+    if (scrapItemError) {
+      throw scrapItemError;
+    }
+
+    if (!scrapItem?.id) {
+      throw new Error(
+        'Inventory master me "Casting Scrap" item nahi mila.'
+      );
+    }
+
+    // -----------------------------------------
+    // 2. Recovered metal → Scrap Stock In
+    // -----------------------------------------
+    if (recovered > 0) {
+      const { error: inventoryError } =
+        await supabase
+          .from("inventory_transactions")
+          .insert([
+            {
+              inventory_item_id: scrapItem.id,
+              kt: batch.kt,
+              transaction_type: "Stock In",
+              purpose: "Casting Fail Recovery",
+              reference_no: batch.batch_no,
+              weight: recovered,
+              quantity: 0,
+              weight_source: "manual",
+              remarks: `Recovered metal from failed casting batch ${batch.batch_no}`,
+            },
+          ]);
+
+      if (inventoryError) {
+        throw inventoryError;
+      }
+    }
+
+    // -----------------------------------------
+    // 3. Collect all orders from this batch
+    // -----------------------------------------
+    const batchItems =
+      batch.casting_batch_items || [];
+
+    const orderIds = [
+      ...new Set(
+        batchItems
+          .map((item) => item.order_id)
+          .filter(Boolean)
+      ),
+    ];
+
+    // -----------------------------------------
+    // 4. Release Tree Planning allocations
+    // -----------------------------------------
+    if (batch.casting_tree_id) {
+      const { error: releaseError } =
+        await supabase
+          .from("casting_tree_items")
+          .delete()
+          .eq(
+            "casting_tree_id",
+            batch.casting_tree_id
+          );
+
+      if (releaseError) {
+        throw releaseError;
+      }
+
+      // Keep tree record only for history,
+      // but do not show it as an available tree.
+      const { data: updatedTree, error: treeError } =
+  await supabase
+    .from("casting_trees")
+    .update({
+      status: "Casting Failed",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", batch.casting_tree_id)
+    .select("id, tree_no, status")
+    .single();
+
+if (treeError) {
+  throw treeError;
+}
+
+if (!updatedTree) {
+  throw new Error(
+    "Failed casting tree status could not be updated."
+  );
+}
+    }
+
+    // -----------------------------------------
+    // 5. Return orders to Tree Planning
+    // -----------------------------------------
+    if (orderIds.length > 0) {
+      const { error: ordersError } =
+        await supabase
+          .from("orders")
+          .update({
+            status: "Approved",
+            updated_at: new Date().toISOString(),
+          })
+          .in("id", orderIds);
+
+      if (ordersError) {
+        throw ordersError;
+      }
+    }
+
+    // -----------------------------------------
+    // 6. Mark casting batch failed
+    // -----------------------------------------
+    const { error: batchError } =
+      await supabase
+        .from("casting_batches")
+        .update({
+          casting_failed: true,
+          received_weight: 0,
+          scrap_weight: recovered,
+          casting_loss: loss,
+          status: "Casting Failed",
+          current_process: "casting_failed",
+        })
+        .eq("id", batch.id);
+
+    if (batchError) {
+      throw batchError;
+    }
+
+    alert(
+      `Casting Failed.\n\n${recovered.toFixed(
+        3
+      )} g added to Casting Scrap.\nOrder released back to Tree Planning.`
+    );
+
+    await fetchBatches();
+  } catch (error) {
+    console.error(
+      "Casting fail processing error:",
+      error
+    );
+
+    alert(
+      error?.message ||
+        "Casting fail process complete nahi ho saka."
+    );
   }
+}
 
 async function moveToMagnet(batch) {
   if (batch.status !== "Casting Completed") {

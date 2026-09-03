@@ -64,13 +64,24 @@ export default function TreeForm({
     0
   );
 
-  const selectedApproxWeight = selectedTreeItems.reduce(
-    (sum, item) =>
+const selectedApproxWeight = selectedTreeItems.reduce(
+  (sum, item) => {
+    const orderedQty = Math.max(
+      safeNumber(item.order_quantity || item.quantity),
+      1
+    );
+
+    const approxWeightPerPiece =
+      safeNumber(item.approx_weight) / orderedQty;
+
+    return (
       sum +
       safeNumber(item.selected_quantity) *
-        safeNumber(item.approx_weight),
-    0
-  );
+        approxWeightPerPiece
+    );
+  },
+  0
+);
 
   const totalSelectedQty = selectedTreeItems.reduce(
     (sum, item) => sum + safeNumber(item.selected_quantity),
@@ -170,15 +181,19 @@ export default function TreeForm({
 
             <div className="form-field">
               <label className="tp-label">
-                {t("tree_kt")}
-              </label>
+  {t("tree_kt")}
+</label>
 
               <select
-                className="tp-select"
-                value={kt}
-                onChange={(event) => setKt(event.target.value)}
-              >
-                {ktOptions.map((option) => (
+  className="tp-select"
+  value={kt}
+  onChange={(event) => setKt(event.target.value)}
+>
+  <option value="" disabled>
+    Select KT
+  </option>
+
+  {ktOptions.map((option) => (
                   <option key={option} value={option}>
                     {option}
                   </option>
@@ -188,7 +203,7 @@ export default function TreeForm({
 
             <div className="form-field">
               <label className="tp-label">
-                {t("tree_kt")}
+                {t("tree_weight")}
               </label>
 
               <div className="weight-input-row">
@@ -315,9 +330,20 @@ export default function TreeForm({
           ) : (
             <div className="selected-tree-items-list">
               {selectedTreeItems.map((item, index) => {
-                const itemApproxTotal =
-                  safeNumber(item.selected_quantity) *
-                  safeNumber(item.approx_weight);
+const orderedQty = Math.max(
+  safeNumber(item.order_quantity || item.quantity),
+  1
+);
+
+const approxWeightPerPiece =
+  safeNumber(item.approx_weight) / orderedQty;
+
+const itemApproxTotal =
+  safeNumber(item.approx_weight) *
+  (
+    safeNumber(item.selected_quantity) /
+    orderedQty
+  );
 
                 return (
                   <article
@@ -359,7 +385,7 @@ export default function TreeForm({
                       </span>
 
                       <span>
-                       {t("sample")}:
+                       {t("die")}:
                         <b>{item.die_no || "-"}</b>
                       </span>
 
@@ -398,23 +424,23 @@ export default function TreeForm({
                       </div>
 
                       <div>
-                        <label>{t("approx_weight_each")}</label>
+<label>{t("approx_total_weight")}</label>
 
-                        <div className="readonly-value">
-                          {formatNumber(item.approx_weight)} g
-                        </div>
+<div className="readonly-value">
+  {formatNumber(itemApproxTotal)} g
+</div>
 
-                        <small>{t("from_order_item")}</small>
-                      </div>
+<small>
+  Weight allocated to this tree
+</small>
 
-                      <div>
-                       <label>{t("approx_total_weight")}</label>
+<label>{t("approx_total_weight")}</label>
 
                         <div className="readonly-value">
                           {formatNumber(itemApproxTotal)} g
                         </div>
 
-                        <small>{t("qty_approx_formula")}</small>
+                        
                       </div>
 
                      

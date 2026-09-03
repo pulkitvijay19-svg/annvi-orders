@@ -4,25 +4,97 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../../lib/supabaseClient";
 import MobileBottomNav from "../../components/MobileBottomNav";
+
+
 export default function FactoryPage() {
   const [counts, setCounts] = useState({});
 
   const processes = [
-    { name: "Casting", href: "/factory/casting", status: "Casting", icon: "🔥" },
-    { name: "Casting Dashboard", href: "/factory/casting/dashboard", status: "Casting Completed", icon: "📊" },
-    { name: "Magnet", href: "/factory/magnet/dashboard", status: "Magnet", icon: "🧲" },
-    { name: "Filing / Bench", href: "/factory/bench/dashboard", status: "Filing", icon: "🛠️" },
-    { name: "Pre Polish", href: "/factory/pre-polish/dashboard", status: "Pre Polish", icon: "✨" },
-    { name: "Final Repair", href: "/factory/final-repair/dashboard", status: "Final Repair", icon: "🔧" },
-    { name: "Stone Setting", href: "/factory/stone-setting/dashboard", status: "Stone Setting", icon: "💎" },
-    { name: "Buff", href: "/factory/buff/dashboard", status: "Buff", icon: "🌀" },
-    { name: "Final QC", href: "/factory/final-qc/dashboard", status: "Final Inspection QC", icon: "✅" },
-    { name: "Rhodium", href: "/factory/rhodium/dashboard", status: "Rhodium / Plating", icon: "⚗️" },
-    { name: "Tag Print", href: "/factory/tag-print/dashboard", status: "Tag Print", icon: "🏷️" },
-    { name: "Sale", href: "/factory/sale/dashboard", status: "Sale", icon: "🧾" },
-    { name: "Buff Bag", href: "/factory/buff-bag", status: "Buff Bag", icon: "🧹" },
-    { name: "Manufacturing Dashboard", href: "/factory/manufacturing-dashboard", status: "Dashboard", icon: "📊"}
-  ];
+  {
+    name: "Tree Planning",
+    href: "/factory/tree-planning",
+    status: "Tree Planning",
+    icon: "🌳",
+  },
+  {
+    name: "Casting",
+    href: "/factory/casting",
+    status: "Casting",
+    icon: "🔥",
+  },
+  {
+    name: "Casting Dashboard",
+    href: "/factory/casting/dashboard",
+    status: "Casting Completed",
+    icon: "📊",
+  },
+  {
+    name: "Magnet",
+    href: "/factory/magnet/dashboard",
+    status: "Magnet",
+    icon: "🧲",
+  },
+  {
+    name: "Filing / Bench",
+    href: "/factory/bench/dashboard",
+    status: "Filing",
+    icon: "🛠️",
+  },
+  {
+    name: "Pre Polish",
+    href: "/factory/pre-polish/dashboard",
+    status: "Pre Polish",
+    icon: "✨",
+  },
+  {
+    name: "Final Repair",
+    href: "/factory/final-repair/dashboard",
+    status: "Final Repair",
+    icon: "🔧",
+  },
+  {
+    name: "Stone Setting",
+    href: "/factory/stone-setting/dashboard",
+    status: "Stone Setting",
+    icon: "💎",
+  },
+  {
+    name: "Buff",
+    href: "/factory/buff/dashboard",
+    status: "Buff",
+    icon: "🌀",
+  },
+  {
+    name: "Final QC",
+    href: "/factory/final-qc/dashboard",
+    status: "Final Inspection QC",
+    icon: "✅",
+  },
+  {
+    name: "Rhodium",
+    href: "/factory/rhodium/dashboard",
+    status: "Rhodium / Plating",
+    icon: "⚗️",
+  },
+  {
+    name: "Tag Print",
+    href: "/factory/tag-print/dashboard",
+    status: "Tag Print",
+    icon: "🏷️",
+  },
+  {
+    name: "Sale",
+    href: "/factory/sale/dashboard",
+    status: "Sale",
+    icon: "🧾",
+  },
+  {
+    name: "Buff Bag",
+    href: "/factory/buff-bag",
+    status: "Buff Bag",
+    icon: "🧹",
+  },
+];
 
 
   

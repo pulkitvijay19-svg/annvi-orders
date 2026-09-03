@@ -436,13 +436,10 @@ export default function OrdersPanel({
                                 ];
 
                               const itemKtMatches =
-                                !item.gold_kt ||
-                                String(
-                                  item.gold_kt
-                                ).toLowerCase() ===
-                                  String(
-                                    kt
-                                  ).toLowerCase();
+  !kt ||
+  !item.gold_kt ||
+  String(item.gold_kt).toLowerCase() ===
+    String(kt).toLowerCase();
 
                               const noRemaining =
                                 safeNumber(
@@ -729,11 +726,10 @@ export default function OrdersPanel({
                           ];
 
                         const itemKtMatches =
-                          !item.gold_kt ||
-                          String(
-                            item.gold_kt
-                          ).toLowerCase() ===
-                            String(kt).toLowerCase();
+  !kt ||
+  !item.gold_kt ||
+  String(item.gold_kt).toLowerCase() ===
+    String(kt).toLowerCase();
 
                         const disabled =
                           safeNumber(
@@ -908,11 +904,10 @@ export default function OrdersPanel({
                       selectedAllocations?.[item.id];
 
                     const itemKtMatches =
-                      !item.gold_kt ||
-                      String(
-                        item.gold_kt
-                      ).toLowerCase() ===
-                        String(kt).toLowerCase();
+  !kt ||
+  !item.gold_kt ||
+  String(item.gold_kt).toLowerCase() ===
+    String(kt).toLowerCase();
 
                     const disabled =
                       safeNumber(

@@ -26,7 +26,7 @@ const [selectedItems, setSelectedItems] = useState([]);
   const [inventoryItems, setInventoryItems] = useState([]);
   const [inventoryTransactions, setInventoryTransactions] = useState([]);
 
-  const [selectedKt, setSelectedKt] = useState("18KT");
+  const [selectedKt, setSelectedKt] = useState("");
   const [treeWeight, setTreeWeight] = useState("");
   const [actualMetalWeight, setActualMetalWeight] = useState("");
 
@@ -99,6 +99,25 @@ function clearCastingDraft() {
   localStorage.removeItem("casting_page_draft");
 }
 
+function resetCastingForm() {
+  clearCastingDraft();
+
+  setSelectedTreeId("");
+  setSelectedItems([]);
+
+  setSelectedKt("");
+  setTreeWeight("");
+  setActualMetalWeight("");
+
+  setMetalInputs([
+    {
+      source_type: "Fine Gold",
+      source_kt: "24KT",
+      weight: "",
+    },
+  ]);
+}
+
 async function fetchData() {
   const [
     formulasResult,
@@ -126,7 +145,12 @@ async function fetchData() {
         remarks,
         created_at
       `)
-      .in("status", ["Planned", "Burnout", "Ready For Casting"])
+      .in("status", [
+  "Planned",
+  "Burnout",
+  "Ready For Casting",
+  "Casting",
+])
       .order("created_at", { ascending: false }),
 
     supabase
@@ -215,17 +239,55 @@ async function fetchData() {
     }
   }
 
-  setKtFormulas(formulasResult.data || []);
-  setTrees(availableTrees);
-  setTreeItems(loadedTreeItems);
-  setOrders(loadedOrders);
-  setInventoryItems(invItemsResult.data || []);
-  setInventoryTransactions(invTxResult.data || []);
+setKtFormulas(formulasResult.data || []);
+setTrees(availableTrees);
+setTreeItems(loadedTreeItems);
+setOrders(loadedOrders);
+setInventoryItems(invItemsResult.data || []);
+setInventoryTransactions(invTxResult.data || []);
+
+return availableTrees;
 }
 
 useEffect(() => {
-  fetchData();
-  loadCastingDraft();
+  async function initializeCastingPage() {
+    const availableTrees = await fetchData();
+
+    const savedDraft = localStorage.getItem(
+      "casting_page_draft"
+    );
+
+    if (!savedDraft) {
+      resetCastingForm();
+      return;
+    }
+
+    try {
+      const draft = JSON.parse(savedDraft);
+
+      const draftTreeStillAvailable =
+        availableTrees.some(
+          (tree) =>
+            tree.id === draft.selectedTreeId
+        );
+
+      if (!draftTreeStillAvailable) {
+        resetCastingForm();
+        return;
+      }
+
+      loadCastingDraft();
+    } catch (error) {
+      console.error(
+        "Casting draft restore error:",
+        error
+      );
+
+      resetCastingForm();
+    }
+  }
+
+  initializeCastingPage();
 }, []);
 
 const ordersById = useMemo(() => {
@@ -258,6 +320,45 @@ function getTreeOrderIds(treeId) {
     ),
   ];
 }
+
+function getPurity(kt) {
+  if (kt === "24KT") return 99.5;
+
+  const formula = ktFormulas.find(
+    (item) => item.kt === kt
+  );
+
+  return Number(formula?.gold_percent || 0);
+}
+
+function getInventoryItemId(sourceType) {
+  if (sourceType === "Fine Gold") {
+    return inventoryItems.find(
+      (item) =>
+        item.item_type === "Gold" &&
+        item.item_name === "Gold Fine"
+    )?.id;
+  }
+
+  if (sourceType === "Scrap") {
+    return inventoryItems.find(
+      (item) =>
+        item.item_type === "Scrap" &&
+        item.item_name === "Casting Scrap"
+    )?.id;
+  }
+
+  if (sourceType === "Alloy") {
+    return inventoryItems.find(
+      (item) =>
+        item.item_type === "Metal" &&
+        item.item_name === "Alloy"
+    )?.id;
+  }
+
+  return null;
+}
+
   function getStockBalance(inventoryItemId, kt) {
     let balance = 0;
 
@@ -548,28 +649,43 @@ if (selectedItems.length === 0) {
     const batchNo = "CB-" + Date.now().toString().slice(-6);
 
     const { data: batchData, error } = await supabase
-      .from("casting_batches")
-      .insert([
-        {
-  batch_no: batchNo,
-casting_tree_id: selectedTreeId,
-order_id: selectedItems[0]?.order_id || null,
-kt: selectedKt,
-  tree_weight: Number(treeWeight || 0),
-  suggested_metal_weight: suggestedMetalWeight,
-  actual_metal_weight: targetMetal,
-  target_gold_percent: Number(selectedFormula?.gold_percent || 0),
-  alloy_required: calculations.totalAlloyRequired,
-  fine_995_required: calculations.total995Required,
-  total_target_metal_generated: calculations.generatedMetal,
-  remaining_target_metal: calculations.remainingMetal,
-  created_by: user?.id || null,
-  status: "Casting",
-  current_process: "casting",
-},
-      ])
-      .select()
-      .single();
+  .from("casting_batches")
+  .insert([
+    {
+      batch_no: batchNo,
+      casting_tree_id: selectedTreeId,
+      order_id: selectedItems[0]?.order_id || null,
+
+      kt: selectedKt,
+
+      tree_weight: Number(treeWeight || 0),
+
+      suggested_metal_weight: suggestedMetalWeight,
+
+      // Actual target-KT metal that was really generated
+      actual_metal_weight: calculations.generatedMetal,
+
+      target_gold_percent: Number(
+        selectedFormula?.gold_percent || 0
+      ),
+
+      alloy_required: calculations.totalAlloyRequired,
+      fine_995_required: calculations.total995Required,
+
+      total_target_metal_generated:
+        calculations.generatedMetal,
+
+      remaining_target_metal:
+        calculations.remainingMetal,
+
+      created_by: user?.id || null,
+
+      status: "Casting",
+      current_process: "casting",
+    },
+  ])
+  .select()
+  .single();
 
     if (error) {
       setSaving(false);
@@ -805,7 +921,11 @@ router.push(`/factory/casting/dashboard?batch=${batchId}`);
   className="input disabled:bg-slate-100 disabled:text-gray-700"
   disabled
 >
-                {KARATS.map((k) => (
+  <option value="">
+    Select Tree First
+  </option>
+
+  {KARATS.map((k) => (
                   <option key={k}>{k}</option>
                 ))}
               </select>
@@ -982,7 +1102,16 @@ router.push(`/factory/casting/dashboard?batch=${batchId}`);
         </Card>
       </div>
 
-<div className="fixed bottom-20 left-3 right-3 z-40 grid grid-cols-2 gap-3 md:static md:mx-auto md:mt-5 md:max-w-7xl">
+<div className="fixed bottom-20 left-3 right-3 z-40 grid grid-cols-3 gap-3 md:static md:mx-auto md:mt-5 md:max-w-7xl">
+  <button
+  type="button"
+  disabled={saving || savingDraft}
+  onClick={resetCastingForm}
+  className="rounded-2xl border border-gray-300 bg-white p-4 text-sm font-semibold text-gray-900 shadow-xl disabled:bg-gray-200"
+>
+  Reset
+</button>
+  
   <button
     type="button"
     disabled={savingDraft || saving}

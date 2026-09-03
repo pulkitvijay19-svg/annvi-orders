@@ -10,6 +10,8 @@ import { enablePushNotifications } from "../../lib/pushNotifications";
 import { useLanguage } from "../../context/LanguageContext";
 
 export default function DashboardPage() {
+  const router = useRouter();
+
   const { t } = useLanguage();
   const { user, loading: authLoading } = useRequireAuth();
 
@@ -288,6 +290,20 @@ async function stopBridge(type) {
     🏭 {t("manufacturing")}
   </Link>
 )}
+
+<Link
+  href="/factory/inventory"
+  className="rounded-xl bg-green-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-green-700"
+>
+  📦 {t("inventory")}
+</Link>
+
+<Link
+  href="/factory/manufacturing-dashboard"
+  className="rounded-xl bg-amber-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-amber-700"
+>
+  ✨ {t("manufacturing_dashboard")}
+</Link>
 
           </div>
         </div>

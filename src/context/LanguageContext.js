@@ -2253,6 +2253,12 @@ tree_weight_auto: {
   en:"Auto loaded from selected tree",
   bn: "নির্বাচিত ট্রি থেকে স্বয়ংক্রিয়ভাবে লোড হয়েছে"
 },
+
+manufacturing_dashboard: {
+  en: "Manufacturing Dashboard",
+  bn: "ম্যানুফ্যাকচারিং ড্যাশবোর্ড"
+},
+
 }
 
 export function LanguageProvider({ children }) {

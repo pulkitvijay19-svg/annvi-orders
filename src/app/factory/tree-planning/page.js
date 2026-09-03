@@ -18,8 +18,6 @@ const TREE_STATUSES = [
   "Planned",
   "Burnout",
   "Ready For Casting",
-  "Casting",
-  "Completed",
 ];
 
 const KT_OPTIONS = ["9KT", "14KT", "18KT", "20KT", "22KT"];
@@ -27,6 +25,25 @@ const KT_OPTIONS = ["9KT", "14KT", "18KT", "20KT", "22KT"];
 function safeNumber(value) {
   const number = Number(value);
   return Number.isFinite(number) ? number : 0;
+}
+
+function getAllocatedApproxWeight(item) {
+  const orderedQty = Math.max(
+    safeNumber(item.order_quantity || item.quantity),
+    1
+  );
+
+  const selectedQty = safeNumber(
+    item.selected_quantity
+  );
+
+  const fullOrderApproxWeight =
+    safeNumber(item.approx_weight);
+
+  return (
+    fullOrderApproxWeight *
+    (selectedQty / orderedQty)
+  );
 }
 
 function todayDate() {
@@ -86,6 +103,11 @@ export default function TreePlanningPage() {
   const [treeSearch, setTreeSearch] = useState("");
   const [treeStatusFilter, setTreeStatusFilter] = useState("All");
 
+  const [
+  treeTableResetKey,
+  setTreeTableResetKey,
+] = useState(0);
+
   /* =========================================================
      ORDER SELECTION / COMBINE ORDERS
   ========================================================= */
@@ -116,7 +138,7 @@ export default function TreePlanningPage() {
 
   const [treeNo, setTreeNo] = useState("");
   const [flaskNo, setFlaskNo] = useState("");
-  const [kt, setKt] = useState("18KT");
+  const [kt, setKt] = useState("");
   const [treeWeight, setTreeWeight] = useState("");
   const [treeDate, setTreeDate] = useState(todayDate());
   const [burnoutDate, setBurnoutDate] = useState("");
@@ -154,8 +176,12 @@ export default function TreePlanningPage() {
      FETCH ORDERS
   ========================================================= */
 
-  const fetchOrders = useCallback(async () => {
-    const { data, error } = await supabase
+const fetchOrders = useCallback(async () => {
+  // -------------------------------------------------------
+  // 1. Normal Tree Planning orders
+  // -------------------------------------------------------
+  const { data: normalOrders, error: normalError } =
+    await supabase
       .from("orders")
       .select(`
         id,
@@ -173,12 +199,115 @@ export default function TreePlanningPage() {
       .in("status", ["New", "Approved"])
       .order("created_at", { ascending: false });
 
-    if (error) {
-      throw new Error(getErrorMessage(error, "Unable to load orders."));
+  if (normalError) {
+    throw new Error(
+      getErrorMessage(
+        normalError,
+        "Unable to load normal Tree Planning orders."
+      )
+    );
+  }
+
+  // -------------------------------------------------------
+  // 2. Find orders whose Casting has FAILED
+  //
+  // Even if their order.status did not get changed back
+  // correctly, they must return to Tree Planning.
+  // -------------------------------------------------------
+  const { data: failedBatches, error: failedBatchError } =
+    await supabase
+      .from("casting_batches")
+      .select(`
+        id,
+        status,
+        casting_failed,
+        casting_batch_items(
+          order_id
+        )
+      `)
+      .eq("casting_failed", true)
+      .eq("status", "Casting Failed");
+
+  if (failedBatchError) {
+    throw new Error(
+      getErrorMessage(
+        failedBatchError,
+        "Unable to load failed casting orders."
+      )
+    );
+  }
+
+  const failedOrderIds = [
+    ...new Set(
+      (failedBatches || [])
+        .flatMap(
+          (batch) => batch.casting_batch_items || []
+        )
+        .map((item) => item.order_id)
+        .filter(Boolean)
+    ),
+  ];
+
+  let failedOrders = [];
+
+  // -------------------------------------------------------
+  // 3. Load failed-casting orders regardless of
+  //    their current order status
+  // -------------------------------------------------------
+  if (failedOrderIds.length > 0) {
+    const {
+      data: failedOrderRows,
+      error: failedOrdersError,
+    } = await supabase
+      .from("orders")
+      .select(`
+        id,
+        order_no,
+        customer_name,
+        customer_mobile,
+        delivery_date,
+        priority,
+        status,
+        remarks,
+        created_at,
+        created_by,
+        created_by_name
+      `)
+      .in("id", failedOrderIds);
+
+    if (failedOrdersError) {
+      throw new Error(
+        getErrorMessage(
+          failedOrdersError,
+          "Unable to reload failed casting orders."
+        )
+      );
     }
 
-    setOrders(data || []);
-  }, []);
+    failedOrders = failedOrderRows || [];
+  }
+
+  // -------------------------------------------------------
+  // 4. Merge without duplicate orders
+  // -------------------------------------------------------
+  const orderMap = new Map();
+
+  [...(normalOrders || []), ...failedOrders].forEach(
+    (order) => {
+      orderMap.set(order.id, order);
+    }
+  );
+
+  const mergedOrders = Array.from(
+    orderMap.values()
+  ).sort(
+    (a, b) =>
+      new Date(b.created_at || 0) -
+      new Date(a.created_at || 0)
+  );
+
+  setOrders(mergedOrders);
+}, []);
 
   /* =========================================================
      FETCH ORDER ITEMS
@@ -411,26 +540,47 @@ export default function TreePlanningPage() {
      This allows the user to retain or modify its current qty.
   ========================================================= */
 
-  const allocatedQtyByOrderItemId = useMemo(() => {
-    const map = {};
+const allocatedQtyByOrderItemId = useMemo(() => {
+  const map = {};
 
-    allTreeItems.forEach((treeItem) => {
-      if (
-        editingTreeId &&
-        treeItem.casting_tree_id === editingTreeId
-      ) {
-        return;
-      }
+  allTreeItems.forEach((treeItem) => {
+    const parentTree =
+      treesById[treeItem.casting_tree_id];
 
-      const itemId = treeItem.order_item_id;
+    // -----------------------------------------------------
+    // FAILED CASTING:
+    // Its previous allocation must NOT consume the order.
+    // Order quantity becomes available for a fresh tree.
+    // -----------------------------------------------------
+    if (
+      normalizeText(parentTree?.status) ===
+      "casting failed"
+    ) {
+      return;
+    }
 
-      map[itemId] =
-        safeNumber(map[itemId]) +
-        safeNumber(treeItem.selected_quantity);
-    });
+    // Current tree being edited is also excluded,
+    // because its allocation is editable.
+    if (
+      editingTreeId &&
+      treeItem.casting_tree_id === editingTreeId
+    ) {
+      return;
+    }
 
-    return map;
-  }, [allTreeItems, editingTreeId]);
+    const itemId = treeItem.order_item_id;
+
+    map[itemId] =
+      safeNumber(map[itemId]) +
+      safeNumber(treeItem.selected_quantity);
+  });
+
+  return map;
+}, [
+  allTreeItems,
+  editingTreeId,
+  treesById,
+]);
 
   /* =========================================================
      ENRICHED ORDER ITEMS WITH REMAINING QUANTITY
@@ -648,12 +798,8 @@ export default function TreePlanningPage() {
           item.selected_quantity
         );
 
-        const approxWeightEach = safeNumber(
-          item.approx_weight
-        );
-
         const calculatedApproxWeight =
-          selectedQty * approxWeightEach;
+  getAllocatedApproxWeight(item);
 
         totals.totalItems += 1;
         totals.totalQuantity += selectedQty;
@@ -680,13 +826,27 @@ export default function TreePlanningPage() {
      TREE SEARCH AND FILTER
   ========================================================= */
 
-  const filteredTrees = useMemo(() => {
-    const query = normalizeText(treeSearch);
+const filteredTrees = useMemo(() => {
+  const query = normalizeText(treeSearch);
 
-    return trees.filter((tree) => {
-      const matchesStatus =
-        treeStatusFilter === "All" ||
-        tree.status === treeStatusFilter;
+  return trees.filter((tree) => {
+    // Tree Planning list me sirf actionable trees.
+    // Casting / Completed trees history me DB me rahenge,
+    // lekin planning screen par nahi dikhenge.
+    const visibleStatuses = [
+      "Draft",
+      "Planned",
+      "Burnout",
+      "Ready For Casting",
+    ];
+
+    if (!visibleStatuses.includes(tree.status)) {
+      return false;
+    }
+
+    const matchesStatus =
+      treeStatusFilter === "All" ||
+      tree.status === treeStatusFilter;
 
       const relatedItems =
         treeItemsByTreeId[tree.id] || [];
@@ -774,8 +934,15 @@ export default function TreePlanningPage() {
       setExpandedOrderIds([]);
       setSelectedAllocations({});
 
+      setTreeSearch("");
+setTreeStatusFilter("All");
+
+setTreeTableResetKey(
+  (previous) => previous + 1
+);
+
       setFlaskNo("");
-      setKt("18KT");
+      setKt("");
       setTreeWeight("");
       setTreeDate(todayDate());
       setBurnoutDate("");
@@ -894,74 +1061,126 @@ export default function TreePlanningPage() {
      SELECT / REMOVE TREE ITEM
   ========================================================= */
 
-  function toggleItemSelection(item) {
-    clearAlerts();
+function toggleItemSelection(item) {
+  clearAlerts();
 
-    const alreadySelected = Boolean(
-      selectedAllocations[item.id]
-    );
+  const alreadySelected = Boolean(
+    selectedAllocations[item.id]
+  );
 
-    if (alreadySelected) {
-      setSelectedAllocations((previous) => {
-        const next = { ...previous };
-        delete next[item.id];
-        return next;
-      });
+  if (alreadySelected) {
+    setSelectedAllocations((previous) => {
+      const next = { ...previous };
+      delete next[item.id];
 
-      return;
-    }
+      // If this was the last selected item,
+      // clear Tree KT so next tree starts fresh.
+      if (Object.keys(next).length === 0 && !editingTreeId) {
+        setKt("");
+      }
 
-    if (item.remaining_quantity <= 0) {
-      showError(
-        `${item.sample_unique_id || item.category} has no remaining quantity.`
-      );
-      return;
-    }
+      return next;
+    });
 
-    setSelectedAllocations((previous) => ({
-      ...previous,
-      [item.id]: {
-        order_item_id: item.id,
-        order_id: item.order_id,
-        selected_quantity: Math.min(
-          1,
-          item.remaining_quantity
-        ),
-        gold_weight: 0,
-      },
-    }));
+    return;
   }
+
+  if (item.remaining_quantity <= 0) {
+    showError(
+      `${item.sample_unique_id || item.category} has no remaining quantity.`
+    );
+    return;
+  }
+
+  const itemKt = item.gold_kt || "";
+
+  // First item decides the KT of a new tree.
+  if (
+    !editingTreeId &&
+    Object.keys(selectedAllocations).length === 0 &&
+    itemKt
+  ) {
+    setKt(itemKt);
+  }
+
+  // Do not allow mixed KT inside one tree.
+  if (
+    kt &&
+    itemKt &&
+    normalizeText(itemKt) !== normalizeText(kt) &&
+    Object.keys(selectedAllocations).length > 0
+  ) {
+    showError(
+      `This tree is ${kt}. ${itemKt} item cannot be added to the same tree.`
+    );
+    return;
+  }
+
+  setSelectedAllocations((previous) => ({
+    ...previous,
+    [item.id]: {
+      order_item_id: item.id,
+      order_id: item.order_id,
+      selected_quantity: Math.min(
+        1,
+        item.remaining_quantity
+      ),
+      gold_weight: 0,
+    },
+  }));
+}
 
   /* =========================================================
      SELECT ALL AVAILABLE ITEMS OF ONE ORDER
   ========================================================= */
 
-  function selectAllOrderItems(orderId) {
-    clearAlerts();
+ function selectAllOrderItems(orderId) {
+  clearAlerts();
 
-    const availableItems =
-      enrichedItemsByOrderId[orderId] || [];
+  const availableItems =
+    enrichedItemsByOrderId[orderId] || [];
 
-    setSelectedAllocations((previous) => {
-      const next = { ...previous };
+  const selectableItems = availableItems.filter(
+    (item) => item.remaining_quantity > 0
+  );
 
-      availableItems.forEach((item) => {
-        if (
-          item.remaining_quantity > 0 &&
-          !next[item.id]
-        ) {
-          next[item.id] = {
-            order_item_id: item.id,
-            order_id: item.order_id,
-            selected_quantity: item.remaining_quantity,
-            gold_weight: 0,
-          };
-        }
-      });
+  if (!selectableItems.length) return;
 
-      return next;
-    });
+  let targetKt = kt;
+
+  if (
+    !targetKt &&
+    Object.keys(selectedAllocations).length === 0
+  ) {
+    targetKt = selectableItems[0]?.gold_kt || "";
+    setKt(targetKt);
   }
+
+  setSelectedAllocations((previous) => {
+    const next = { ...previous };
+
+    selectableItems.forEach((item) => {
+      if (
+        item.gold_kt &&
+        targetKt &&
+        normalizeText(item.gold_kt) !== normalizeText(targetKt)
+      ) {
+        return;
+      }
+
+      if (!next[item.id]) {
+        next[item.id] = {
+          order_item_id: item.id,
+          order_id: item.order_id,
+          selected_quantity: item.remaining_quantity,
+          gold_weight: 0,
+        };
+      }
+    });
+
+    return next;
+  });
+}
 
   /* =========================================================
      REMOVE ALL ITEMS OF ONE ORDER
@@ -1140,7 +1359,7 @@ export default function TreePlanningPage() {
       category: item.category || null,
       sample_unique_id: item.sample_unique_id || null,
       die_no: item.die_no || null,
-      approx_weight: safeNumber(item.approx_weight),
+      approx_weight: getAllocatedApproxWeight(item),
       gold_weight: safeNumber(item.gold_weight),
     }));
   }
@@ -1390,15 +1609,36 @@ export default function TreePlanningPage() {
      DELETE TREE
   ========================================================= */
 
-  async function handleDeleteTree(tree) {
-    if (!tree?.id) return;
+async function handleDeleteTree(tree) {
+  if (!tree?.id) return;
 
-    const protectedStatuses = [
-      "Casting",
-      "Completed",
-    ];
+  try {
+    setDeletingTreeId(tree.id);
+    clearAlerts();
 
-    if (protectedStatuses.includes(tree.status)) {
+    // Check whether this tree is already linked to a casting batch
+    const { data: linkedBatches, error: batchCheckError } =
+      await supabase
+        .from("casting_batches")
+        .select("id, batch_no, status")
+        .eq("casting_tree_id", tree.id)
+        .limit(1);
+
+    if (batchCheckError) {
+      throw batchCheckError;
+    }
+
+    if (linkedBatches?.length) {
+      const batch = linkedBatches[0];
+
+      showError(
+        `${tree.tree_no} cannot be deleted because it is already linked to Casting Batch ${batch.batch_no}.`
+      );
+
+      return;
+    }
+
+    if (["Casting", "Completed"].includes(tree.status)) {
       showError(
         `${tree.status} tree cannot be deleted from Tree Planning.`
       );
@@ -1411,38 +1651,38 @@ export default function TreePlanningPage() {
 
     if (!confirmed) return;
 
-    try {
-      setDeletingTreeId(tree.id);
-      clearAlerts();
+    const { error } = await supabase
+      .from("casting_trees")
+      .delete()
+      .eq("id", tree.id);
 
-      const { error } = await supabase
-        .from("casting_trees")
-        .delete()
-        .eq("id", tree.id);
-
-      if (error) {
-        throw error;
-      }
-
-      if (editingTreeId === tree.id) {
-        await resetTreeForm();
-      }
-
-      await Promise.all([
-        fetchTrees(),
-        fetchAllTreeItems(),
-      ]);
-
-      showSuccess("Tree deleted successfully.");
-    } catch (error) {
-      console.error("Delete tree error:", error);
-      showError(
-        getErrorMessage(error, "Tree could not be deleted.")
-      );
-    } finally {
-      setDeletingTreeId(null);
+    if (error) {
+      throw error;
     }
+
+    if (editingTreeId === tree.id) {
+      await resetTreeForm();
+    }
+
+    await Promise.all([
+      fetchTrees(),
+      fetchAllTreeItems(),
+    ]);
+
+    showSuccess("Tree deleted successfully.");
+  } catch (error) {
+    console.error("Delete tree error:", error);
+
+    showError(
+      getErrorMessage(
+        error,
+        "Tree could not be deleted."
+      )
+    );
+  } finally {
+    setDeletingTreeId(null);
   }
+}
 
   /* =========================================================
      CHANGE TREE STATUS FROM TABLE
@@ -1605,6 +1845,7 @@ export default function TreePlanningPage() {
 
     <TreesTable
       trees={filteredTrees}
+      resetKey={treeTableResetKey}
       treeItemsByTreeId={treeItemsByTreeId}
       ordersById={ordersById}
       treeSearch={treeSearch}

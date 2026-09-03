@@ -1,6 +1,11 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
+import {
+  Fragment,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { useLanguage } from "../../../context/LanguageContext";
 
 function safeNumber(value) {
@@ -45,6 +50,7 @@ function getStatusClass(status) {
 
 export default function TreesTable({
   trees,
+  resetKey,
   treeItemsByTreeId,
   ordersById,
   treeSearch,
@@ -61,6 +67,10 @@ export default function TreesTable({
 
   const { t } = useLanguage();  
   const [expandedTreeIds, setExpandedTreeIds] = useState([]);
+
+  useEffect(() => {
+  setExpandedTreeIds([]);
+}, [resetKey]);
 
   function toggleExpandedTree(treeId) {
     setExpandedTreeIds((previous) =>
