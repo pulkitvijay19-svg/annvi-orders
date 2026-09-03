@@ -55,7 +55,7 @@ useEffect(() => {
 const { data, error } = await supabase
   .from("orders")
   .select("*")
-  .eq("status", "COMPLETED")
+  .eq("status", "Tag Print")
   .order("updated_at", { ascending: false });
 
     if (error) alert(error.message);
@@ -270,14 +270,69 @@ die_no: null,
       return;
     }
 
-    await supabase
-  .from("orders")
-  .update({
-    status: "DELIVERED"
-  })
-  .eq("id", selectedOrder.id);
+// -------------------------------------------------------
+// CHECK WHETHER ALL TAGS FOR THIS ORDER ARE NOW PRINTED
+// -------------------------------------------------------
+const { count: printedCount, error: countError } =
+  await supabase
+    .from("printed_tags")
+    .select("id", {
+      count: "exact",
+      head: true,
+    })
+    .eq("order_id", selectedOrder.id);
 
-    alert(t("tag_printed_inventory_created"));
+if (countError) {
+  alert(countError.message);
+  return;
+}
+
+const totalRequiredTags = items.length;
+
+const allTagsPrinted =
+  Number(printedCount || 0) >= totalRequiredTags;
+
+// -------------------------------------------------------
+// LAST TAG PRINTED → COMPLETE ORDER
+// -------------------------------------------------------
+if (allTagsPrinted) {
+  const { error: orderCompleteError } =
+    await supabase
+      .from("orders")
+      .update({
+        status: "COMPLETED",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", selectedOrder.id);
+
+  if (orderCompleteError) {
+    alert(orderCompleteError.message);
+    return;
+  }
+
+  alert(
+    `✅ Order ${selectedOrder.order_no} completed successfully.\n\nAll ${totalRequiredTags} tags have been printed.`
+  );
+
+  // Remove completed order from this Tag Print queue
+  setOrders((prev) =>
+    prev.filter(
+      (order) => order.id !== selectedOrder.id
+    )
+  );
+
+  setSelectedOrder(null);
+  setItems([]);
+
+  return;
+}
+
+// -------------------------------------------------------
+// SOME TAGS STILL PENDING
+// -------------------------------------------------------
+alert(
+  `Tag printed successfully.\n\n${printedCount} of ${totalRequiredTags} tags printed.`
+);
   } catch {
     alert(t("print_bridge_not_running"));
   }

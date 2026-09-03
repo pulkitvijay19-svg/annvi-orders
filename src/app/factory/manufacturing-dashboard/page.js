@@ -115,8 +115,10 @@ export default function ManufacturingDashboardPage() {
   const [orders, setOrders] = useState([]);
   const [buffLoss, setBuffLoss] = useState([]);
   const [electroLoss, setElectroLoss] = useState([]);
-  const [castingLoss, setCastingLoss] = useState([]);
-  const [ghis, setGhis] = useState([]);
+ const [castingLoss, setCastingLoss] = useState([]);
+const [ghis, setGhis] = useState([]);
+const [stoneSettingResults, setStoneSettingResults] = useState([]);
+const [rhodiumResults, setRhodiumResults] = useState([]);
   const [buffBag, setBuffBag] = useState(null);
   const [inventoryItems, setInventoryItems] = useState([]);
   const [inventoryTxns, setInventoryTxns] = useState([]);
@@ -137,17 +139,19 @@ export default function ManufacturingDashboardPage() {
     setErrorText("");
 
     try {
-      const [
-        batchesData,
-        ordersData,
-        buffLossData,
-        electroLossData,
-        castingLossData,
-        ghisData,
-        buffBagData,
-        itemsData,
-        txnsData,
-      ] = await Promise.all([
+const [
+  batchesData,
+  ordersData,
+  buffLossData,
+  electroLossData,
+  castingLossData,
+  ghisData,
+  stoneSettingData,
+  rhodiumData,
+  buffBagData,
+  itemsData,
+  txnsData,
+] = await Promise.all([
         safe(
           "batches",
           supabase
@@ -200,6 +204,34 @@ export default function ManufacturingDashboardPage() {
         ),
 
         safe(
+  "stone_setting_results",
+  supabase
+    .from("stone_setting_results")
+    .select(`
+      id,
+      casting_batch_id,
+      stone_challan_weight,
+      stone_setting_loss,
+      created_at
+    `)
+    .order("created_at", { ascending: false })
+),
+
+safe(
+  "rhodium_results",
+  supabase
+    .from("rhodium_results")
+    .select(`
+      id,
+      casting_batch_id,
+      received_weight,
+      received_pieces,
+      created_at
+    `)
+    .order("created_at", { ascending: false })
+),
+
+        safe(
           "buff_bags",
           supabase
             .from("buff_bags")
@@ -231,6 +263,8 @@ export default function ManufacturingDashboardPage() {
       setElectroLoss(electroLossData);
       setCastingLoss(castingLossData);
       setGhis(ghisData);
+      setStoneSettingResults(stoneSettingData);
+      setRhodiumResults(rhodiumData);
       setBuffBag(buffBagData);
       setInventoryItems(itemsData);
       setInventoryTxns(txnsData);
@@ -245,14 +279,41 @@ export default function ManufacturingDashboardPage() {
     fetchDashboard();
   }, []);
 
-  const activeBatches = useMemo(() => {
-    return batches.filter(
-      (b) =>
-        !["Completed", "COMPLETED", "Sale", "Delivered", "Cancelled"].includes(
-          b.status
-        )
-    );
-  }, [batches]);
+const activeBatches = useMemo(() => {
+  return batches.filter((b) => {
+    const batchCompleted = [
+      "Completed",
+      "COMPLETED",
+      "Sale",
+      "Delivered",
+      "DELIVERED",
+      "Cancelled",
+      "CANCELLED",
+    ].includes(b.status);
+
+    if (batchCompleted) {
+      return false;
+    }
+
+    const linkedOrders =
+      b.casting_batch_items
+        ?.map((item) => item.orders)
+        .filter(Boolean) || [];
+
+    const allOrdersCompleted =
+      linkedOrders.length > 0 &&
+      linkedOrders.every((order) =>
+        [
+          "COMPLETED",
+          "Completed",
+          "DELIVERED",
+          "Delivered",
+        ].includes(order.status)
+      );
+
+    return !allOrdersCompleted;
+  });
+}, [batches]);
 
   const processCounts = useMemo(() => {
     const obj = {};
@@ -299,12 +360,20 @@ export default function ManufacturingDashboardPage() {
   const ghisByKt = groupByKt(ghis, "ghis_weight");
   const ghisFineByKt = makeFineMap(ghisByKt);
 
+  const stoneChallanTotal = stoneSettingResults.reduce(
+  (sum, row) =>
+    sum + n(row.stone_challan_weight),
+  0
+);
+
   const scrapByKt = inventoryByType(inventoryTxns, "Scrap");
   const findingsByKt = inventoryByType(inventoryTxns, "Finding");
   const goldStockByKt = inventoryByType(inventoryTxns, "Gold");
 
-  const gold995 = goldStock(inventoryTxns, "995");
-  const gold999 = goldStock(inventoryTxns, "999");
+const gold995 = goldStock(
+  inventoryTxns,
+  "Gold Fine"
+);
 
   const totalActivePieces = activeBatches.reduce(
     (s, b) => s + n(b.current_pieces || b.good_pieces),
@@ -316,9 +385,108 @@ export default function ManufacturingDashboardPage() {
     0
   );
 
-  const completedOrders = orders.filter((o) =>
-    ["COMPLETED", "Completed"].includes(o.status)
+ const now = new Date();
+
+const startOfToday = new Date(
+  now.getFullYear(),
+  now.getMonth(),
+  now.getDate()
+);
+
+const startOfTomorrow = new Date(
+  now.getFullYear(),
+  now.getMonth(),
+  now.getDate() + 1
+);
+
+const startOfMonth = new Date(
+  now.getFullYear(),
+  now.getMonth(),
+  1
+);
+
+const startOfNextMonth = new Date(
+  now.getFullYear(),
+  now.getMonth() + 1,
+  1
+);
+
+const isCompletedStatus = (status) =>
+  [
+    "COMPLETED",
+    "Completed",
+    "completed",
+    "DELIVERED",
+    "Delivered",
+    "delivered",
+  ].includes(String(status || ""));
+
+const completedOrders = orders.filter((o) =>
+  isCompletedStatus(o.status)
+).length;
+
+const completedToday = orders.filter((o) => {
+  if (!isCompletedStatus(o.status)) return false;
+
+  const completedDate = new Date(
+    o.updated_at || o.created_at
+  );
+
+  return (
+    completedDate >= startOfToday &&
+    completedDate < startOfTomorrow
+  );
+});
+
+const monthOrders = orders.filter((o) => {
+  const created = new Date(o.created_at);
+
+  return (
+    created >= startOfMonth &&
+    created < startOfNextMonth
+  );
+});
+
+const todayCompletedCount =
+  completedToday.length;
+
+const monthOrderIds = new Set(
+  monthOrders.map((order) => order.id)
+);
+
+const monthBatchIds = new Set(
+  batches
+    .filter((batch) =>
+      (batch.casting_batch_items || []).some(
+        (item) =>
+          monthOrderIds.has(item.order_id)
+      )
+    )
+    .map((batch) => batch.id)
+);
+
+const monthRhodiumRows = rhodiumResults.filter(
+  (row) =>
+    monthBatchIds.has(row.casting_batch_id)
+);
+
+const monthTotalOrderWeight =
+  monthRhodiumRows.reduce(
+    (sum, row) =>
+      sum + n(row.received_weight),
+    0
+  );
+
+const monthCompletedOrders =
+  monthOrders.filter((order) =>
+    isCompletedStatus(order.status)
   ).length;
+
+const monthAverageOrderWeight =
+  monthCompletedOrders > 0
+    ? monthTotalOrderWeight /
+      monthCompletedOrders
+    : 0;
 
   const buffExpected = n(buffBag?.expected_fine_gold);
   const buffRecovered = n(buffBag?.recovered_fine_gold);
@@ -326,8 +494,31 @@ export default function ManufacturingDashboardPage() {
   const recoveryPercent =
     buffExpected > 0 ? (buffRecovered / buffExpected) * 100 : 0;
 
+  const electroExpected = electroLoss.reduce(
+  (sum, row) =>
+    sum + fineFromKt(row.kt, row.loss_weight),
+  0
+);
+
+const electroRecovered = electroLoss.reduce(
+  (sum, row) =>
+    sum +
+    n(
+      row.recovered_fine_gold ??
+        row.recovered_weight ??
+        0
+    ),
+  0
+);
+
+const electroRecoveryPercent =
+  electroExpected > 0
+    ? (electroRecovered / electroExpected) * 100
+    : 0;  
+
   const totalRecoverable =
-    sumObj(scrapByKt) + sumObj(ghisByKt) + gold995 + gold999;
+  sumObj(ghisByKt) +
+  stoneChallanTotal;
 
   const totalLossWeight = sumObj(lossByKt);
   const totalLossFine = sumObj(lossFineByKt);
@@ -514,7 +705,7 @@ export default function ManufacturingDashboardPage() {
               </Section>
 
               <Section number="3" title="Gold Position">
-                <div className="grid gap-2 md:grid-cols-3">
+                <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
                   <InfoPanel title="Scrap Gold (Loss)">
                     <KaratRows data={scrapByKt} />
                   </InfoPanel>
@@ -526,14 +717,23 @@ export default function ManufacturingDashboardPage() {
                   <InfoPanel title="Findings Stock">
                     <KaratRows data={findingsByKt} />
                   </InfoPanel>
+
+                  <InfoPanel title="Stone Setting Challan">
+  <Line
+    label="Recoverable Challan"
+    value={`${fmt(stoneChallanTotal)} g`}
+    highlight
+  />
+</InfoPanel>
                 </div>
 
                 <div className="mt-2 grid gap-2 md:grid-cols-[1fr_1fr]">
                   <InfoPanel title="Pure Gold Stock">
-                    <Line label="995 Gold" value={`${fmt(gold995)} g`} />
-                    <Line label="999 Gold" value={`${fmt(gold999)} g`} />
-                  </InfoPanel>
-
+  <Line
+    label="995 Gold"
+    value={`${fmt(gold995)} g`}
+  />
+</InfoPanel>
                   <div className="rounded-xl border border-yellow-500 bg-yellow-500/10 p-3">
                     <p className="text-xs font-black uppercase text-yellow-300">
                       Total Recoverable Gold
@@ -642,7 +842,101 @@ export default function ManufacturingDashboardPage() {
                 </div>
               </Section>
 
-              <Section number="5" title="Loss Dashboard">
+              <Section
+  number="5"
+  title="Electro Polishing Recovery Dashboard"
+>
+  <div className="grid gap-2 md:grid-cols-[1fr_1fr_1.4fr]">
+
+    <InfoPanel title="Electro Recovery">
+      <Line
+        label="Total Electro Loss"
+        value={`${fmt(
+          electroLoss.reduce(
+            (sum, row) =>
+              sum + n(row.loss_weight),
+            0
+          )
+        )} g`}
+      />
+
+      <Line
+        label="Expected Fine"
+        value={`${fmt(electroExpected)} g`}
+      />
+
+      <Line
+        label="Recovered Fine"
+        value={`${fmt(electroRecovered)} g`}
+      />
+
+      <Line
+        label="Recovery %"
+        value={`${electroRecoveryPercent.toFixed(
+          2
+        )}%`}
+        green
+      />
+
+      <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-800">
+        <div
+          className="h-full rounded-full bg-green-500"
+          style={{
+            width: `${Math.min(
+              100,
+              electroRecoveryPercent
+            )}%`,
+          }}
+        />
+      </div>
+    </InfoPanel>
+
+    <InfoPanel title="Recovery Summary">
+      <div className="grid place-items-center">
+        <Donut
+          percent={electroRecoveryPercent}
+        />
+      </div>
+    </InfoPanel>
+
+    <InfoPanel title="Karat Wise Electro Loss">
+      {Object.keys(
+        groupByKt(
+          electroLoss,
+          "loss_weight"
+        )
+      ).length === 0 ? (
+        <Line
+          label="No Data"
+          value="0.000 g"
+        />
+      ) : (
+        <KaratRows
+          data={groupByKt(
+            electroLoss,
+            "loss_weight"
+          )}
+        />
+      )}
+
+      <div className="mt-3 border-t border-slate-700 pt-2">
+        <Line
+          label="Pending Recovery"
+          value={
+            electroLoss.filter(
+              (row) =>
+                row.recovery_status === "Pending"
+            ).length
+          }
+          highlight
+        />
+      </div>
+    </InfoPanel>
+
+  </div>
+</Section>
+
+              <Section number="6" title="Loss Dashboard">
                 <div className="grid gap-2 md:grid-cols-3">
                   <InfoPanel title="Karat Wise Loss">
                     <KaratRows data={lossByKt} total />
@@ -708,7 +1002,7 @@ export default function ManufacturingDashboardPage() {
             </div>
 
             <div className="grid gap-2 xl:grid-cols-[1fr_0.75fr_0.75fr]">
-              <Section number="6" title="Inventory Dashboard">
+              <Section number="7" title="Inventory Dashboard">
                 <div className="grid gap-2 md:grid-cols-3">
                   <InfoPanel title="Gold Stock (Karat Wise)">
                     <KaratRows data={goldStockByKt} />
@@ -739,13 +1033,13 @@ export default function ManufacturingDashboardPage() {
                 </div>
               </Section>
 
-              <Section number="7" title="Production Summary">
+              <Section number="8" title="Production Summary">
                 <div className="grid gap-2">
                   <InfoPanel title="Today">
                     <Line
-                      label="Orders Completed"
-                      value={completedOrders}
-                    />
+  label="Orders Completed"
+  value={todayCompletedCount}
+/>
                     <Line
                       label="Live Batches"
                       value={activeBatches.length}
@@ -757,15 +1051,30 @@ export default function ManufacturingDashboardPage() {
                   </InfoPanel>
 
                   <InfoPanel title="This Month">
-                    <Line label="Total Orders" value={orders.length} />
-                    <Line
-                      label="Average Order Weight"
-                      value={`${fmt(
-                        totalActiveWeight /
-                          Math.max(activeBatches.length, 1)
-                      )} g`}
-                    />
-                  </InfoPanel>
+  <Line
+    label="Total Orders"
+    value={monthOrders.length}
+  />
+
+  <Line
+    label="Completed Orders"
+    value={
+      monthOrders.filter((order) =>
+        isCompletedStatus(order.status)
+      ).length
+    }
+  />
+
+  <Line
+    label="Total Order Weight"
+    value={`${fmt(monthTotalOrderWeight)} g`}
+  />
+
+  <Line
+    label="Average Order Weight"
+    value={`${fmt(monthAverageOrderWeight)} g`}
+  />
+</InfoPanel>
 
                   <InfoPanel title="Average Production Time">
                     <Line label="Casting → Tag Print" value="-" />
@@ -774,7 +1083,7 @@ export default function ManufacturingDashboardPage() {
                 </div>
               </Section>
 
-              <Section number="8" title="Alerts">
+              <Section number="9" title="Alerts">
                 <div className="space-y-2">
                   {alerts.map((a) => (
                     <div
