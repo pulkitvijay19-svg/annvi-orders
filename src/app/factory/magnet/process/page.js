@@ -542,15 +542,16 @@ if (firstCastingId) {
 
   return (
     <section className="rounded-2xl bg-white p-4 shadow-sm">
-      <CardHeader
-        title={batch.magnet_batch_no}
-        kt={batch.kt}
-        status={batch.status}
-        party={parties.join(", ") || "-"}
-        orders={orders.join(", ") || "-"}
-        isOpen={isOpen}
-        onOpen={onOpen}
-      />
+<CardHeader
+  t={t}
+  title={batch.magnet_batch_no}
+  kt={batch.kt}
+  status={batch.status}
+  party={parties.join(", ") || "-"}
+  orders={orders.join(", ") || "-"}
+  isOpen={isOpen}
+  onOpen={onOpen}
+/>  
 
       <div className="mt-3 grid grid-cols-3 gap-2">
         <MiniStat label={t("batches")} value={castings.length} />
