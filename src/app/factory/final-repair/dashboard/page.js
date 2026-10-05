@@ -1,933 +1,1605 @@
 "use client";
 
+
+
 import { useEffect, useMemo, useState } from "react";
+
 import Link from "next/link";
+
 import { useRouter } from "next/navigation";
+
 import { supabase } from "../../../../lib/supabaseClient";
+
 import { useRequireAuth } from "../../../../lib/useRequireAuth";
+
 import MobileBottomNav from "../../../../components/MobileBottomNav";
+
 import { useLanguage } from "../../../../context/LanguageContext";
 
+
+
 const KTS = ["9KT", "14KT", "18KT", "20KT", "22KT", "24KT"];
+
 const LOSS_TYPES = ["Ghis", "Buff Loss", "Electropolishing Loss", "Scrap"];
 
+
+
 export default function FinalRepairDashboardPage() {
+
   const { loading: authLoading } = useRequireAuth();
+
   const { t } = useLanguage();
+
   const [targetBatchNo, setTargetBatchNo] = useState("");
+
   const [queues, setQueues] = useState([]);
+
   const [findings, setFindings] = useState([]);
+
   const [transactions, setTransactions] = useState([]);
+
   const [openId, setOpenId] = useState(null);
+
   const [loading, setLoading] = useState(true);
 
+
+
   async function fetchData() {
+
     setLoading(true);
 
+
+
     const { data: queueData, error } = await supabase
+
       .from("repair_queue")
+
       .select(`
+
         *,
+
         casting_batches(
+
           *,
+
           casting_batch_items(*, orders(order_no, customer_name))
+
         )
+
       `)
+
       .eq("status", "Pending")
+
       .order("created_at", { ascending: false });
 
+
+
     const { data: findingData } = await supabase
+
       .from("inventory_items")
+
       .select("*")
+
       .eq("is_active", true)
+
       .eq("item_type", "Finding")
+
       .order("item_name", { ascending: true });
+
+
 
     const { data: txData } = await supabase.from("inventory_transactions").select("*");
 
+
+
     const { data: noRepairBatches } = await supabase
+
   .from("casting_batches")
+
   .select(`
+
     *,
+
     casting_batch_items(*, orders(order_no, customer_name))
+
   `)
+
   .eq("status", "Final Repair");
+
+
 
     if (error) alert(error.message);
 
+
+
     const realQueues = queueData || [];
 
+
+
 const queuedBatchIds = new Set(
+
   realQueues.map((q) => q.casting_batch_id).filter(Boolean)
+
 );
+
+
 
 const dummyNoRepairQueues = (noRepairBatches || [])
+
   .filter((b) => !queuedBatchIds.has(b.id))
+
   .map((b) => ({
+
     id: `no-repair-${b.id}`,
+
     no_repair: true,
+
     casting_batch_id: b.id,
+
     casting_batches: b,
+
     source_process: "No Repair Required",
+
     pending_pieces: Number(b.current_pieces || 0),
+
     pending_weight: Number(b.current_weight || 0),
+
     status: "Pending",
+
   }));
 
+
+
 setQueues([...realQueues, ...dummyNoRepairQueues]);
+
     setFindings(findingData || []);
+
     setTransactions(txData || []);
+
     setLoading(false);
+
   }
 
-  
+
+
+
+
   useEffect(() => {
+
     fetchData();
+
   }, []);
 
+
+
 useEffect(() => {
+
   const batchId = targetBatchNo;
+
   if (batchId) {
+
     setOpenId(batchId);
+
   }
+
 }, [targetBatchNo]);
 
+
+
 useEffect(() => {
+
   const params = new URLSearchParams(window.location.search);
+
   setTargetBatchNo(params.get("batch") || "");
+
 }, []);
 
+
+
   const groupedBatches = useMemo(() => {
+
     const map = {};
+
     queues.forEach((q) => {
+
       const cb = q.casting_batches;
+
       if (!cb) return;
+
       if (!map[cb.id]) {
+
         map[cb.id] = {
+
           batch: cb,
+
           queues: [],
+
           pendingPieces: 0,
+
           pendingWeight: 0,
+
           sources: [],
+
         };
+
       }
+
       map[cb.id].queues.push(q);
+
       map[cb.id].pendingPieces += Number(q.pending_pieces || 0);
+
       map[cb.id].pendingWeight += Number(q.pending_weight || 0);
+
       if (q.source_process) map[cb.id].sources.push(q.source_process);
+
     });
+
     return Object.values(map);
+
   }, [queues]);
 
+
+
   if (authLoading || loading) {
+
     return (
+
   <main className="min-h-screen bg-slate-100 p-6 text-sm text-gray-700">
+
     {t("loading_final_repair")}
+
   </main>
+
 );
+
   }
 
+
+
   return (
+
     <main className="min-h-screen bg-slate-100 p-3 pb-24 text-gray-900 md:p-5">
-      <div className="mx-auto max-w-7xl space-y-5">
+
+      <div className="mx-auto max-w-6xl space-y-5">
+
         <Header t={t} />
 
+
+
         {groupedBatches.length === 0 ? (
+
 <div className="rounded-2xl bg-white p-6 text-sm text-gray-500 shadow-sm">
+
   {t("no_pending_final_repair")}
+
 </div>
+
         ) : (
-          <div className="grid gap-4 xl:grid-cols-2">
+
+          <div className="grid max-w-[720px] gap-4">
+
             {groupedBatches.map((group) => (
+
               <RepairCard
+
                 key={group.batch.id}
+
                 group={group}
+
                 t={t}
+
                 findings={findings}
+
                 transactions={transactions}
+
                 isOpen={openId === group.batch.id}
+
                 onOpen={() => setOpenId(openId === group.batch.id ? null : group.batch.id)}
+
                 onRefresh={fetchData}
+
               />
+
             ))}
+
           </div>
+
         )}
+
       </div>
+
+
 
       <MobileBottomNav />
 
+
+
       <style jsx global>{`
+
         .input {
+
           width: 100%;
+
           border-radius: 0.8rem;
+
           border: 1px solid #d1d5db;
+
           background: white;
+
           padding: 0.75rem;
+
           font-size: 0.875rem;
+
           color: #111827;
+
           outline: none;
+
         }
+
       `}</style>
+
     </main>
+
   );
+
 }
+
+
 
 function RepairCard({
+
   group,
+
   t,
+
   findings,
+
   transactions,
+
   isOpen,
+
   onOpen,
+
   onRefresh,
+
 }) {
+
   const router = useRouter();
+
   const batch = group.batch;
+
   const items = batch.casting_batch_items || [];
 
+
+
   const [karigar, setKarigar] = useState("");
+
   const [issuedBy, setIssuedBy] = useState("");
 
+
+
   const [issuedPieces, setIssuedPieces] = useState(group.pendingPieces);
+
   const [issuedWeight, setIssuedWeight] = useState(group.pendingWeight);
 
+
+
   const [receivedPieces, setReceivedPieces] = useState("");
+
   const [receivedWeight, setReceivedWeight] = useState("");
+
   const [rejectedPieces, setRejectedPieces] = useState("");
+
   const [rejectedWeight, setRejectedWeight] = useState("");
+
   const [remarks, setRemarks] = useState("");
 
+
+
   const [findingRows, setFindingRows] = useState([]);
+
   const [lossRows, setLossRows] = useState([
+
     { loss_type: "Ghis", weight: "", remarks: "" },
+
   ]);
 
+
+
   const [saving, setSaving] = useState(false);
+
 const [savingDraft, setSavingDraft] = useState(false);
 
+
+
   const parties = [...new Set(items.map((i) => i.orders?.customer_name).filter(Boolean))];
+
   const orders = [...new Set(items.map((i) => i.orders?.order_no).filter(Boolean))];
 
+  // Final Repair only works on pieces that need repair. Already-good pieces
+  // stay in casting_batches.current_* and are merged back before Stone Setting.
+  const hasRealRepairQueue = group.queues.some((q) => !q.no_repair);
+  const alreadyGoodPieces = hasRealRepairQueue ? Number(batch.current_pieces || 0) : 0;
+  const alreadyGoodWeight = hasRealRepairQueue ? Number(batch.current_weight || 0) : 0;
+  const repairPendingPieces = hasRealRepairQueue ? Number(group.pendingPieces || 0) : 0;
+  const repairPendingWeight = hasRealRepairQueue ? Number(group.pendingWeight || 0) : 0;
+  const totalBatchPieces = hasRealRepairQueue
+    ? alreadyGoodPieces + repairPendingPieces
+    : Number(group.pendingPieces || batch.current_pieces || 0);
+  const totalBatchWeight = hasRealRepairQueue
+    ? alreadyGoodWeight + repairPendingWeight
+    : Number(group.pendingWeight || batch.current_weight || 0);
+
+
+
   function getSourceLabel(source) {
+
   if (source === "No Repair Required") return t("no_repair_required");
+
   if (source === "Electro Polish") return t("electro_polish");
+
   if (source === "2C Polish") return t("two_c_polish");
+
   if (source === "Bench") return t("bench");
+
   if (source === "Stone Setting") return t("stone_setting");
 
+
+
   return source;
+
 }
+
+
 
 function getLossTypeLabel(lossType) {
+
   if (lossType === "Ghis") return t("ghis");
+
   if (lossType === "Buff Loss") return t("buff_loss");
+
   if (lossType === "Electropolishing Loss") {
+
     return t("electropolishing_loss");
+
   }
+
   if (lossType === "Scrap") return t("scrap");
 
+
+
   return lossType;
+
 }
 
+
+
   const findingsIssuedWeight = findingRows.reduce((s, r) => s + Number(r.issued_weight || 0), 0);
+
   const findingsReceivedWeight = findingRows.reduce((s, r) => s + Number(r.received_weight || 0), 0);
+
   const lossBreakupWeight = lossRows.reduce((s, r) => s + Number(r.weight || 0), 0);
 
+
+
   const calculatedRepairLoss =
+
     Number(issuedWeight || 0) +
+
     findingsIssuedWeight -
+
     Number(receivedWeight || 0) -
+
     findingsReceivedWeight -
+
     Number(rejectedWeight || 0);
 
+
+
   function stockBalance(itemId, kt) {
+
     return transactions.reduce((sum, tx) => {
+
       if (tx.inventory_item_id !== itemId || (tx.kt || "") !== kt) return sum;
+
       return sum + (tx.transaction_type === "Stock Out" ? -1 : 1) * Number(tx.weight || 0);
+
     }, 0);
+
   }
+
+
 
   function addFindingRow() {
+
     setFindingRows((prev) => [
+
       ...prev,
+
       {
+
         finding_item_id: "",
+
         finding_name: "",
+
         kt: batch.kt,
+
         issued_by: issuedBy,
+
         issued_weight: "",
+
         issued_qty: "",
+
         received_weight: "",
+
         received_qty: "",
+
         remarks: "",
+
       },
+
     ]);
+
   }
+
+
 
   function updateFinding(index, field, value) {
+
     setFindingRows((prev) =>
+
       prev.map((row, i) => {
+
         if (i !== index) return row;
+
         const next = { ...row, [field]: value };
+
         if (field === "finding_item_id") {
+
           const item = findings.find((f) => f.id === value);
+
           next.finding_name = item?.item_name || "";
+
         }
+
         return next;
+
       })
+
     );
+
   }
+
+
 
   function addLossRow() {
+
     setLossRows((prev) => [...prev, { loss_type: "Ghis", weight: "", remarks: "" }]);
+
   }
+
+
 
   function updateLoss(index, field, value) {
+
     setLossRows((prev) => prev.map((r, i) => (i === index ? { ...r, [field]: value } : r)));
+
   }
+
+
 
   async function loadDraft() {
+
   const { data, error } = await supabase
+
     .from("process_drafts")
+
     .select("*")
+
     .eq("batch_id", batch.id)
+
     .eq("process_name", "FINAL_REPAIR")
+
     .maybeSingle();
 
+
+
   if (error) {
+
     console.error("Final Repair draft load error:", error);
+
     return;
+
   }
+
+
 
   if (!data?.draft_data) return;
 
+
+
   const draft = data.draft_data;
 
+
+
   setKarigar(draft.karigar || "");
+
   setIssuedBy(draft.issuedBy || "");
 
+
+
   setIssuedPieces(
+
     draft.issuedPieces ?? group.pendingPieces
+
   );
+
+
 
   setIssuedWeight(
+
     draft.issuedWeight ?? group.pendingWeight
+
   );
 
+
+
   setReceivedPieces(draft.receivedPieces || "");
+
   setReceivedWeight(draft.receivedWeight || "");
 
+
+
   setRejectedPieces(draft.rejectedPieces || "");
+
   setRejectedWeight(draft.rejectedWeight || "");
+
+
 
   setRemarks(draft.remarks || "");
 
+
+
   setFindingRows(
+
     Array.isArray(draft.findingRows)
+
       ? draft.findingRows
+
       : []
+
   );
 
+
+
   setLossRows(
+
     Array.isArray(draft.lossRows) && draft.lossRows.length > 0
+
       ? draft.lossRows
+
       : [{ loss_type: "Ghis", weight: "", remarks: "" }]
+
   );
+
 }
+
+
+
 
 
 useEffect(() => {
+
   if (isOpen) {
+
     loadDraft();
+
   }
+
 }, [isOpen]);
 
+
+
 async function saveDraft() {
+
   try {
+
     setSavingDraft(true);
 
+
+
     const draftData = {
+
       karigar,
+
       issuedBy,
 
+
+
       issuedPieces,
+
       issuedWeight,
 
+
+
       receivedPieces,
+
       receivedWeight,
 
+
+
       rejectedPieces,
+
       rejectedWeight,
 
+
+
       remarks,
+
       findingRows,
+
       lossRows,
+
     };
 
+
+
     const { error } = await supabase
+
       .from("process_drafts")
+
       .upsert(
+
         {
+
           batch_id: batch.id,
+
           process_name: "FINAL_REPAIR",
+
           draft_data: draftData,
+
           updated_at: new Date().toISOString(),
+
         },
+
         {
+
           onConflict: "batch_id,process_name",
+
         }
+
       );
 
+
+
     if (error) {
+
       alert(error.message);
+
       return;
+
     }
+
+
 
     alert(t("draft_saved"));
+
   } catch (error) {
+
     console.error("Final Repair draft save error:", error);
+
     alert(error.message || "Draft could not be saved.");
+
   } finally {
+
     setSavingDraft(false);
+
   }
+
 }
+
+
 
   async function stockInScrap(weight, qty, purpose, note) {
+
     if (Number(weight || 0) <= 0) return true;
 
+
+
     const { data: scrapItem } = await supabase
+
       .from("inventory_items")
+
       .select("id")
+
       .eq("item_type", "Scrap")
+
       .eq("item_name", "Casting Scrap")
+
       .maybeSingle();
 
+
+
     if (!scrapItem?.id) {
+
       alert(t("casting_scrap_not_found"));
+
       return false;
+
     }
+
+
 
     const { error } = await supabase.from("inventory_transactions").insert([
+
       {
+
         inventory_item_id: scrapItem.id,
+
         kt: batch.kt,
+
         transaction_type: "Stock In",
+
         purpose,
+
         reference_no: batch.batch_no,
+
         weight: Number(weight || 0),
+
         quantity: Number(qty || 0),
+
         weight_source: "manual",
+
         remarks: note,
+
       },
+
     ]);
 
+
+
     if (error) {
+
       alert(error.message);
+
       return false;
+
     }
 
+
+
     return true;
+
   }
 
+
+
   async function saveFinalRepair() {
+
     if (!receivedWeight) {
-  return alert(t("received_weight_required"));
-}
+      return alert(t("received_weight_required"));
+    }
+
+    if (Number(receivedPieces || 0) + Number(rejectedPieces || 0) > Number(issuedPieces || 0)) {
+      return alert("Received pieces + rejected pieces cannot be more than issued repair pieces.");
+    }
 
     setSaving(true);
 
+
+
     for (const row of findingRows) {
+
       if (!row.finding_item_id) continue;
+
       const issueWt = Number(row.issued_weight || 0);
+
       if (issueWt > 0) {
+
         const available = stockBalance(row.finding_item_id, row.kt);
+
         if (available < issueWt) {
+
           setSaving(false);
+
          alert(
+
   `${row.finding_name} ${row.kt} ${t("stock_is_low")}. ${t(
+
     "required"
+
   )}: ${issueWt.toFixed(3)}g, ${t("available")}: ${available.toFixed(3)}g`
+
 );
+
           return;
+
         }
+
       }
+
     }
+
+
 
     const { data: result, error } = await supabase
+
       .from("final_repair_results")
+
       .insert([
+
         {
+
           casting_batch_id: batch.id,
+
           karigar_name: karigar,
+
           issued_by: issuedBy,
+
           issued_pieces: Number(issuedPieces || 0),
+
           issued_weight: Number(issuedWeight || 0),
+
           findings_issued_weight: findingsIssuedWeight,
+
           findings_received_weight: findingsReceivedWeight,
+
           received_pieces: Number(receivedPieces || 0),
+
           received_weight: Number(receivedWeight || 0),
+
           rejected_pieces: Number(rejectedPieces || 0),
+
           rejected_weight: Number(rejectedWeight || 0),
+
           repair_loss_weight: calculatedRepairLoss,
+
           remarks,
+
         },
+
       ])
+
       .select()
+
       .single();
 
+
+
     if (error) {
+
       setSaving(false);
+
       alert(error.message);
+
       return;
+
     }
 
+
+
     for (const row of findingRows) {
+
       if (!row.finding_item_id) continue;
+
+
 
       const issueWt = Number(row.issued_weight || 0);
 
+
+
       await supabase.from("final_repair_findings").insert([
+
         {
+
           casting_batch_id: batch.id,
+
           final_repair_result_id: result.id,
+
           finding_item_id: row.finding_item_id,
+
           finding_name: row.finding_name,
+
           kt: row.kt,
+
           issued_by: row.issued_by || issuedBy,
+
           issued_weight: issueWt,
+
           issued_qty: Number(row.issued_qty || 0),
+
           received_weight: Number(row.received_weight || 0),
+
           received_qty: Number(row.received_qty || 0),
+
           remarks: row.remarks || "",
+
         },
+
       ]);
 
+
+
       if (issueWt > 0) {
+
         await supabase.from("inventory_transactions").insert([
+
           {
+
             inventory_item_id: row.finding_item_id,
+
             kt: row.kt,
+
             transaction_type: "Stock Out",
+
             purpose: "Final Repair Finding Issue",
+
             reference_no: batch.batch_no,
+
             weight: issueWt,
+
             quantity: Number(row.issued_qty || 0),
+
             weight_source: "manual",
+
             remarks: `${row.finding_name} issued in final repair`,
+
           },
-          
+
+
+
         ]);
 
+
+
       }
+
       const receiveWt = Number(row.received_weight || 0);
 
+
+
 if (receiveWt > 0) {
+
   await supabase.from("inventory_transactions").insert([
+
     {
+
       inventory_item_id: row.finding_item_id,
+
       kt: row.kt,
+
       transaction_type: "Stock In",
+
       purpose: "Final Repair Finding Return",
+
       reference_no: batch.batch_no,
+
       weight: receiveWt,
+
       quantity: Number(row.received_qty || 0),
+
       weight_source: "manual",
+
       remarks: `${row.finding_name} received back from final repair`,
+
     },
+
   ]);
+
 }
+
     }
-    
+
+
+
+
+
 
 
     for (const row of lossRows) {
+
       const wt = Number(row.weight || 0);
+
       if (wt <= 0) continue;
 
+
+
       await supabase.from("final_repair_loss_breakup").insert([
+
         {
+
           final_repair_result_id: result.id,
+
           casting_batch_id: batch.id,
+
           loss_type: row.loss_type,
+
           kt: batch.kt,
+
           weight: wt,
+
           remarks: row.remarks || "",
+
         },
+
       ]);
 
+
+
       if (row.loss_type === "Ghis") {
+
         await supabase.from("ghis_records").insert([
+
           {
+
             casting_batch_id: batch.id,
+
             kt: batch.kt,
+
             source_process: "Final Repair",
+
             ghis_weight: wt,
+
             recovery_status: "Pending",
+
             remarks: row.remarks || `Final repair ghis from ${batch.batch_no}`,
+
           },
+
         ]);
+
       }
+
+
 
       if (row.loss_type === "Buff Loss") {
+
         await supabase.from("buff_loss_records").insert([
+
           {
+
             casting_batch_id: batch.id,
+
             kt: batch.kt,
+
             loss_weight: wt,
+
             recovery_status: "Pending",
+
             remarks: row.remarks || `Final repair buff loss from ${batch.batch_no}`,
+
           },
+
         ]);
+
       }
+
+
 
       if (row.loss_type === "Electropolishing Loss") {
+
         await supabase.from("electro_polish_loss_records").insert([
+
           {
+
             casting_batch_id: batch.id,
+
             kt: batch.kt,
+
             loss_weight: wt,
+
             recovery_status: "Pending",
+
             remarks: row.remarks || `Final repair electropolish loss from ${batch.batch_no}`,
+
           },
+
         ]);
+
       }
+
+
 
       if (row.loss_type === "Scrap") {
+
         const ok = await stockInScrap(wt, 0, "Final Repair Loss Scrap", row.remarks || "Final repair loss moved to scrap");
+
         if (!ok) {
+
           setSaving(false);
+
           return;
+
         }
+
       }
+
     }
+
+
 
     const rejectedOk = await stockInScrap(
+
       rejectedWeight,
+
       rejectedPieces,
+
       "Final Repair Rejection",
+
       "Rejected pieces from final repair moved to same KT scrap"
+
     );
 
+
+
     if (!rejectedOk) {
+
       setSaving(false);
+
       return;
+
     }
 
+
+
 const realQueueIds = group.queues
+
   .filter((q) => !q.no_repair)
+
   .map((q) => q.id);
 
+
+
 if (realQueueIds.length > 0) {
+
   await supabase
+
     .from("repair_queue")
+
     .update({
+
       status: "Completed",
+
       repaired_pieces: Number(receivedPieces || 0),
+
       repaired_weight: Number(receivedWeight || 0),
+
       rejected_pieces: Number(rejectedPieces || 0),
+
       rejected_weight: Number(rejectedWeight || 0),
+
     })
+
     .in("id", realQueueIds);
+
 }
 
- const isNoRepair = group.queues.some((q) => q.no_repair);
+const isNoRepair = group.queues.some((q) => q.no_repair);
 
+// Merge the repaired stream back with pieces that were already good.
 const nextPieces = isNoRepair
   ? Number(receivedPieces || batch.current_pieces || 0)
-  : Number(batch.current_pieces || 0) + Number(receivedPieces || 0);
+  : alreadyGoodPieces + Number(receivedPieces || 0);
 
 const nextWeight = isNoRepair
   ? Number(receivedWeight || batch.current_weight || 0)
-  : Number(batch.current_weight || 0) + Number(receivedWeight || 0);
+  : alreadyGoodWeight + Number(receivedWeight || 0);
+
+
 
 const { error: updateError } = await supabase
+
   .from("casting_batches")
+
   .update({
+
     status: "Stone Setting",
+
     current_process: "stone-setting",
+
     current_pieces: nextPieces,
+
     current_weight: nextWeight,
+
   })
+
   .eq("id", batch.id);
 
+
+
     if (updateError) {
-  setSaving(false);
-  alert(updateError.message);
-  return;
-}
+      setSaving(false);
+      alert(updateError.message);
+      return;
+    }
+
+    const { data: reworkData, error: reworkError } = await supabase.rpc(
+      "complete_process_rework",
+      {
+        p_casting_batch_id: batch.id,
+        p_completed_process: "Final Repair",
+        p_next_process: "Stone Setting",
+        p_completed_by: null,
+        p_completed_by_name: karigar || issuedBy || "Final Repair",
+      }
+    );
+
+    if (reworkError) {
+      console.error("complete_process_rework error:", reworkError);
+    } else if (reworkData?.success === false) {
+      console.error("complete_process_rework result:", reworkData);
+    }
 
 await supabase
   .from("process_drafts")
+
   .delete()
+
   .eq("batch_id", batch.id)
+
   .eq("process_name", "FINAL_REPAIR");
 
+
+
 setSaving(false);
+
 router.push(`/factory/stone-setting/dashboard?batch=${batch.id}`);
+
   }
 
+
+
   return (
-    <section className="rounded-3xl bg-white p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div>
+    <section className="overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-sm">
+      <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-4">
+        <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-lg font-bold">{batch.batch_no}</h3>
+            <h3 className="text-lg font-extrabold tracking-tight text-slate-950">{batch.batch_no}</h3>
             <Badge>{batch.kt}</Badge>
             <Badge blue>{t("final_repair")}</Badge>
           </div>
-<p className="mt-2 text-xs font-semibold text-gray-500">
-  {t("party")}: {parties.join(", ") || "-"}
-</p>
-
-<p className="text-xs text-gray-500">
-  {t("order")}: {orders.join(", ") || "-"}
-</p>
+          <p className="mt-2 text-xs font-semibold text-slate-600">{t("party")}: {parties.join(", ") || "-"}</p>
+          <p className="mt-0.5 text-xs text-slate-500">{t("order")}: {orders.join(", ") || "-"}</p>
         </div>
-        <button onClick={onOpen} className="rounded-xl bg-black px-4 py-2 text-xs font-semibold text-white">
+        <button type="button" onClick={onOpen} className="shrink-0 rounded-xl bg-slate-950 px-4 py-2.5 text-xs font-bold text-white shadow-sm">
           {isOpen ? t("close") : t("open")}
         </button>
       </div>
 
-      <div className="mt-4 grid grid-cols-3 gap-2">
-        <MiniStat label={t("pending_pieces")} value={group.pendingPieces} />
-        <MiniStat
-  label={t("pending_weight")}
-  value={`${group.pendingWeight.toFixed(3)}g`}
-/>
-        <MiniStat
-  label={t("sources")}
-  value={
-    [...new Set(group.sources)]
-      .map((source) => getSourceLabel(source))
-      .join(", ") || "-"
-  }
-/>
+      <div className="grid grid-cols-3 gap-2 px-4 py-4">
+        <MiniStat label="Total Batch" value={totalBatchPieces} />
+        <MiniStat label="Already Good" value={hasRealRepairQueue ? alreadyGoodPieces : totalBatchPieces} />
+        <MiniStat label="Repair Pending" value={repairPendingPieces} />
       </div>
 
+      {hasRealRepairQueue && (
+        <div className="mx-4 mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-amber-800">Repair Flow</p>
+          <p className="mt-1 text-xs leading-5 text-amber-800">
+            {repairPendingPieces} piece(s) are in Final Repair. The other {alreadyGoodPieces} good piece(s) are safe and will automatically merge back before Stone Setting.
+          </p>
+        </div>
+      )}
+
       {isOpen && (
-        <div className="mt-5 space-y-4">
-          <ItemsSummary t={t} items={items} />
-
-          <Panel title={t("findings_issue_receive")}>
-            <div className="grid gap-3 md:grid-cols-2">
-              <Field label={t("issued_by")}>
-                <input value={issuedBy} onChange={(e) => setIssuedBy(e.target.value)} className="input" />
-              </Field>
-              <div className="flex items-end">
-                <button onClick={addFindingRow} className="w-full rounded-xl bg-black px-4 py-3 text-sm font-semibold text-white">
-                  {t("add_finding")}
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-3 space-y-3">
-              {findingRows.map((row, index) => (
-                <div key={index} className="rounded-2xl border border-gray-200 bg-white p-3">
-                  <div className="grid gap-2 md:grid-cols-4">
-                    <Field label={t("finding")}>
-                      <select value={row.finding_item_id} onChange={(e) => updateFinding(index, "finding_item_id", e.target.value)} className="input">
-                        <option value="">{t("select")}</option>
-                        {findings.map((f) => <option key={f.id} value={f.id}>{f.item_name}</option>)}
-                      </select>
-                    </Field>
-                    <Field label={t("kt")}>
-                      <select value={row.kt} onChange={(e) => updateFinding(index, "kt", e.target.value)} className="input">
-                        {KTS.map((k) => <option key={k}>{k}</option>)}
-                      </select>
-                    </Field>
-                    <Field label={t("issued_weight")}>
-                      <input type="number" step="0.001" value={row.issued_weight} onChange={(e) => updateFinding(index, "issued_weight", e.target.value)} className="input" />
-                    </Field>
-                    <Field label={t("issued_quantity")}>
-                      <input type="number" value={row.issued_qty} onChange={(e) => updateFinding(index, "issued_qty", e.target.value)} className="input" />
-                    </Field>
-                    <Field label={t("received_weight")}>
-                      <input type="number" step="0.001" value={row.received_weight} onChange={(e) => updateFinding(index, "received_weight", e.target.value)} className="input" />
-                    </Field>
-                    <Field label={t("received_quantity")}>
-                      <input type="number" value={row.received_qty} onChange={(e) => updateFinding(index, "received_qty", e.target.value)} className="input" />
-                    </Field>
-                    <Field label={t("remarks")}>
-                      <input value={row.remarks} onChange={(e) => updateFinding(index, "remarks", e.target.value)} className="input" />
-                    </Field>
-                    <div className="flex items-end">
-                      <button onClick={() => setFindingRows((p) => p.filter((_, i) => i !== index))} className="w-full rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-                        {t("remove")}
-                      </button>
-                    </div>
-                  </div>
+        <div className="border-t border-slate-100 bg-slate-50/70 p-4">
+          <div className="space-y-4">
+            <details className="rounded-2xl border border-slate-200 bg-white">
+              <summary className="cursor-pointer list-none px-4 py-3 text-sm font-bold text-slate-900">
+                <div className="flex items-center justify-between gap-3">
+                  <span>{t("items_summary")}</span>
+                  <span className="text-xs font-semibold text-slate-400">{items.length} item(s) ▾</span>
                 </div>
-              ))}
-            </div>
+              </summary>
+              <div className="border-t border-slate-100 p-3"><ItemsSummary t={t} items={items} embedded /></div>
+            </details>
 
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <GreenStat
-  label={t("findings_issued")}
-  value={`${findingsIssuedWeight.toFixed(3)}g`}
-/>
-<GreenStat
-  label={t("findings_received")}
-  value={`${findingsReceivedWeight.toFixed(3)}g`}
-/>
-            </div>
-          </Panel>
+            <Panel title={t("repair_result")}>
+              <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <FlowStat label="Total Batch" value={`${totalBatchPieces} pcs`} />
+                <FlowStat label="Already Good" value={`${hasRealRepairQueue ? alreadyGoodPieces : totalBatchPieces} pcs`} />
+                <FlowStat label="Repair Issued" value={`${Number(issuedPieces || 0)} pcs`} />
+                <FlowStat label="Repair Weight" value={`${Number(issuedWeight || 0).toFixed(3)} g`} />
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <Field label={t("karigar_name")}><input value={karigar} onChange={(e) => setKarigar(e.target.value)} className="input" /></Field>
+                <Field label={t("issued_by")}><input value={issuedBy} onChange={(e) => setIssuedBy(e.target.value)} className="input" /></Field>
+                <Field label={t("issued_pieces")}><input type="number" value={issuedPieces} onChange={(e) => setIssuedPieces(e.target.value)} className="input" /></Field>
+                <Field label={t("issued_weight")}><input type="number" step="0.001" value={issuedWeight} onChange={(e) => setIssuedWeight(e.target.value)} className="input" /></Field>
+                <Field label={t("received_pieces")}><input type="number" value={receivedPieces} onChange={(e) => setReceivedPieces(e.target.value)} className="input" /></Field>
+                <Field label={t("received_weight")}><input type="number" step="0.001" value={receivedWeight} onChange={(e) => setReceivedWeight(e.target.value)} className="input" /></Field>
+                <Field label={t("rejected_pieces")}><input type="number" value={rejectedPieces} onChange={(e) => setRejectedPieces(e.target.value)} className="input" /></Field>
+                <Field label={t("rejected_weight")}><input type="number" step="0.001" value={rejectedWeight} onChange={(e) => setRejectedWeight(e.target.value)} className="input" /></Field>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <div className="rounded-2xl border border-orange-200 bg-orange-50 p-3"><p className="text-[11px] font-bold uppercase tracking-wide text-orange-700">{t("calculated_loss")}</p><p className="mt-1 text-base font-extrabold text-orange-800">{calculatedRepairLoss.toFixed(3)} g</p></div>
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3"><p className="text-[11px] font-bold uppercase tracking-wide text-emerald-700">{t("loss_breakup_total")}</p><p className="mt-1 text-base font-extrabold text-emerald-800">{lossBreakupWeight.toFixed(3)} g</p></div>
+              </div>
+            </Panel>
 
-          <Panel title={t("repair_result")}>
-            <div className="grid gap-3 md:grid-cols-3">
-              <Field label={t("karigar_name")}><input value={karigar} onChange={(e) => setKarigar(e.target.value)} className="input" /></Field>
-              <Field label={t("issued_pieces")}><input type="number" value={issuedPieces} onChange={(e) => setIssuedPieces(e.target.value)} className="input" /></Field>
-              <Field label={t("issued_weight")}><input type="number" step="0.001" value={issuedWeight} onChange={(e) => setIssuedWeight(e.target.value)} className="input" /></Field>
-              <Field label={t("received_pieces")}><input type="number" value={receivedPieces} onChange={(e) => setReceivedPieces(e.target.value)} className="input" /></Field>
-              <Field label={t("received_weight")}><input type="number" step="0.001" value={receivedWeight} onChange={(e) => setReceivedWeight(e.target.value)} className="input" /></Field>
-              <Field label={t("rejected_pieces")}><input type="number" value={rejectedPieces} onChange={(e) => setRejectedPieces(e.target.value)} className="input" /></Field>
-              <Field label={t("rejected_weight")}><input type="number" step="0.001" value={rejectedWeight} onChange={(e) => setRejectedWeight(e.target.value)} className="input" /></Field>
-              <Field label={t("calculated_loss")}><div className="rounded-xl bg-orange-50 p-3 text-sm font-bold text-orange-700">{calculatedRepairLoss.toFixed(3)} g</div></Field>
-              <Field label={t("loss_breakup_total")}><div className="rounded-xl bg-green-50 p-3 text-sm font-bold text-green-800">{lossBreakupWeight.toFixed(3)} g</div></Field>
-            </div>
-          </Panel>
+            <Panel title={t("findings_issue_receive")}>
+              <div className="flex items-center justify-between gap-3"><p className="text-xs text-slate-500">Add findings only when material is actually issued for repair.</p><button type="button" onClick={addFindingRow} className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-800 shadow-sm">+ {t("add_finding")}</button></div>
+              <div className="mt-3 space-y-3">
+                {findingRows.map((row, index) => (
+                  <div key={index} className="rounded-2xl border border-slate-200 bg-white p-3"><div className="grid gap-2 md:grid-cols-2">
+                    <Field label={t("finding")}><select value={row.finding_item_id} onChange={(e) => updateFinding(index, "finding_item_id", e.target.value)} className="input"><option value="">{t("select")}</option>{findings.map((f) => <option key={f.id} value={f.id}>{f.item_name}</option>)}</select></Field>
+                    <Field label={t("kt")}><select value={row.kt} onChange={(e) => updateFinding(index, "kt", e.target.value)} className="input">{KTS.map((k) => <option key={k}>{k}</option>)}</select></Field>
+                    <Field label={t("issued_weight")}><input type="number" step="0.001" value={row.issued_weight} onChange={(e) => updateFinding(index, "issued_weight", e.target.value)} className="input" /></Field>
+                    <Field label={t("issued_quantity")}><input type="number" value={row.issued_qty} onChange={(e) => updateFinding(index, "issued_qty", e.target.value)} className="input" /></Field>
+                    <Field label={t("received_weight")}><input type="number" step="0.001" value={row.received_weight} onChange={(e) => updateFinding(index, "received_weight", e.target.value)} className="input" /></Field>
+                    <Field label={t("received_quantity")}><input type="number" value={row.received_qty} onChange={(e) => updateFinding(index, "received_qty", e.target.value)} className="input" /></Field>
+                    <Field label={t("remarks")}><input value={row.remarks} onChange={(e) => updateFinding(index, "remarks", e.target.value)} className="input" /></Field>
+                    <div className="flex items-end"><button type="button" onClick={() => setFindingRows((p) => p.filter((_, i) => i !== index))} className="w-full rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">{t("remove")}</button></div>
+                  </div></div>
+                ))}
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2"><GreenStat label={t("findings_issued")} value={`${findingsIssuedWeight.toFixed(3)}g`} /><GreenStat label={t("findings_received")} value={`${findingsReceivedWeight.toFixed(3)}g`} /></div>
+            </Panel>
 
-          <Panel title={t("loss_type_breakup")}>
-            <button onClick={addLossRow} className="mb-3 rounded-xl bg-black px-4 py-2 text-xs font-semibold text-white">
-              {t("add_loss_type")}
-              </button>
-            <div className="space-y-2">
-              {lossRows.map((row, index) => (
-                <div key={index} className="grid gap-2 rounded-2xl bg-slate-50 p-3 md:grid-cols-4">
-                  <select value={row.loss_type} onChange={(e) => updateLoss(index, "loss_type", e.target.value)} className="input">
-                    {LOSS_TYPES.map((lossType) => (
-  <option key={lossType} value={lossType}>
-    {getLossTypeLabel(lossType)}
-  </option>
-))}
-                  </select>
+            <Panel title={t("loss_type_breakup")}>
+              <button type="button" onClick={addLossRow} className="mb-3 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-800 shadow-sm">+ {t("add_loss_type")}</button>
+              <div className="space-y-2">{lossRows.map((row, index) => (
+                <div key={index} className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 md:grid-cols-4">
+                  <select value={row.loss_type} onChange={(e) => updateLoss(index, "loss_type", e.target.value)} className="input">{LOSS_TYPES.map((lossType) => <option key={lossType} value={lossType}>{getLossTypeLabel(lossType)}</option>)}</select>
                   <input type="number" step="0.001" placeholder={t("weight")} value={row.weight} onChange={(e) => updateLoss(index, "weight", e.target.value)} className="input" />
                   <input placeholder={t("remarks")} value={row.remarks} onChange={(e) => updateLoss(index, "remarks", e.target.value)} className="input" />
-                  <button onClick={() => setLossRows((p) => p.filter((_, i) => i !== index))} className="rounded-xl bg-red-50 px-4 py-2 text-sm font-semibold text-red-700">
-                    {t("remove")}
-                    </button>
+                  <button type="button" onClick={() => setLossRows((p) => p.filter((_, i) => i !== index))} className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-bold text-red-700">{t("remove")}</button>
                 </div>
-              ))}
+              ))}</div>
+            </Panel>
+
+            <Field label={t("remarks")}><textarea rows={3} value={remarks} onChange={(e) => setRemarks(e.target.value)} className="input resize-none" /></Field>
+            <p className="text-xs text-slate-500">{t("repair_loss_formula")}</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <button type="button" disabled={savingDraft || saving} onClick={saveDraft} className="rounded-xl border border-slate-300 bg-white px-5 py-3.5 text-sm font-extrabold text-slate-800 shadow-sm disabled:opacity-50">{savingDraft ? t("saving") : t("save_draft")}</button>
+              <button type="button" disabled={saving || savingDraft} onClick={saveFinalRepair} className="rounded-xl bg-blue-600 px-5 py-3.5 text-sm font-extrabold text-white shadow-sm disabled:bg-slate-400">{saving ? t("saving") : t("save_move_stone_setting")}</button>
             </div>
-          </Panel>
-
-          <Field label="Remarks">
-            <textarea rows={3} value={remarks} onChange={(e) => setRemarks(e.target.value)} className="input" />
-          </Field>
-
-         <p className="text-xs text-gray-500">
-  {t("repair_loss_formula")}
-</p>
-
-          <div className="flex flex-wrap gap-3">
-  <button
-    type="button"
-    disabled={savingDraft || saving}
-    onClick={saveDraft}
-    className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white disabled:bg-gray-400"
-  >
-    {savingDraft ? t("saving") : t("save_draft")}
-  </button>
-
-  <button
-    type="button"
-    disabled={saving || savingDraft}
-    onClick={saveFinalRepair}
-    className="rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white disabled:bg-gray-400"
-  >
-    {saving ? t("saving") : t("save_move_stone_setting")}
-  </button>
-</div>
+          </div>
         </div>
       )}
     </section>
   );
 }
 
+
 function Header({ t }) {
+
   return (
+
     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+
       <div>
+
         <h1 className="text-2xl font-bold md:text-3xl">
+
           {t("final_repair")}
+
         </h1>
 
+
+
         <p className="text-sm text-gray-600">
+
           {t("final_repair_subtitle")}
+
         </p>
+
       </div>
+
+
 
       <div className="flex flex-wrap gap-2">
-        <Link
-          href="/factory/pre-polish/dashboard"
-          className="rounded-xl bg-white px-4 py-2 text-sm font-semibold shadow-sm"
-        >
-          {t("pre_polish")}
-        </Link>
 
         <Link
-          href="/dashboard"
-          className="rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white"
+
+          href="/factory/pre-polish/dashboard"
+
+          className="rounded-xl bg-white px-4 py-2 text-sm font-semibold shadow-sm"
+
         >
-          {t("dashboard")}
+
+          {t("pre_polish")}
+
         </Link>
+
+
+
+        <Link
+
+          href="/dashboard"
+
+          className="rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white"
+
+        >
+
+          {t("dashboard")}
+
+        </Link>
+
       </div>
+
     </div>
+
   );
+
 }
 
-function ItemsSummary({ t, items }) {
-  return (
-    <Panel title={t("items_summary")}>
-      <div className="grid max-h-[230px] gap-2 overflow-y-auto md:grid-cols-2">
-        {items.map((item) => (
-          <div
-            key={item.id}
-            className="rounded-xl border border-gray-200 bg-white p-3"
-          >
-            <p className="text-xs font-semibold text-gray-500">
-              {item.orders?.order_no || "-"} ·{" "}
-              {item.orders?.customer_name || "-"}
-            </p>
 
-            <p className="mt-1 text-sm font-bold">
-              {item.category}
-            </p>
 
-            <p className="text-xs text-gray-500">
-              {item.sample_unique_id} · {t("die")} {item.die_no}
-            </p>
-
-            <p className="mt-2 text-xs font-bold">
-              {t("qty")}: {item.selected_quantity}
-            </p>
-          </div>
-        ))}
-      </div>
-    </Panel>
+function ItemsSummary({ t, items, embedded = false }) {
+  const content = (
+    <div className="grid max-h-[230px] gap-2 overflow-y-auto md:grid-cols-2">
+      {items.map((item) => (
+        <div key={item.id} className="rounded-xl border border-slate-200 bg-white p-3">
+          <p className="text-xs font-semibold text-slate-500">
+            {item.orders?.order_no || "-"} · {item.orders?.customer_name || "-"}
+          </p>
+          <p className="mt-1 text-sm font-bold text-slate-900">{item.category}</p>
+          <p className="text-xs text-slate-500">
+            {item.sample_unique_id} · {t("die")} {item.die_no}
+          </p>
+          <p className="mt-2 text-xs font-bold text-slate-900">{t("qty")}: {item.selected_quantity}</p>
+        </div>
+      ))}
+    </div>
   );
+  if (embedded) return content;
+  return <Panel title={t("items_summary")}>{content}</Panel>;
 }
 
 function Panel({ title, children }) {
+
   return (
+
     <div className="rounded-3xl bg-slate-50 p-4">
+
       <h4 className="mb-3 text-sm font-bold">{title}</h4>
+
       {children}
+
+    </div>
+
+  );
+
+}
+
+
+
+function Field({ label, children }) {
+
+  return <label className="block"><p className="mb-1 text-xs font-semibold text-gray-500">{label}</p>{children}</label>;
+
+}
+
+
+
+function MiniStat({ label, value }) {
+
+  return <div className="rounded-xl bg-slate-50 p-3"><p className="text-xs font-semibold text-gray-500">{label}</p><p className="mt-1 text-sm font-bold">{value}</p></div>;
+
+}
+
+
+
+function FlowStat({ label, value }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+      <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="mt-1 text-sm font-extrabold text-slate-950">{value}</p>
     </div>
   );
 }
 
-function Field({ label, children }) {
-  return <label className="block"><p className="mb-1 text-xs font-semibold text-gray-500">{label}</p>{children}</label>;
-}
-
-function MiniStat({ label, value }) {
-  return <div className="rounded-xl bg-slate-50 p-3"><p className="text-xs font-semibold text-gray-500">{label}</p><p className="mt-1 text-sm font-bold">{value}</p></div>;
-}
-
 function GreenStat({ label, value }) {
+
   return <div className="rounded-xl bg-green-50 p-3"><p className="text-xs font-semibold text-green-700">{label}</p><p className="mt-1 text-sm font-bold text-green-800">{value}</p></div>;
+
 }
+
+
 
 function Badge({ children, blue }) {
+
   return <span className={`rounded-full px-2 py-1 text-xs font-bold ${blue ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-gray-700"}`}>{children}</span>;
+
 }

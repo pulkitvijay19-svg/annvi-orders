@@ -1,541 +1,1090 @@
 "use client";
 
+
+
 import { useEffect, useState } from "react";
+
 import Link from "next/link";
+
 import { useRouter } from "next/navigation";
+
 import { supabase } from "../../../../lib/supabaseClient";
+
 import { useRequireAuth } from "../../../../lib/useRequireAuth";
+
 import MobileBottomNav from "../../../../components/MobileBottomNav";
+
 import { useLanguage } from "../../../../context/LanguageContext";
 
+
+
 export default function FinalQCDashboardPage() {
+
   const { loading: authLoading } = useRequireAuth();
+
   const { t } = useLanguage();
+
   const [targetBatchNo, setTargetBatchNo] = useState("");
+
   const [batches, setBatches] = useState([]);
+
   const [openId, setOpenId] = useState(null);
+
   const [loading, setLoading] = useState(true);
 
+
+
   async function fetchData() {
+
     setLoading(true);
 
+
+
     const { data, error } = await supabase
+
       .from("casting_batches")
+
       .select(`
+
         *,
+
         casting_batch_items(*, orders(order_no, customer_name)),
+
         qc_results(*)
+
       `)
+
       .eq("status", "Final Inspection QC")
+
       .order("created_at", { ascending: false });
+
+
 
     if (error) alert(error.message);
 
+
+
     setBatches(data || []);
+
     setLoading(false);
+
   }
-useEffect(() => {
-  fetchData();
-}, []);
 
 useEffect(() => {
+
+  fetchData();
+
+}, []);
+
+
+
+useEffect(() => {
+
   const batchId = targetBatchNo;
+
   if (batchId) {
+
     setOpenId(batchId);
+
   }
+
 }, [targetBatchNo]);
 
+
+
 useEffect(() => {
+
   const params = new URLSearchParams(window.location.search);
+
   setTargetBatchNo(params.get("batch") || "");
+
 }, []);
 
+
+
   if (authLoading || loading) {
+
     return (
+
       <main className="min-h-screen bg-slate-100 p-6 text-sm text-gray-700">
+
         {t("loading_final_qc")}
+
       </main>
+
     );
+
   }
 
+
+
   return (
+
     <main className="min-h-screen bg-slate-100 p-3 pb-24 text-gray-900 md:p-5">
+
       <div className="mx-auto max-w-7xl space-y-5">
+
         <Header t={t} />
 
+
+
         {batches.length === 0 ? (
+
           <div className="rounded-2xl bg-white p-6 text-sm text-gray-500 shadow-sm">
+
             {t("no_final_qc_batches")}
+
           </div>
+
         ) : (
+
           <div className="grid gap-4 xl:grid-cols-2">
+
             {batches.map((batch) => (
+
               <QCCard
+
                 key={batch.id}
+
                 batch={batch}
+
                 t={t}
+
                 isOpen={openId === batch.id}
+
                 onOpen={() => setOpenId(openId === batch.id ? null : batch.id)}
+
                 onRefresh={fetchData}
+
               />
+
             ))}
+
           </div>
+
         )}
+
       </div>
+
+
 
       <MobileBottomNav />
 
+
+
       <style jsx global>{`
+
         .input {
+
           width: 100%;
+
           border-radius: 0.8rem;
-          border: 1px solid #d1d5db;
+
+          border: 1.5px solid #cbd5e1;
+
           background: white;
+
           padding: 0.75rem;
+
           font-size: 0.875rem;
+
           color: #111827;
+
           outline: none;
+
         }
+
       `}</style>
+
     </main>
+
   );
+
 }
 
+
+
 function QCCard({ batch, t, isOpen, onOpen, onRefresh }) {
+
   const router = useRouter();
+
   const items = batch.casting_batch_items || [];
+
+
 
   const [inspectorName, setInspectorName] = useState("");
 
+
+
   const [issuedPieces, setIssuedPieces] = useState(
+
     Number(batch.current_pieces || batch.good_pieces || 0)
+
   );
+
   const [issuedWeight, setIssuedWeight] = useState(
+
     Number(batch.current_weight || batch.received_weight || 0)
+
   );
+
+
 
   const [passedPieces, setPassedPieces] = useState("");
+
   const [passedWeight, setPassedWeight] = useState("");
 
-  const [repairPieces, setRepairPieces] = useState("");
-  const [repairWeight, setRepairWeight] = useState("");
+
 
   const [rejectedPieces, setRejectedPieces] = useState("");
+
   const [rejectedWeight, setRejectedWeight] = useState("");
 
+
+
   const [remarks, setRemarks] = useState("");
+
   const [saving, setSaving] = useState(false);
 
+
+
   const parties = [
+
     ...new Set(items.map((i) => i.orders?.customer_name).filter(Boolean)),
+
   ];
+
+
 
   const orders = [
+
     ...new Set(items.map((i) => i.orders?.order_no).filter(Boolean)),
+
   ];
 
+
+
   const totalResultPieces =
+
     Number(passedPieces || 0) +
-    Number(repairPieces || 0) +
+
     Number(rejectedPieces || 0);
 
+
+
   const qcLoss =
+
     Number(issuedWeight || 0) -
+
     Number(passedWeight || 0) -
+
     Number(rejectedWeight || 0);
 
+
+
   async function getScrapItemId() {
+
     const { data, error } = await supabase
+
       .from("inventory_items")
+
       .select("id")
+
       .eq("item_type", "Scrap")
+
       .eq("item_name", "Casting Scrap")
+
       .maybeSingle();
 
+
+
     if (error) {
+
       alert(error.message);
+
       return null;
+
     }
+
+
 
     if (!data?.id) {
+
       alert(t("casting_scrap_not_found"));
+
       return null;
+
     }
+
+
 
     return data.id;
+
   }
+
+
 
   async function stockInRejectedScrap() {
+
     if (Number(rejectedWeight || 0) <= 0) return true;
 
+
+
     const scrapItemId = await getScrapItemId();
+
     if (!scrapItemId) return false;
 
+
+
     const { error } = await supabase.from("inventory_transactions").insert([
+
       {
+
         inventory_item_id: scrapItemId,
+
         kt: batch.kt,
+
         transaction_type: "Stock In",
+
         purpose: "Final QC Rejection",
+
         reference_no: batch.batch_no,
+
         weight: Number(rejectedWeight || 0),
+
         quantity: Number(rejectedPieces || 0),
+
         weight_source: "manual",
+
         remarks: "Rejected pieces from final QC moved to same KT scrap",
+
       },
+
     ]);
 
+
+
     if (error) {
+
       alert(error.message);
+
       return false;
+
     }
+
+
 
     return true;
+
   }
 
+
+
   async function saveQCResult() {
-    if (!passedWeight && !repairWeight && !rejectedWeight) {
+
+    if (!passedWeight && !rejectedWeight) {
+
       alert(t("enter_final_qc_weight"));
+
       return;
+
     }
+
+
 
     if (
+
       Number(issuedPieces || 0) > 0 &&
+
       totalResultPieces !== Number(issuedPieces || 0)
+
     ) {
+
       const confirmSave = confirm(
+
        `${t("issued_pieces")}: ${issuedPieces}
 
-${t("passed")} + ${t("repair")} + ${t("rejected")} = ${totalResultPieces}
+
+
+${t("passed")} + ${t("rejected")} = ${totalResultPieces}
+
+
 
 ${t("continue_save")}`
+
       );
 
+
+
       if (!confirmSave) return;
+
     }
+
+
 
     setSaving(true);
 
+
+
     const { error } = await supabase.from("qc_results").insert([
+
       {
+
         casting_batch_id: batch.id,
+
         inspector_name: inspectorName,
 
+
+
         issued_pieces: Number(issuedPieces || 0),
+
         issued_weight: Number(issuedWeight || 0),
 
+
+
         passed_pieces: Number(passedPieces || 0),
+
         passed_weight: Number(passedWeight || 0),
 
-      repair_pieces: 0,
-      repair_weight: 0,
-      
+
+
+        repair_pieces: 0,
+
+        repair_weight: 0,
+
+
+
         rejected_pieces: Number(rejectedPieces || 0),
+
         rejected_weight: Number(rejectedWeight || 0),
 
+
+
         qc_loss: qcLoss,
+
         remarks,
+
       },
+
     ]);
 
+
+
     if (error) {
+
       setSaving(false);
+
       alert(error.message);
+
       return;
+
     }
+
+
 
     const scrapOk = await stockInRejectedScrap();
+
     if (!scrapOk) {
+
       setSaving(false);
+
       return;
+
     }
+
+
 
     const { error: updateError } = await supabase
+
       .from("casting_batches")
+
 .update({
+
   status: "Rhodium / Plating",
+
   current_process: "rhodium",
+
   current_pieces: Number(passedPieces || 0),
+
   current_weight: Number(passedWeight || 0),
+
 })
+
       .eq("id", batch.id);
 
+
+
     if (updateError) {
+
       setSaving(false);
+
       alert(updateError.message);
+
+      return;
+
+    }
+
+    const { data: reworkData, error: reworkError } = await supabase.rpc(
+      "complete_process_rework",
+      {
+        p_casting_batch_id: batch.id,
+        p_completed_process: "Final Inspection QC",
+        p_next_process: "Rhodium / Plating",
+        p_completed_by: null,
+        p_completed_by_name: inspectorName || "Final QC",
+      }
+    );
+
+    if (reworkError) {
+      console.error("complete_process_rework error:", reworkError);
+      setSaving(false);
+      alert(
+        `Final QC saved and moved to Rhodium, but rework completion failed: ${reworkError.message}`
+      );
       return;
     }
 
-setSaving(false);
+    if (reworkData && reworkData.success === false) {
+      console.error("complete_process_rework result:", reworkData);
+      setSaving(false);
+      alert("Final QC saved and moved to Rhodium, but rework could not be completed.");
+      return;
+    }
+
+    setSaving(false);
+
 alert(t("redirecting_rhodium"));
+
 router.push(`/factory/rhodium/dashboard?batch=${batch.id}`);
+
   }
 
+
+
   return (
+
     <section className="rounded-3xl bg-white p-4 shadow-sm">
+
       <div className="flex items-start justify-between gap-3">
+
         <div>
+
           <div className="flex flex-wrap items-center gap-2">
+
             <h3 className="text-lg font-bold">{batch.batch_no}</h3>
+
             <Badge>{batch.kt}</Badge>
+
             <Badge blue>{t("final_qc")}</Badge>
+
           </div>
 
+
+
           <p className="mt-2 text-xs font-semibold text-gray-500">
+
             {t("party")}: {parties.join(", ") || "-"}
+
           </p>
+
+
 
           <p className="text-xs text-gray-500">
+
             {t("order")}: {orders.join(", ") || "-"}
+
           </p>
+
         </div>
 
+
+
         <button
+
           onClick={onOpen}
+
           className="rounded-xl bg-black px-4 py-2 text-xs font-semibold text-white"
+
         >
+
           {isOpen ? t("close") : t("open")}
+
         </button>
+
       </div>
+
+
 
       <div className="mt-4 grid grid-cols-3 gap-2">
+
         <MiniStat label={t("issued_pieces")} value={issuedPieces} />
+
         <MiniStat
+
           label={t("issued_weight")}
+
           value={`${Number(issuedWeight || 0).toFixed(3)}g`}
+
         />
+
         <MiniStat label={t("entries")} value={batch.qc_results?.length || 0} />
+
       </div>
 
+
+
       {isOpen && (
+
         <div className="mt-5 space-y-4">
+
           <ItemsSummary t={t} items={items} />
 
+
+
           <Panel title={t("final_qc_result")}>
+
             <div className="grid gap-3 md:grid-cols-3">
+
               <Field label={t("inspector_name")}>
+
                 <input
+
                   value={inspectorName}
+
                   onChange={(e) => setInspectorName(e.target.value)}
+
                   className="input"
+
                 />
+
               </Field>
+
+
 
               <Field label={t("issued_pieces")}>
+
                 <input
+
                   type="number"
+
                   value={issuedPieces}
+
                   onChange={(e) => setIssuedPieces(e.target.value)}
+
                   className="input"
+
                 />
+
               </Field>
+
+
 
               <Field label={t("issued_weight")}>
+
                 <input
+
                   type="number"
+
                   step="0.001"
+
                   value={issuedWeight}
+
                   onChange={(e) => setIssuedWeight(e.target.value)}
+
                   className="input"
+
                 />
+
               </Field>
+
+
 
               <Field label={t("passed_pieces")}>
+
                 <input
+
                   type="number"
+
                   value={passedPieces}
+
                   onChange={(e) => setPassedPieces(e.target.value)}
+
                   className="input"
+
                 />
+
               </Field>
 
+
+
               <Field label={t("passed_weight")}>
+
                 <input
+
                   type="number"
+
                   step="0.001"
+
                   value={passedWeight}
+
                   onChange={(e) => setPassedWeight(e.target.value)}
+
                   className="input"
+
                 />
+
               </Field>
+
+
+
+
 
 
 
               <Field label={t("rejected_pieces")}>
+
                 <input
+
                   type="number"
+
                   value={rejectedPieces}
+
                   onChange={(e) => setRejectedPieces(e.target.value)}
+
                   className="input"
+
                 />
+
               </Field>
+
+
 
               <Field label={t("rejected_weight")}>
+
                 <input
+
                   type="number"
+
                   step="0.001"
+
                   value={rejectedWeight}
+
                   onChange={(e) => setRejectedWeight(e.target.value)}
+
                   className="input"
+
                 />
+
               </Field>
+
+
 
               <Field label={t("qc_difference")}>
+
                 <div className="rounded-xl bg-orange-50 p-3 text-sm font-bold text-orange-700">
+
                   {qcLoss.toFixed(3)} g
+
                 </div>
+
               </Field>
+
             </div>
 
-            <div className="mt-3 grid grid-cols-3 gap-2">
+
+
+            <div className="mt-3 grid grid-cols-2 gap-2">
+
               <GreenStat
+
                 label={t("passed_to_rhodium")}
+
                 value={`${Number(passedPieces || 0)} pcs`}
+
               />
+
               <GreenStat
-                label={t("repair_queue")}
-                value={`${Number(repairPieces || 0)} pcs`}
-              />
-              <GreenStat
+
                 label={t("rejected_scrap")}
+
                 value={`${Number(rejectedWeight || 0).toFixed(3)}g`}
+
               />
+
             </div>
+
+
 
             <div className="mt-3">
+
               <Field label="Remarks">
+
                 <textarea
+
                   rows={3}
+
                   value={remarks}
+
                   onChange={(e) => setRemarks(e.target.value)}
+
                   className="input"
+
                 />
+
               </Field>
+
             </div>
 
+
+
             <p className="mt-2 text-xs text-gray-500">
+
               {t("qc_formula")}
+
             </p>
+
+
 
             <button
+
               disabled={saving}
+
               onClick={saveQCResult}
-              className="mt-4 rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white disabled:bg-gray-400"
+
+              className="mt-4 w-full rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 disabled:bg-gray-400"
+
             >
+
               {saving ? t("saving") : t("save_move_rhodium")}
+
             </button>
+
           </Panel>
+
         </div>
+
       )}
+
     </section>
+
   );
+
 }
+
+
 
 function Header({ t }) {
+
   return (
+
     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+
       <div>
+
         <h1 className="text-2xl font-bold md:text-3xl">
+
           {t("final_qc")}
+
         </h1>
+
         <p className="text-sm text-gray-600">
+
           {t("final_qc_subtitle")}
+
         </p>
+
       </div>
+
+
 
       <div className="flex flex-wrap gap-2">
-        <Link
-          href="/factory/buff/dashboard"
-          className="rounded-xl bg-white px-4 py-2 text-sm font-semibold shadow-sm"
-        >
-          {t("buff")}
-        </Link>
 
         <Link
-          href="/dashboard"
-          className="rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white"
+
+          href="/factory/buff/dashboard"
+
+          className="rounded-xl bg-white px-4 py-2 text-sm font-semibold shadow-sm"
+
         >
-          {t("dashboard")}
+
+          {t("buff")}
+
         </Link>
+
+
+
+        <Link
+
+          href="/dashboard"
+
+          className="rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white"
+
+        >
+
+          {t("dashboard")}
+
+        </Link>
+
       </div>
+
     </div>
+
   );
+
 }
 
+
+
 function ItemsSummary({ t, items }) {
+
   return (
+
     <Panel title={t("items_summary")}>
+
       <div className="grid max-h-[230px] gap-2 overflow-y-auto md:grid-cols-2">
+
         {items.map((item) => (
+
           <div
+
             key={item.id}
+
             className="rounded-xl border border-gray-200 bg-white p-3"
+
           >
+
             <p className="text-xs font-semibold text-gray-500">
+
               {item.orders?.order_no || "-"} ·{" "}
+
               {item.orders?.customer_name || "-"}
+
             </p>
+
+
 
             <p className="mt-1 text-sm font-bold">{item.category}</p>
 
+
+
             <p className="text-xs text-gray-500">
+
               {item.sample_unique_id} · {t("die")}{item.die_no}
+
             </p>
+
+
 
             <p className="mt-2 text-xs font-bold">
+
               {t("qty")}: {item.selected_quantity}
+
             </p>
+
           </div>
+
         ))}
+
       </div>
+
     </Panel>
+
   );
+
 }
+
+
 
 function Panel({ title, children }) {
+
   return (
+
     <div className="rounded-3xl bg-slate-50 p-4">
+
       <h4 className="mb-3 text-sm font-bold">{title}</h4>
+
       {children}
+
     </div>
+
   );
+
 }
+
+
 
 function Field({ label, children }) {
+
   return (
+
     <label className="block">
+
       <p className="mb-1 text-xs font-semibold text-gray-500">{label}</p>
+
       {children}
+
     </label>
+
   );
+
 }
+
+
 
 function MiniStat({ label, value }) {
+
   return (
+
     <div className="rounded-xl bg-slate-50 p-3">
+
       <p className="text-xs font-semibold text-gray-500">{label}</p>
+
       <p className="mt-1 text-sm font-bold">{value}</p>
+
     </div>
+
   );
+
 }
+
+
 
 function GreenStat({ label, value }) {
+
   return (
+
     <div className="rounded-xl bg-green-50 p-3">
+
       <p className="text-xs font-semibold text-green-700">{label}</p>
+
       <p className="mt-1 text-sm font-bold text-green-800">{value}</p>
+
     </div>
+
   );
+
 }
 
+
+
 function Badge({ children, blue }) {
+
   return (
+
     <span
+
       className={`rounded-full px-2 py-1 text-xs font-bold ${
+
         blue ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-gray-700"
+
       }`}
+
     >
+
       {children}
+
     </span>
+
   );
+
 }
